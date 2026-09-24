@@ -22,7 +22,7 @@ if [ ! -d node_modules ]; then
   npm install
 fi
 
-if [ ! -d ios/Pods ]; then
+if [ ! -f ios/Pods/Manifest.lock ] || [ ios/Podfile -nt ios/Pods/Manifest.lock ]; then
   echo "→ pod install"
   if command -v pod >/dev/null; then
     # CocoaPods from Homebrew (brew install cocoapods) – avoids macOS system Ruby.
