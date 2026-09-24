@@ -46,15 +46,15 @@ export function SearchScreen({
   const [results, setResults] = useState<ResultState>({ status: 'idle' });
   const parsed = parseSearchInput(text);
 
+  // The keyboard only opens when you tap the field, so the tab bar stays
+  // usable right after switching to search.
   useEffect(() => {
-    if (visible) {
-      const timer = setTimeout(() => inputRef.current?.focus(), 250);
-      return () => clearTimeout(timer);
+    if (!visible) {
+      inputRef.current?.blur();
     }
-    inputRef.current?.blur();
   }, [visible]);
 
-  // Debounced lookup through Instagram's own account search.
+  // Results while typing, through Instagram's own account search.
   useEffect(() => {
     const query = text.trim().replace(/^@/, '');
     if (
@@ -73,7 +73,7 @@ export function SearchScreen({
           setResults({ status: 'done', query, result });
         }
       });
-    }, 350);
+    }, 200);
     return () => {
       cancelled = true;
       clearTimeout(timer);
@@ -206,33 +206,26 @@ export function SearchScreen({
           </Text>
         ) : null}
 
-        {parsed.kind === 'empty' ? (
-          history.length > 0 ? (
-            <View>
-              <View style={styles.sectionHeader}>
-                <Text style={[styles.sectionTitle, { color: theme.label }]}>
-                  Zuletzt geöffnet
+        {parsed.kind === 'empty' && history.length > 0 ? (
+          <View>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme.label }]}>
+                Zuletzt geöffnet
+              </Text>
+              <Pressable onPress={onClearHistory} hitSlop={8}>
+                <Text style={[styles.sectionAction, { color: theme.accent }]}>
+                  Löschen
                 </Text>
-                <Pressable onPress={onClearHistory} hitSlop={8}>
-                  <Text style={[styles.sectionAction, { color: theme.accent }]}>
-                    Löschen
-                  </Text>
-                </Pressable>
-              </View>
-              {history.map(name => (
-                <ResultRow
-                  key={name}
-                  title={name}
-                  onPress={() => openUser(name)}
-                />
-              ))}
+              </Pressable>
             </View>
-          ) : (
-            <Text style={[styles.note, { color: theme.secondaryLabel }]}>
-              Finde gezielt ein Profil. Keine Vorschläge, kein Explore-Raster —
-              nur das, wonach du suchst.
-            </Text>
-          )
+            {history.map(name => (
+              <ResultRow
+                key={name}
+                title={name}
+                onPress={() => openUser(name)}
+              />
+            ))}
+          </View>
         ) : null}
       </ScrollView>
     </View>

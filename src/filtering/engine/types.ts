@@ -14,9 +14,6 @@ export const BLOCK_REASONS = [
   'ytHome',
   'ytSubs',
   'ytExplore',
-  // Snapchat
-  'spotlight',
-  'snapMap',
 ] as const;
 
 export type BlockReason = (typeof BLOCK_REASONS)[number];

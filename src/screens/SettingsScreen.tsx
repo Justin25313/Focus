@@ -1,51 +1,30 @@
 import React, { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  BlockReason,
-  INSTAGRAM_RULE_VERSION,
-} from '../filtering/instagram/routes';
-import {
-  Controls,
-  HomeFeed,
-  PRESETS,
-  PRESET_ORDER,
-  PresetId,
-  modeOf,
-} from '../controls/controls';
-import {
-  REELS_WINDOWS_MIN,
-  ReelsStatus,
-  formatCountdown,
-  lockoutMinutes,
-} from '../controls/reelsSession';
-import { YouTubeControls, YouTubeHome } from '../controls/youtube';
+import { ReelsStatus, formatCountdown } from '../controls/reelsSession';
 import { SERVICE_IDS, SERVICE_INFO, ServiceId } from '../services/services';
-import { AppRow, Segmented } from '../ui/AppPicker';
 import { Diagnostics } from '../storage/diagnostics';
+import { FocusSettings } from '../storage/settings';
+import { AppIcon } from '../ui/AppIcon';
+import { ButtonRow, GroupedSection, SwitchRow } from '../ui/Grouped';
+import { PencilIcon } from '../ui/icons';
+import { tabBarSpace, useTheme } from '../ui/theme';
 import { UsageLog } from '../usage/usage';
 import { AboutScreen } from './AboutScreen';
+import { AppSettingsSheet } from './AppSettingsSheet';
+import { FilterHealth, StatusScreen } from './StatusScreen';
 import { UsageCard } from './UsageCard';
-import { FocusSettings } from '../storage/settings';
-import {
-  ButtonRow,
-  CheckRow,
-  GroupedSection,
-  SwitchRow,
-  ValueRow,
-} from '../ui/Grouped';
-import { formatTimestamp } from '../ui/format';
-import { tabBarSpace, useTheme } from '../ui/theme';
 
-export type FilterHealth = 'starting' | 'active' | 'noResponse';
+export type { FilterHealth } from './StatusScreen';
 
 type Props = {
   settings: FocusSettings;
   onChange: (patch: Partial<FocusSettings>) => void;
+  onOpenApp: (id: ServiceId) => void;
   health: FilterHealth;
   diagnostics: Diagnostics;
   clearingWebsiteData: boolean;
-  onReload: () => void;
+  onReloadInstagram: () => void;
   onOpenInstagramApp: () => void;
   onClearWebsiteData: () => void;
   onResetSettings: () => void;
@@ -55,85 +34,21 @@ type Props = {
   reels: ReelsStatus;
   onStartReels: (minutes: number) => void;
   onEndReels: () => void;
-  activeService: ServiceId;
-  onSelectService: (id: ServiceId) => void;
 };
 
-const REASON_LABEL: Record<BlockReason, string> = {
-  reels: 'Reels',
-  sharedReel: 'Einzelnes Reel',
-  explore: 'Explore',
-  feed: 'Feed',
-  stories: 'Stories',
-  saved: 'Gespeichert',
-  shorts: 'Shorts',
-  ytHome: 'YouTube-Start',
-  ytSubs: 'YouTube-Abos',
-  ytExplore: 'YouTube-Trends',
-  spotlight: 'Spotlight',
-  snapMap: 'Snap Map',
-};
-
-const MODES: Record<PresetId, { label: string; detail: string }> = {
-  balanced: {
-    label: 'Ausgewogen',
-    detail:
-      'Feed nur von Leuten, denen du folgst. Stories, Nachrichten, Profile.',
-  },
-  storiesMessages: {
-    label: 'Stories + Nachrichten',
-    detail: 'Kein Feed. Stories, Nachrichten und Profile bleiben.',
-  },
-  messages: {
-    label: 'Nur Nachrichten',
-    detail: 'Nur Direktnachrichten und was dir geschickt wird.',
-  },
-};
-
-const HOME_FEEDS: { id: HomeFeed; label: string; detail: string }[] = [
-  {
-    id: 'following',
-    label: 'Folge ich',
-    detail: 'Nur Accounts, denen du folgst – neueste zuerst.',
-  },
-  {
-    id: 'hidden',
-    label: 'Nur Stories',
-    detail: 'Stories oben, keine Beiträge.',
-  },
-  {
-    id: 'normal',
-    label: 'Für dich',
-    detail: 'Instagrams Standard-Feed, gefiltert.',
-  },
-  { id: 'off', label: 'Aus', detail: 'Focus öffnet direkt die Nachrichten.' },
-];
-
-const YOUTUBE_HOMES: { id: YouTubeHome; label: string; detail: string }[] = [
-  {
-    id: 'subscriptions',
-    label: 'Abos',
-    detail: 'Neue Videos von Kanälen, die du abonniert hast.',
-  },
-  {
-    id: 'search',
-    label: 'Nur Suche',
-    detail: 'Kein Feed. Suchen, ansehen, fertig.',
-  },
-  {
-    id: 'normal',
-    label: 'YouTube-Startseite',
-    detail: 'Empfehlungen von YouTube, ohne Shorts.',
-  },
-];
-
+/**
+ * The Focus home: your apps like on the home screen (tap to open, hold or
+ * "Bearbeiten" to change what Focus does in them), then what applies to
+ * all apps.
+ */
 export function SettingsScreen({
   settings,
   onChange,
+  onOpenApp,
   health,
   diagnostics,
   clearingWebsiteData,
-  onReload,
+  onReloadInstagram,
   onOpenInstagramApp,
   onClearWebsiteData,
   onResetSettings,
@@ -143,70 +58,18 @@ export function SettingsScreen({
   reels,
   onStartReels,
   onEndReels,
-  activeService,
-  onSelectService,
 }: Props) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const [showAbout, setShowAbout] = useState(false);
-  const [editing, setEditing] = useState<ServiceId>(activeService);
-  const setYouTube = (patch: Partial<YouTubeControls>) =>
-    onChange({ youtube: { ...settings.youtube, ...patch } });
+  const [page, setPage] = useState<'home' | 'about' | 'status'>('home');
+  const [editMode, setEditMode] = useState(false);
+  const [editingApp, setEditingApp] = useState<ServiceId | null>(null);
 
-  const controls = settings.controls;
-  const mode = modeOf(controls);
-  const setControls = (patch: Partial<Controls>) =>
-    onChange({ controls: { ...controls, ...patch } });
-
-  // Discovery blocks are the point of Focus; switching them off is allowed
-  // but deliberate.
-  const setDiscoveryBlock = (
-    key: 'blockReels' | 'blockExplore',
-    value: boolean,
-  ) => {
-    if (value) {
-      setControls({ [key]: true });
-      return;
-    }
-    const what = key === 'blockReels' ? 'Reels' : 'Explore';
-    Alert.alert(
-      `${what} wirklich erlauben?`,
-      `Damit ist der ${what}-Feed in Focus wieder erreichbar – genau das, wovor Focus schützt.`,
-      [
-        { text: 'Gesperrt lassen', style: 'cancel' },
-        {
-          text: 'Erlauben',
-          style: 'destructive',
-          onPress: () => setControls({ [key]: false }),
-        },
-      ],
-    );
+  const closeSheetThen = (action: () => void) => () => {
+    setEditingApp(null);
+    setEditMode(false);
+    action();
   };
-
-  const confirmReels = (minutes: number) => {
-    const lockout = lockoutMinutes(minutes);
-    Alert.alert(
-      `Reels für ${minutes} Minuten?`,
-      `Danach stoppen Reels sofort und sind ${lockout} Minuten gesperrt. Verlängern geht nicht.`,
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        { text: 'Starten', onPress: () => onStartReels(minutes) },
-      ],
-    );
-  };
-
-  const healthLabel =
-    health === 'active'
-      ? 'Aktiv'
-      : health === 'starting'
-      ? 'Wartet auf Instagram'
-      : 'Keine Rückmeldung';
-  const healthColor =
-    health === 'active'
-      ? theme.accent
-      : health === 'noResponse'
-      ? theme.destructive
-      : undefined;
 
   return (
     <View
@@ -219,245 +82,62 @@ export function SettingsScreen({
         }}
       >
         <Text style={[styles.largeTitle, { color: theme.label }]}>Focus</Text>
-        <Text style={[styles.subtitle, { color: theme.secondaryLabel }]}>
-          Instagram-Steuerung
-        </Text>
 
-        <GroupedSection title="Apps">
+        <View style={styles.appsHeader}>
+          <Text style={[styles.sectionTitle, { color: theme.secondaryLabel }]}>
+            APPS
+          </Text>
+          <Pressable
+            onPress={() => setEditMode(value => !value)}
+            hitSlop={10}
+            accessibilityRole="button"
+            style={styles.editButton}
+          >
+            {editMode ? null : <PencilIcon color={theme.accent} size={15} />}
+            <Text style={[styles.editLabel, { color: theme.accent }]}>
+              {editMode ? 'Fertig' : 'Bearbeiten'}
+            </Text>
+          </Pressable>
+        </View>
+        <View style={styles.grid}>
           {SERVICE_IDS.map(id => (
-            <AppRow
+            <AppTile
               key={id}
               id={id}
-              active={id === activeService}
-              onPress={() => onSelectService(id)}
+              editing={editMode}
+              badge={
+                id === 'instagram' && reels.state === 'active'
+                  ? `Reels ${formatCountdown(reels.remainingMs)}`
+                  : undefined
+              }
+              onPress={() => (editMode ? setEditingApp(id) : onOpenApp(id))}
+              onLongPress={() => setEditingApp(id)}
             />
           ))}
-        </GroupedSection>
+        </View>
 
         {settings.trackUsage ? (
           <UsageCard log={usageLog} now={Date.now()} />
         ) : null}
 
-        <Segmented
-          options={SERVICE_IDS.map(id => ({
-            id,
-            label: SERVICE_INFO[id].name,
-          }))}
-          value={editing}
-          onChange={setEditing}
-        />
-
-        {editing === 'instagram' ? (
-          <>
-            <GroupedSection
-              title="Modus"
-              footer={
-                mode === 'custom'
-                  ? 'Eigene Einstellung – wähle einen Modus, um zurückzusetzen.'
-                  : 'Änderungen gelten sofort, ohne Instagram neu zu laden.'
-              }
-            >
-              {PRESET_ORDER.map(id => (
-                <CheckRow
-                  key={id}
-                  label={MODES[id].label}
-                  detail={MODES[id].detail}
-                  checked={mode === id}
-                  onPress={() => onChange({ controls: PRESETS[id] })}
-                />
-              ))}
-              {mode === 'custom' ? (
-                <CheckRow
-                  label="Eigene"
-                  detail="Du hast einzelne Schalter unten angepasst."
-                  checked
-                  onPress={() => {}}
-                />
-              ) : null}
-            </GroupedSection>
-
-            <GroupedSection title="Startseite">
-              {HOME_FEEDS.map(feed => (
-                <CheckRow
-                  key={feed.id}
-                  label={feed.label}
-                  detail={feed.detail}
-                  checked={controls.homeFeed === feed.id}
-                  onPress={() => setControls({ homeFeed: feed.id })}
-                />
-              ))}
-            </GroupedSection>
-
-            <GroupedSection
-              title="Inhalte"
-              footer="Werbung und Vorschläge verschwinden nur bei eindeutiger Kennzeichnung – lieber einmal Werbung als ein fehlender Beitrag von Freunden."
-            >
-              <SwitchRow
-                label="Reels sperren"
-                value={controls.blockReels}
-                onValueChange={value => setDiscoveryBlock('blockReels', value)}
-              />
-              <SwitchRow
-                label="Explore sperren"
-                value={controls.blockExplore}
-                onValueChange={value =>
-                  setDiscoveryBlock('blockExplore', value)
-                }
-              />
-              <SwitchRow
-                label="Stories sperren"
-                value={controls.blockStories}
-                onValueChange={value => setControls({ blockStories: value })}
-              />
-              <SwitchRow
-                label="Gespeichert sperren"
-                value={controls.blockSaved}
-                onValueChange={value => setControls({ blockSaved: value })}
-              />
-              <SwitchRow
-                label="Werbung ausblenden"
-                value={controls.hideSponsored}
-                onValueChange={value => setControls({ hideSponsored: value })}
-              />
-              <SwitchRow
-                label="Vorschläge ausblenden"
-                value={controls.hideSuggested}
-                onValueChange={value => setControls({ hideSuggested: value })}
-              />
-            </GroupedSection>
-
-            {controls.blockReels ? (
-              <GroupedSection
-                title="Reels-Zeitfenster"
-                footer="Einmal gestartet, nicht verlängerbar. Danach sind Reels mindestens 5 Minuten gesperrt – so lange wie das Zeitfenster."
-              >
-                {reels.state === 'active' ? (
-                  <ValueRow
-                    label="Reels offen"
-                    value={`noch ${formatCountdown(reels.remainingMs)}`}
-                    valueColor={theme.accent}
-                  />
-                ) : null}
-                {reels.state === 'active' ? (
-                  <ButtonRow
-                    label="Jetzt beenden"
-                    onPress={onEndReels}
-                    destructive
-                  />
-                ) : null}
-                {reels.state === 'locked' ? (
-                  <ValueRow
-                    label="Gesperrt bis"
-                    value={formatTimestamp(reels.until)}
-                  />
-                ) : null}
-                {reels.state === 'idle'
-                  ? REELS_WINDOWS_MIN.map(minutes => (
-                      <ButtonRow
-                        key={minutes}
-                        label={`Reels für ${minutes} Minuten`}
-                        onPress={() => confirmReels(minutes)}
-                      />
-                    ))
-                  : null}
-              </GroupedSection>
-            ) : null}
-
-            <GroupedSection
-              title="Instagram"
-              footer="Manches (Kamera, Filter, bestimmte Posting-Funktionen) gibt es nur in der offiziellen App. Öffne sie dafür gezielt – und danach wieder Focus."
-            >
-              <ButtonRow label="Seite neu laden" onPress={onReload} />
-              <ButtonRow
-                label="Zum Posten: Instagram-App öffnen"
-                onPress={onOpenInstagramApp}
-              />
-            </GroupedSection>
-          </>
-        ) : null}
-
-        {editing === 'youtube' ? (
-          <>
-            <GroupedSection
-              title="YouTube-Start"
-              footer="Ohne Startseite gibt es keine Empfehlungs-Endlosliste – nur das, was du abonniert hast oder suchst."
-            >
-              {YOUTUBE_HOMES.map(home => (
-                <CheckRow
-                  key={home.id}
-                  label={home.label}
-                  detail={home.detail}
-                  checked={settings.youtube.home === home.id}
-                  onPress={() => setYouTube({ home: home.id })}
-                />
-              ))}
-            </GroupedSection>
-            <GroupedSection
-              title="YouTube-Inhalte"
-              footer="Trends, Erkunden und Gaming sind immer gesperrt."
-            >
-              <SwitchRow
-                label="Shorts sperren"
-                value={settings.youtube.blockShorts}
-                onValueChange={value => {
-                  if (value) {
-                    setYouTube({ blockShorts: true });
-                    return;
-                  }
-                  Alert.alert(
-                    'Shorts wirklich erlauben?',
-                    'Damit ist der Shorts-Feed in Focus wieder erreichbar – genau das, wovor Focus schützt.',
-                    [
-                      { text: 'Gesperrt lassen', style: 'cancel' },
-                      {
-                        text: 'Erlauben',
-                        style: 'destructive',
-                        onPress: () => setYouTube({ blockShorts: false }),
-                      },
-                    ],
-                  );
-                }}
-              />
-              <SwitchRow
-                label="Empfehlungen unter Videos ausblenden"
-                detail="Kein „Als Nächstes“ – nach dem Video ist Schluss."
-                value={settings.youtube.hideRelated}
-                onValueChange={value => setYouTube({ hideRelated: value })}
-              />
-              <SwitchRow
-                label="Kommentare ausblenden"
-                value={settings.youtube.hideComments}
-                onValueChange={value => setYouTube({ hideComments: value })}
-              />
-            </GroupedSection>
-          </>
-        ) : null}
-
-        {editing === 'snapchat' ? (
-          <GroupedSection
-            title="Snapchat (Beta)"
-            footer="Snapchat für Web ist für Computer gedacht; Focus gibt sich dort als Desktop-Browser aus. Chats, Snaps und Stories von Freunden gehen, Spotlight und Discover gibt es im Web ohnehin nicht."
-          >
-            <ValueRow label="Spotlight & Discover" value="Gesperrt" />
-            <ValueRow label="Snap Map" value="Gesperrt" />
-          </GroupedSection>
-        ) : null}
-
-        <GroupedSection title="Darstellung">
+        <GroupedSection title="Alle Apps">
           <SwitchRow
             label="Graustufen"
-            detail="Instagram ohne Farbe ist spürbar weniger fesselnd."
+            detail="Ohne Farbe sind Feeds spürbar weniger fesselnd."
             value={settings.grayscale}
             onValueChange={value => onChange({ grayscale: value })}
           />
-        </GroupedSection>
-
-        <GroupedSection title="Verhalten">
           <SwitchRow
-            label="Zuletzt genutzte App öffnen"
-            detail="Focus antippen – und du bist sofort in Instagram, YouTube oder Snapchat."
-            value={settings.openInstagramOnLaunch}
-            onValueChange={value => onChange({ openInstagramOnLaunch: value })}
+            label="Nutzungszeit zählen"
+            detail="Bleibt auf diesem iPhone."
+            value={settings.trackUsage}
+            onValueChange={value => onChange({ trackUsage: value })}
+          />
+          <SwitchRow
+            label="Zuletzt genutzte App direkt öffnen"
+            detail="Sonst startet Focus hier bei deinen Apps."
+            value={settings.openLastAppOnLaunch}
+            onValueChange={value => onChange({ openLastAppOnLaunch: value })}
           />
           <SwitchRow
             label="Letzten Ort merken"
@@ -465,93 +145,22 @@ export function SettingsScreen({
             value={settings.keepLastLocation}
             onValueChange={value => onChange({ keepLastLocation: value })}
           />
-          <SwitchRow
-            label="Nutzungszeit zählen"
-            detail="Nur Zeit mit Instagram im Vordergrund. Bleibt auf diesem iPhone."
-            value={settings.trackUsage}
-            onValueChange={value => onChange({ trackUsage: value })}
-          />
-        </GroupedSection>
-
-        <GroupedSection
-          title="Filterstatus"
-          footer="Diagnosedaten bleiben ausschließlich auf diesem iPhone."
-        >
-          <ValueRow
-            label="Status"
-            value={healthLabel}
-            valueColor={healthColor}
-          />
-          <ValueRow
-            label="Letzte Prüfung"
-            value={
-              diagnostics.lastFilterReadyAt
-                ? formatTimestamp(diagnostics.lastFilterReadyAt)
-                : '–'
-            }
-          />
-          <ValueRow
-            label="Instagram-Regeln"
-            value={`v${INSTAGRAM_RULE_VERSION}`}
-          />
-          <ValueRow
-            label="Gesperrte Aufrufe"
-            value={String(diagnostics.blockedCount)}
-          />
-          <ValueRow
-            label="Ausgeblendet"
-            value={`${diagnostics.hiddenSponsored} Werbung · ${diagnostics.hiddenSuggested} Vorschläge`}
-          />
-          {diagnostics.lastBlocked ? (
-            <ValueRow
-              label="Zuletzt gesperrt"
-              value={`${
-                REASON_LABEL[diagnostics.lastBlocked.reason]
-              } · ${formatTimestamp(diagnostics.lastBlocked.at)}`}
-            />
-          ) : null}
-          {diagnostics.lastUnknownRoute ? (
-            <ValueRow
-              label="Unbekannte Route"
-              value={diagnostics.lastUnknownRoute.path}
-            />
-          ) : null}
-          {diagnostics.lastError ? (
-            <ValueRow
-              label="Letzter Fehler"
-              value={`${diagnostics.lastError.code} · ${formatTimestamp(
-                diagnostics.lastError.at,
-              )}`}
-            />
-          ) : null}
-          {diagnostics.webProcessRestarts > 0 ? (
-            <ValueRow
-              label="WebView-Neustarts"
-              value={String(diagnostics.webProcessRestarts)}
-            />
-          ) : null}
-          <ButtonRow
-            label="Diagnose zurücksetzen"
-            onPress={onResetDiagnostics}
-          />
         </GroupedSection>
 
         <GroupedSection>
           <ButtonRow
+            label="Filterstatus"
+            onPress={() => setPage('status')}
+            chevron
+          />
+          <ButtonRow
             label="Datenschutz & Grenzen"
-            onPress={() => setShowAbout(true)}
+            onPress={() => setPage('about')}
             chevron
           />
         </GroupedSection>
 
-        <GroupedSection title="Daten">
-          <ButtonRow
-            label="Instagram-Websitedaten löschen"
-            detail="Löscht Cookies, Cache und Login. Du musst dich neu anmelden."
-            onPress={onClearWebsiteData}
-            busy={clearingWebsiteData}
-            destructive
-          />
+        <GroupedSection>
           <ButtonRow
             label="Nutzungszeit zurücksetzen"
             onPress={onResetUsage}
@@ -565,12 +174,89 @@ export function SettingsScreen({
         </GroupedSection>
 
         <Text style={[styles.about, { color: theme.tertiaryLabel }]}>
-          Focus 0.7 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
+          Focus 0.8 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
           Deine Einstellungen bleiben auf diesem iPhone.
         </Text>
       </ScrollView>
-      {showAbout ? <AboutScreen onBack={() => setShowAbout(false)} /> : null}
+
+      {page === 'about' ? <AboutScreen onBack={() => setPage('home')} /> : null}
+      {page === 'status' ? (
+        <StatusScreen
+          health={health}
+          diagnostics={diagnostics}
+          onResetDiagnostics={onResetDiagnostics}
+          onBack={() => setPage('home')}
+        />
+      ) : null}
+
+      <AppSettingsSheet
+        app={editingApp}
+        onClose={() => setEditingApp(null)}
+        settings={settings}
+        onChange={onChange}
+        reels={reels}
+        onStartReels={minutes => closeSheetThen(() => onStartReels(minutes))()}
+        onEndReels={onEndReels}
+        onReloadInstagram={closeSheetThen(onReloadInstagram)}
+        onOpenInstagramApp={onOpenInstagramApp}
+        onClearWebsiteData={onClearWebsiteData}
+        clearingWebsiteData={clearingWebsiteData}
+      />
     </View>
+  );
+}
+
+/** One app, like on the home screen. */
+function AppTile({
+  id,
+  editing,
+  badge,
+  onPress,
+  onLongPress,
+}: {
+  id: ServiceId;
+  editing: boolean;
+  badge?: string;
+  onPress: () => void;
+  onLongPress: () => void;
+}) {
+  const theme = useTheme();
+  const name = SERVICE_INFO[id].name;
+  return (
+    <Pressable
+      onPress={onPress}
+      onLongPress={onLongPress}
+      delayLongPress={350}
+      accessibilityRole="button"
+      accessibilityLabel={editing ? `${name} bearbeiten` : `${name} öffnen`}
+      accessibilityHint={SERVICE_INFO[id].tagline}
+      accessibilityActions={[{ name: 'longpress', label: 'Bearbeiten' }]}
+      onAccessibilityAction={onLongPress}
+      style={({ pressed }) => [styles.tile, pressed ? styles.pressed : null]}
+    >
+      <View>
+        <AppIcon id={id} size={62} />
+        {editing ? (
+          <View
+            style={[
+              styles.editBadge,
+              { backgroundColor: theme.cell, borderColor: theme.separator },
+            ]}
+          >
+            <PencilIcon color={theme.label} size={13} />
+          </View>
+        ) : null}
+      </View>
+      <Text
+        style={[styles.tileLabel, { color: theme.label }]}
+        numberOfLines={1}
+      >
+        {name}
+      </Text>
+      {badge ? (
+        <Text style={[styles.tileBadge, { color: theme.accent }]}>{badge}</Text>
+      ) : null}
+    </Pressable>
   );
 }
 
@@ -583,12 +269,62 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.3,
     marginHorizontal: 20,
+    marginBottom: 18,
   },
-  subtitle: {
+  appsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 32,
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 13,
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  editLabel: {
     fontSize: 15,
-    marginHorizontal: 20,
-    marginTop: 2,
-    marginBottom: 22,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 20,
+    gap: 8,
+    marginBottom: 28,
+  },
+  tile: {
+    width: 80,
+    alignItems: 'center',
+    gap: 6,
+  },
+  pressed: {
+    opacity: 0.6,
+    transform: [{ scale: 0.94 }],
+  },
+  editBadge: {
+    position: 'absolute',
+    top: -7,
+    left: -7,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tileLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  tileBadge: {
+    fontSize: 11,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+    marginTop: -3,
   },
   about: {
     fontSize: 13,

@@ -11,9 +11,10 @@ import {
 import { ServiceId, isServiceId } from '../services/services';
 
 export type FocusSettings = {
-  schemaVersion: 4;
+  schemaVersion: 5;
   onboardingComplete: boolean;
-  openInstagramOnLaunch: boolean;
+  /** Launch into the last used app instead of the Focus home. */
+  openLastAppOnLaunch: boolean;
   keepLastLocation: boolean;
   grayscale: boolean;
   trackUsage: boolean;
@@ -24,9 +25,9 @@ export type FocusSettings = {
 };
 
 export const DEFAULT_SETTINGS: FocusSettings = {
-  schemaVersion: 4,
+  schemaVersion: 5,
   onboardingComplete: false,
-  openInstagramOnLaunch: true,
+  openLastAppOnLaunch: false,
   keepLastLocation: true,
   grayscale: false,
   trackUsage: true,
@@ -48,6 +49,8 @@ function bool(value: unknown, fallback: boolean): boolean {
  *  v1 → v2: adds `grayscale` and `controls` (defaults = Balanced).
  *  v2 → v3: adds `trackUsage` (default on, local only).
  *  v3 → v4: adds `youtube` controls and `lastService` (Instagram).
+ *  v4 → v5: `openInstagramOnLaunch` becomes `openLastAppOnLaunch`, off:
+ *           Focus now starts on its home with the app icons.
  */
 export function parseSettings(raw: unknown): FocusSettings {
   if (typeof raw !== 'object' || raw === null) {
@@ -55,14 +58,14 @@ export function parseSettings(raw: unknown): FocusSettings {
   }
   const data = raw as Record<string, unknown>;
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     onboardingComplete: bool(
       data.onboardingComplete,
       DEFAULT_SETTINGS.onboardingComplete,
     ),
-    openInstagramOnLaunch: bool(
-      data.openInstagramOnLaunch,
-      DEFAULT_SETTINGS.openInstagramOnLaunch,
+    openLastAppOnLaunch: bool(
+      data.openLastAppOnLaunch,
+      DEFAULT_SETTINGS.openLastAppOnLaunch,
     ),
     keepLastLocation: bool(
       data.keepLastLocation,

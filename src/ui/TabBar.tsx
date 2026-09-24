@@ -6,6 +6,9 @@ import {
 import { BlurView } from '@react-native-community/blur';
 import React, { ReactNode } from 'react';
 import {
+  ColorValue,
+  Image,
+  PlatformColor,
   Pressable,
   StyleProp,
   StyleSheet,
@@ -14,38 +17,59 @@ import {
   ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  FocusIcon,
-  HomeIcon,
-  MessageIcon,
-  ProfileIcon,
-  ReelsIcon,
-  SearchIcon,
-} from './icons';
 import { TAB_BAR_PILL_HEIGHT, tabBarBottom, useTheme } from './theme';
+import { TAB_ICONS, TabIconName } from './tabIcons';
 
 export type TabId = string;
 
-export type TabItem = { id: TabId; label: string; Icon: typeof HomeIcon };
+export type TabItem = { id: TabId; label: string; icon: TabIconName };
 
 /** Instagram's buttons, in the app's order. */
 export const INSTAGRAM_TABS: TabItem[] = [
-  { id: 'feed', label: 'Instagram', Icon: HomeIcon },
+  { id: 'feed', label: 'Instagram', icon: 'home' },
   // Only while a timed Reels window is running.
-  { id: 'reels', label: 'Reels', Icon: ReelsIcon },
-  { id: 'messages', label: 'Nachrichten', Icon: MessageIcon },
-  { id: 'search', label: 'Suche', Icon: SearchIcon },
-  { id: 'profile', label: 'Profil', Icon: ProfileIcon },
+  { id: 'reels', label: 'Reels', icon: 'reels' },
+  { id: 'messages', label: 'Nachrichten', icon: 'message' },
+  { id: 'search', label: 'Suche', icon: 'search' },
+  { id: 'profile', label: 'Profil', icon: 'profile' },
 ];
 
 /** YouTube: start (subscriptions), search, your library. No Shorts. */
 export const YOUTUBE_TABS: TabItem[] = [
-  { id: 'ytHome', label: 'YouTube', Icon: HomeIcon },
-  { id: 'ytSearch', label: 'Suche', Icon: SearchIcon },
-  { id: 'ytYou', label: 'Du', Icon: ProfileIcon },
+  { id: 'ytHome', label: 'YouTube', icon: 'home' },
+  { id: 'ytSearch', label: 'Suche', icon: 'search' },
+  { id: 'ytYou', label: 'Du', icon: 'profile' },
 ];
 
 const GAP = 10;
+
+/**
+ * Colors that resolve inside the glass: Liquid Glass turns light over
+ * bright content and dark over dark content, and these follow it (a fixed
+ * theme color would give white icons on white glass).
+ */
+const glassLabel: ColorValue = PlatformColor('labelColor');
+const glassSelected: ColorValue = PlatformColor('tertiarySystemFillColor');
+
+function TabIcon({
+  name,
+  filled,
+  size,
+  color,
+}: {
+  name: TabIconName;
+  filled: boolean;
+  size: number;
+  color: ColorValue;
+}) {
+  return (
+    <Image
+      source={TAB_ICONS[name][filled ? 'filled' : 'outline']}
+      style={{ width: size, height: size, tintColor: color }}
+      accessibilityIgnoresInvertColors
+    />
+  );
+}
 
 /**
  * iOS 26 Liquid Glass where available (real refraction, adapts to what is
@@ -106,7 +130,6 @@ export function TabBar({
   /** Remaining Reels time, shown under the Reels icon. */
   reelsCountdown?: string;
 }) {
-  const theme = useTheme();
   const insets = useSafeAreaInsets();
   const focusSelected = active === 'focus';
   const visibleTabs = tabs.filter(tab => !hiddenTabs.includes(tab.id));
@@ -120,7 +143,7 @@ export function TabBar({
       {visibleTabs.length > 0 ? (
         <Glass style={styles.pill}>
           <View accessibilityRole="tablist" style={styles.row}>
-            {visibleTabs.map(({ id, label, Icon }) => {
+            {visibleTabs.map(({ id, label, icon }) => {
               const selected = id === active;
               return (
                 <Pressable
@@ -135,21 +158,31 @@ export function TabBar({
                   <View
                     style={[
                       styles.itemInner,
-                      selected ? { backgroundColor: theme.barSelected } : null,
+                      selected ? styles.selected : null,
                     ]}
                   >
                     {id === 'reels' && reelsCountdown ? (
                       <>
-                        <Icon color={theme.label} size={22} filled={selected} />
+                        <TabIcon
+                          name={icon}
+                          color={glassLabel}
+                          size={22}
+                          filled={selected}
+                        />
                         <Text
-                          style={[styles.countdown, { color: theme.label }]}
+                          style={styles.countdown}
                           accessibilityLabel={`Noch ${reelsCountdown}`}
                         >
                           {reelsCountdown}
                         </Text>
                       </>
                     ) : (
-                      <Icon color={theme.label} size={27} filled={selected} />
+                      <TabIcon
+                        name={icon}
+                        color={glassLabel}
+                        size={27}
+                        filled={selected}
+                      />
                     )}
                   </View>
                 </Pressable>
@@ -168,13 +201,15 @@ export function TabBar({
           accessibilityHint="Zurück zu Focus"
           accessibilityState={{ selected: focusSelected }}
           onPress={() => onPress('focus')}
-          style={[
-            styles.circleInner,
-            focusSelected ? { backgroundColor: theme.barSelected } : null,
-          ]}
+          style={[styles.circleInner, focusSelected ? styles.selected : null]}
           hitSlop={6}
         >
-          <FocusIcon color={theme.label} size={27} filled={focusSelected} />
+          <TabIcon
+            name="focus"
+            color={glassLabel}
+            size={27}
+            filled={focusSelected}
+          />
         </Pressable>
       </Glass>
     </LiquidGlassContainerView>
@@ -224,7 +259,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  selected: {
+    backgroundColor: glassSelected,
+  },
   countdown: {
+    color: glassLabel,
     fontSize: 10,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],

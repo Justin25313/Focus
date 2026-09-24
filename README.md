@@ -1,6 +1,6 @@
 # Focus
 
-Instagram, YouTube und Snapchat ohne Endlos-Feeds – als private iPhone-App.
+Instagram und YouTube ohne Endlos-Feeds – als private iPhone-App.
 Kein Konto, kein Backend, kein Tracking, kein Abo.
 
 Focus lädt Instagram (mobile Web) in einer dauerhaften WebView und legt eine
@@ -9,16 +9,15 @@ normal; Reels-Feed, Explore und Vorschläge bleiben draußen.
 
 ## Funktionen
 
-**Apps:** Instagram · YouTube · Snapchat (Beta). Der runde Focus-Knopf rechts in der
-Leiste führt zur Zentrale; jede App hat ihre eigene WebView und bleibt beim Wechsel erhalten.
+**Focus-Start:** Deine Apps als Icons wie auf dem Home-Bildschirm – antippen öffnet,
+gedrückt halten (oder *Bearbeiten*) zeigt, was Focus in der App sperrt. Darunter, was für
+alle Apps gilt: Nutzungszeit, Graustufen, Verhalten. Der runde Focus-Knopf rechts in der
+Leiste führt immer dorthin zurück; jede App behält ihre WebView beim Wechsel.
 
 **YouTube:** Shorts gesperrt (Player, Kanal-Tabs, Regale, Links) · Start = Abos, „Nur Suche“
 oder YouTube-Startseite · Trends/Erkunden/Gaming gesperrt · Empfehlungen unter Videos und
-Kommentare optional ausgeblendet · eigene Suche.
-
-**Snapchat (Beta):** Snapchat für Web (Chats, Snaps, Stories von Freunden). Spotlight,
-Discover und Karte gibt es dort nicht; geteilte Spotlight-/Discover-Links und die Web-Karte
-sind gesperrt. Focus meldet sich als Desktop-Browser, weil Snapchat Web nur dafür gedacht ist.
+Kommentare optional ausgeblendet · eigene Suche mit Vorschlägen beim Tippen · Google-Login
+bleibt in Focus.
 
 **Instagram:**
 
@@ -68,19 +67,20 @@ src/
   app/FocusApp.tsx          Shell: Tabs, Zustand, Aktionen
   controls/controls.ts      Modi und Schalter → Routen-Policy
   services/services.ts      Die Apps (Name, Beta, User-Agent)
-  app/ServiceBrowser.tsx    Browser für YouTube/Snapchat (Guard, Sperre, Laden)
+  app/ServiceBrowser.tsx    Browser für YouTube (Guard, Sperre, Laden)
   filtering/
     engine/types.ts         Gemeinsame Sperrgründe, Regel- und App-Typen
     instagram/routes.ts     Instagram-Regeln (versioniert)
     youtube/routes.ts       YouTube-Regeln
-    snapchat/routes.ts      Snapchat-Regeln
     instagram/scripts.ts    In-Page-Guard für WKWebView (Konfiguration je App)
     engine/RouteGuard.ts    Entscheidung für jede Navigation
     engine/messages.ts      Validierung der WebView-Bridge
+  search/youtubeSuggest.ts  Suchvorschläge für YouTube
   usage/usage.ts            Lokale Nutzungszeit
   screens/                  WebView, Suche, Focus-Tab, Sperr-/Ladeflächen
   storage/                  Einstellungen, Diagnose, Verlauf (AsyncStorage)
   ui/, ui/skeleton/         Theme, Icons, Listen, Tab-Leiste, Skeleton-Bausteine
+  ui/tabIcons/              Leisten-Icons als Vorlagen-PNGs (scripts/render-tab-icons.mjs)
 ios/Focus/AppDelegate.swift + WebsiteDataJanitor (löscht WebKit-Daten auf Anfrage)
 ```
 
@@ -93,6 +93,9 @@ ios/Focus/AppDelegate.swift + WebsiteDataJanitor (löscht WebKit-Daten auf Anfra
 - **Filter:** nie über Text allein, außer für Werbung/Vorschläge – dort nur bei exakter
   Beschriftung. Lieber einmal Werbung als ein fehlender Beitrag von Freunden.
 - Neue Ladezustände immer aus `ui/skeleton/Skeleton.tsx` bauen.
+- Die Leisten-Icons sind PNG-Vorlagen, eingefärbt mit der Systemfarbe `labelColor` –
+  nur so wechseln sie mit dem Liquid Glass zwischen hell und dunkel. Nach Änderungen an
+  den Formen `node scripts/render-tab-icons.mjs` ausführen.
 - Instagram ändert sein Web: unbekannte Routen zeigt der Focus-Tab unter *Filterstatus*;
   Regeln in `routes.ts` anpassen und die Regelversion erhöhen.
 

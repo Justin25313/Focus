@@ -47,14 +47,6 @@ const COPY: Record<BlockReason, { title: string; body: string }> = {
     title: 'Trends sind aus',
     body: 'Trends, Erkunden und Gaming sind algorithmische Endlos-Listen und bleiben gesperrt.',
   },
-  spotlight: {
-    title: 'Spotlight ist aus',
-    body: 'Spotlight und Discover sind der Endlos-Feed von Snapchat. In Focus bleiben sie gesperrt.',
-  },
-  snapMap: {
-    title: 'Die Snap Map ist aus',
-    body: 'Die Karte lädt zum Stöbern ein. In Focus bleibt sie gesperrt.',
-  },
 };
 
 export function BlockedOverlay({

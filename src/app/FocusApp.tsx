@@ -35,21 +35,16 @@ import {
 import { SearchUser, WebMessage } from '../filtering/engine/messages';
 import {
   buildGuardConfig,
-  buildSnapchatGuardConfig,
   buildYouTubeGuardConfig,
 } from '../filtering/instagram/scripts';
 import { youtubeHomePathFor } from '../controls/youtube';
-import {
-  SNAPCHAT_ORIGIN,
-  SNAPCHAT_SERVICE_RULES,
-} from '../filtering/snapchat/routes';
 import {
   YOUTUBE_ORIGIN,
   YOUTUBE_SERVICE_RULES,
   YOUTUBE_YOU_PATH,
 } from '../filtering/youtube/routes';
 import { YouTubeSearchScreen } from '../screens/YouTubeSearchScreen';
-import { SNAPCHAT_USER_AGENT, ServiceId } from '../services/services';
+import { ServiceId } from '../services/services';
 import { ServiceBrowser, ServiceBrowserHandle } from './ServiceBrowser';
 import {
   INSTAGRAM_INBOX_PATH,
@@ -199,7 +194,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
   // Read once when the WebView mounts (after onboarding on first launch).
   const [startUrl, setStartUrl] = useState(initial.initialUrl);
   const [screen, setScreen] = useState<Screen>(
-    initial.settings.openInstagramOnLaunch ? 'browser' : 'settings',
+    initial.settings.openLastAppOnLaunch ? 'browser' : 'settings',
   );
   const initialPath = instagramPathFromUrl(initial.initialUrl) ?? '/';
   const [currentPath, setCurrentPath] = useState<string>(initialPath);
@@ -240,15 +235,10 @@ function FocusShell({ initial }: { initial: Loaded }) {
     initial.settings.lastService,
   ]);
   const youtube = useRef<ServiceBrowserHandle>(null);
-  const snapchat = useRef<ServiceBrowserHandle>(null);
   const [youtubePath, setYoutubePath] = useState('/');
   const youtubeGuardConfig = useMemo(
     () => buildYouTubeGuardConfig(settings.youtube, settings.grayscale),
     [settings.youtube, settings.grayscale],
-  );
-  const snapchatGuardConfig = useMemo(
-    () => buildSnapchatGuardConfig(settings.grayscale),
-    [settings.grayscale],
   );
 
   // Tick every second while a window runs (countdown + exact stop); wake up
@@ -718,10 +708,8 @@ function FocusShell({ initial }: { initial: Loaded }) {
       if (id !== activeService) {
         if (activeService === 'instagram') {
           browser.current?.pauseMedia();
-        } else if (activeService === 'youtube') {
-          youtube.current?.pauseMedia();
         } else {
-          snapchat.current?.pauseMedia();
+          youtube.current?.pauseMedia();
         }
       }
       setActiveService(id);
@@ -985,29 +973,6 @@ function FocusShell({ initial }: { initial: Loaded }) {
         </View>
       ) : null}
 
-      {opened.includes('snapchat') ? (
-        <View
-          pointerEvents={activeService === 'snapchat' ? 'auto' : 'none'}
-          style={[
-            styles.browser,
-            { top: insets.top },
-            activeService === 'snapchat' ? null : styles.hidden,
-          ]}
-        >
-          <ServiceBrowser
-            ref={snapchat}
-            initialUrl={SNAPCHAT_ORIGIN + '/'}
-            service={SNAPCHAT_SERVICE_RULES}
-            guardConfig={snapchatGuardConfig}
-            userAgent={SNAPCHAT_USER_AGENT}
-            skeleton="inbox"
-            bottomInset={tabSpace}
-            onRoute={() => {}}
-            onSearch={() => {}}
-          />
-        </View>
-      ) : null}
-
       {screen === 'search' && activeService === 'youtube' ? (
         <YouTubeSearchScreen
           visible
@@ -1033,13 +998,12 @@ function FocusShell({ initial }: { initial: Loaded }) {
         <SettingsScreen
           settings={settings}
           onChange={updateSettings}
-          activeService={activeService}
-          onSelectService={selectService}
+          onOpenApp={selectService}
           health={health}
           diagnostics={diagnostics}
           clearingWebsiteData={clearing}
-          onReload={() => {
-            setScreen('browser');
+          onReloadInstagram={() => {
+            selectService('instagram');
             browser.current?.reload();
           }}
           onOpenInstagramApp={openInstagramApp}
@@ -1048,7 +1012,10 @@ function FocusShell({ initial }: { initial: Loaded }) {
           onResetDiagnostics={resetDiagnostics}
           usageLog={usage.log}
           reels={reels}
-          onStartReels={startReels}
+          onStartReels={minutes => {
+            selectService('instagram');
+            startReels(minutes);
+          }}
           onEndReels={endReels}
           onResetUsage={() =>
             Alert.alert('Nutzungszeit zurücksetzen?', undefined, [
@@ -1068,13 +1035,6 @@ function FocusShell({ initial }: { initial: Loaded }) {
           tabs={YOUTUBE_TABS}
           active={youtubeTab}
           onPress={onYouTubeTab}
-        />
-      ) : null}
-      {showTabBar && activeService === 'snapchat' ? (
-        <TabBar
-          tabs={[]}
-          active={screen === 'settings' ? 'focus' : ''}
-          onPress={tab => tab === 'focus' && setScreen('settings')}
         />
       ) : null}
       {showTabBar && onInstagram ? (

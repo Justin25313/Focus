@@ -21,14 +21,14 @@ describe('parseSettings', () => {
     expect(
       parseSettings({
         onboardingComplete: true,
-        openInstagramOnLaunch: false,
+        openLastAppOnLaunch: true,
         keepLastLocation: 'yes',
         unknown: 1,
       }),
     ).toEqual({
       ...DEFAULT_SETTINGS,
       onboardingComplete: true,
-      openInstagramOnLaunch: false,
+      openLastAppOnLaunch: true,
       keepLastLocation: true,
     });
   });
@@ -40,7 +40,7 @@ describe('parseSettings', () => {
       openInstagramOnLaunch: true,
       keepLastLocation: false,
     });
-    expect(migrated.schemaVersion).toBe(4);
+    expect(migrated.schemaVersion).toBe(5);
     expect(migrated.lastService).toBe('instagram');
     expect(migrated.youtube.blockShorts).toBe(true);
     expect(migrated.trackUsage).toBe(true);
@@ -56,8 +56,20 @@ describe('parseSettings', () => {
     expect(parsed.controls).toEqual({ ...PRESETS.balanced, blockReels: false });
   });
 
+  it('v4 → v5: starts on the Focus home with the app icons', () => {
+    const migrated = parseSettings({
+      schemaVersion: 4,
+      onboardingComplete: true,
+      openInstagramOnLaunch: true,
+      lastService: 'snapchat',
+    });
+    expect(migrated.openLastAppOnLaunch).toBe(false);
+    // Snapchat is gone; fall back to Instagram.
+    expect(migrated.lastService).toBe('instagram');
+  });
+
   it('defaults match the PRD personal configuration', () => {
-    expect(DEFAULT_SETTINGS.openInstagramOnLaunch).toBe(true);
+    expect(DEFAULT_SETTINGS.openLastAppOnLaunch).toBe(false);
     expect(DEFAULT_SETTINGS.keepLastLocation).toBe(true);
   });
 });

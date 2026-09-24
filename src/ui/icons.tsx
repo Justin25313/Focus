@@ -162,3 +162,29 @@ export function VerifiedIcon({ color, size = 14 }: IconProps) {
     </Svg>
   );
 }
+
+export function PencilIcon({ color, size = 16 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        d="M15.8 4.6a2.1 2.1 0 0 1 3 0l.6.6a2.1 2.1 0 0 1 0 3L8.6 19 4 20l1-4.6z"
+        {...stroke(color)}
+        strokeWidth={2.2}
+      />
+      <Path d="m14 6.4 3.6 3.6" {...stroke(color)} strokeWidth={2.2} />
+    </Svg>
+  );
+}
+
+/** "Use this suggestion": arrow to the top left, as in YouTube's search. */
+export function FillIcon({ color, size = 18 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        d="M18 18 6.5 6.5M6.5 15V6.5H15"
+        {...stroke(color)}
+        strokeWidth={2}
+      />
+    </Svg>
+  );
+}

@@ -9,7 +9,11 @@ import {
 } from 'react-native';
 import type { TextInputInstance } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SearchIcon } from '../ui/icons';
+import {
+  fetchYouTubeSuggestions,
+  splitSuggestion,
+} from '../search/youtubeSuggest';
+import { FillIcon, SearchIcon } from '../ui/icons';
 import { tabBarSpace, useTheme } from '../ui/theme';
 
 /** encodeURIComponent, but also for !'()*~ so the path stays plain. */
@@ -40,14 +44,36 @@ export function YouTubeSearchScreen({
   const inputRef = useRef<TextInputInstance>(null);
   const [text, setText] = useState('');
   const [recent, setRecent] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
 
+  // The keyboard only opens when you tap the field, so the tab bar stays
+  // usable right after switching to search.
   useEffect(() => {
-    if (visible) {
-      const timer = setTimeout(() => inputRef.current?.focus(), 250);
-      return () => clearTimeout(timer);
+    if (!visible) {
+      inputRef.current?.blur();
     }
-    inputRef.current?.blur();
   }, [visible]);
+
+  // Suggestions while typing; the latest keystroke wins.
+  useEffect(() => {
+    const query = text.trim();
+    if (!query) {
+      setSuggestions([]);
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      fetchYouTubeSuggestions(query, controller.signal).then(result => {
+        if (!controller.signal.aborted) {
+          setSuggestions(result);
+        }
+      });
+    }, 120);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [text]);
 
   const run = (query: string) => {
     const q = query.trim();
@@ -94,11 +120,14 @@ export function YouTubeSearchScreen({
         keyboardDismissMode="on-drag"
         contentContainerStyle={{ paddingBottom: tabBarSpace(insets.bottom) }}
       >
-        {recent.length ? (
-          recent.map(query => (
+        {(text.trim() ? suggestions : recent).map(query => {
+          const parts = splitSuggestion(query, text);
+          return (
             <Pressable
               key={query}
               onPress={() => run(query)}
+              accessibilityRole="button"
+              accessibilityLabel={query}
               style={({ pressed }) => [
                 styles.row,
                 pressed ? { backgroundColor: theme.fill } : null,
@@ -109,16 +138,25 @@ export function YouTubeSearchScreen({
                 style={[styles.rowText, { color: theme.label }]}
                 numberOfLines={1}
               >
-                {query}
+                {parts.typed}
+                <Text style={parts.typed ? styles.completion : null}>
+                  {parts.rest}
+                </Text>
               </Text>
+              <Pressable
+                onPress={() => {
+                  setText(query + ' ');
+                  inputRef.current?.focus();
+                }}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={`„${query}“ übernehmen`}
+              >
+                <FillIcon color={theme.secondaryLabel} />
+              </Pressable>
             </Pressable>
-          ))
-        ) : (
-          <Text style={[styles.note, { color: theme.secondaryLabel }]}>
-            Such gezielt nach einem Video oder Kanal. Keine Startseite, keine
-            Shorts – nur das, was du suchst.
-          </Text>
-        )}
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -162,10 +200,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
   },
-  note: {
-    fontSize: 15,
-    lineHeight: 21,
-    marginHorizontal: 20,
-    marginTop: 16,
+  completion: {
+    fontWeight: '600',
   },
 });

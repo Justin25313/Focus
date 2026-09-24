@@ -15,7 +15,6 @@ import {
   YOUTUBE_SERVICE_RULES,
   YOUTUBE_SUBSCRIPTIONS_PATH,
 } from '../youtube/routes';
-import { SNAPCHAT_ORIGIN, SNAPCHAT_SERVICE_RULES } from '../snapchat/routes';
 import {
   GUARDED_HOSTS,
   INSTAGRAM_FOLLOWING_PATH,
@@ -44,7 +43,7 @@ const SUGGESTED_LABELS = [
   'vorgeschlagene beiträge',
 ];
 
-export type GuardService = 'instagram' | 'youtube' | 'snapchat';
+export type GuardService = 'instagram' | 'youtube';
 
 export type GuardConfig = {
   service: GuardService;
@@ -202,17 +201,6 @@ export function buildYouTubeGuardConfig(
     contentSelector:
       'ytm-browse, ytm-watch, ytm-search, ytm-rich-grid-renderer, ytm-section-list-renderer',
   };
-}
-
-/** Snapchat for Web: only the blocking rules, the web app is chat-first. */
-export function buildSnapchatGuardConfig(grayscale = false): GuardConfig {
-  return basicConfig(
-    'snapchat',
-    SNAPCHAT_ORIGIN,
-    SNAPCHAT_SERVICE_RULES,
-    { spotlight: true, snapMap: true },
-    grayscale,
-  );
 }
 
 /**

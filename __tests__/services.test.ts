@@ -8,7 +8,6 @@ import {
   decideNavigation,
 } from '../src/filtering/engine/RouteGuard';
 import { parseWebMessage } from '../src/filtering/engine/messages';
-import { SNAPCHAT_SERVICE_RULES } from '../src/filtering/snapchat/routes';
 import { YOUTUBE_SERVICE_RULES } from '../src/filtering/youtube/routes';
 import {
   encodeSearchQuery,
@@ -91,6 +90,25 @@ describe('YouTube rules', () => {
         YOUTUBE_SERVICE_RULES,
       ).action,
     ).toBe('allow');
+    // Sign-in sets cookies on country domains; leaving the app there
+    // broke the login and opened the YouTube app.
+    for (const url of [
+      'https://accounts.google.de/accounts/SetSID',
+      'https://accounts.google.co.uk/accounts/SetSID',
+      'https://www.google.com.br/',
+      'https://accounts.youtube.com/accounts/SetSID',
+    ]) {
+      expect(
+        decideNavigation({ url }, defaults, YOUTUBE_SERVICE_RULES).action,
+      ).toBe('allow');
+    }
+    expect(
+      decideNavigation(
+        { url: 'https://evilgoogle.de/' },
+        defaults,
+        YOUTUBE_SERVICE_RULES,
+      ).action,
+    ).toBe('openExternally');
     expect(
       decideNavigation(
         { url: 'https://www.instagram.com/' },
@@ -115,52 +133,36 @@ describe('YouTube rules', () => {
   });
 });
 
-describe('Snapchat rules', () => {
-  const policy = { spotlight: true, snapMap: true };
+describe('host-bound rules', () => {
+  const service = {
+    rules: [
+      {
+        id: 'map',
+        pattern: '^/',
+        host: 'map.example.com',
+        effect: 'block' as const,
+        reason: 'explore' as const,
+      },
+    ],
+    guardedHosts: new Set(['example.com', 'map.example.com']),
+    isInAppHost: () => false,
+  };
 
-  it('allows the chat web app', () => {
+  it('only apply on their host', () => {
     expect(
       decideNavigation(
-        { url: 'https://web.snapchat.com/' },
-        policy,
-        SNAPCHAT_SERVICE_RULES,
+        { url: 'https://map.example.com/x' },
+        { explore: true },
+        service,
+      ),
+    ).toMatchObject({ action: 'block', reason: 'explore' });
+    expect(
+      decideNavigation(
+        { url: 'https://example.com/x' },
+        { explore: true },
+        service,
       ).action,
     ).toBe('allow');
-  });
-
-  it('blocks shared Spotlight and Discover links and the map', () => {
-    expect(
-      decideNavigation(
-        { url: 'https://www.snapchat.com/spotlight/W7_abc' },
-        policy,
-        SNAPCHAT_SERVICE_RULES,
-      ),
-    ).toMatchObject({ action: 'block', reason: 'spotlight' });
-    expect(
-      decideNavigation(
-        { url: 'https://www.snapchat.com/discover/foo' },
-        policy,
-        SNAPCHAT_SERVICE_RULES,
-      ),
-    ).toMatchObject({ action: 'block', reason: 'spotlight' });
-    expect(
-      decideNavigation(
-        { url: 'https://map.snapchat.com/' },
-        policy,
-        SNAPCHAT_SERVICE_RULES,
-      ),
-    ).toMatchObject({ action: 'block', reason: 'snapMap' });
-  });
-
-  it('only applies the map rule on the map host', () => {
-    expect(
-      blockReasonForPath(
-        '/',
-        policy,
-        SNAPCHAT_SERVICE_RULES,
-        'web.snapchat.com',
-      ),
-    ).toBeNull();
   });
 });
 
