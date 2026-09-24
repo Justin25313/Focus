@@ -9,6 +9,14 @@ ROOT="$PWD"
 BUILD_DIR="$ROOT/ios/build"
 DIST_DIR="$ROOT/dist"
 
+if ! xcodebuild -version >/dev/null 2>&1; then
+  echo "✗ Xcode fehlt oder ist nicht ausgewählt." >&2
+  echo "  1. Xcode aus dem App Store installieren und einmal öffnen" >&2
+  echo "  2. sudo xcode-select -s /Applications/Xcode.app/Contents/Developer" >&2
+  echo "  3. sudo xcodebuild -license accept" >&2
+  exit 1
+fi
+
 if [ ! -d node_modules ]; then
   echo "→ npm install"
   npm install
@@ -16,7 +24,12 @@ fi
 
 if [ ! -d ios/Pods ]; then
   echo "→ pod install"
-  (cd ios && bundle install && bundle exec pod install)
+  if command -v pod >/dev/null; then
+    # CocoaPods from Homebrew (brew install cocoapods) – avoids macOS system Ruby.
+    (cd ios && pod install)
+  else
+    (cd ios && bundle install && bundle exec pod install)
+  fi
 fi
 
 echo "→ Release-Build (unsigniert) …"

@@ -46,7 +46,7 @@ Profile, Stories und Beiträge funktionieren normal.
 
 1. **Xcode** aus dem Mac App Store installieren und einmal öffnen (Zusatzkomponenten installieren lassen).
 2. **Node.js ≥ 22** installieren, z. B. mit Homebrew: `brew install node`
-3. **CocoaPods** über Ruby/Bundler: `sudo gem install bundler` (einmalig)
+3. **CocoaPods** über Homebrew: `brew install cocoapods` (nicht über die System-Ruby von macOS)
 4. Repository klonen und Abhängigkeiten installieren:
 
    ```sh
