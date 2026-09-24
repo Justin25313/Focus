@@ -34,8 +34,27 @@ import {
 } from '../controls/reelsSession';
 import { SearchUser, WebMessage } from '../filtering/engine/messages';
 import {
+  buildGuardConfig,
+  buildSnapchatGuardConfig,
+  buildYouTubeGuardConfig,
+} from '../filtering/instagram/scripts';
+import { youtubeHomePathFor } from '../controls/youtube';
+import {
+  SNAPCHAT_ORIGIN,
+  SNAPCHAT_SERVICE_RULES,
+} from '../filtering/snapchat/routes';
+import {
+  YOUTUBE_ORIGIN,
+  YOUTUBE_SERVICE_RULES,
+  YOUTUBE_YOU_PATH,
+} from '../filtering/youtube/routes';
+import { YouTubeSearchScreen } from '../screens/YouTubeSearchScreen';
+import { SNAPCHAT_USER_AGENT, ServiceId } from '../services/services';
+import { ServiceBrowser, ServiceBrowserHandle } from './ServiceBrowser';
+import {
   INSTAGRAM_INBOX_PATH,
   INSTAGRAM_ORIGIN,
+  INSTAGRAM_SERVICE_RULES,
   routeKindForPath,
 } from '../filtering/instagram/routes';
 import { profilePath } from '../filtering/instagram/search';
@@ -65,7 +84,7 @@ import {
   SkeletonVariant,
   skeletonForRoute,
 } from '../ui/skeleton/InstagramSkeleton';
-import { TabBar, TabId } from '../ui/TabBar';
+import { INSTAGRAM_TABS, TabBar, TabId, YOUTUBE_TABS } from '../ui/TabBar';
 import { UsageLog, parseUsageLog } from '../usage/usage';
 import { useUsageTracker } from '../usage/useUsageTracker';
 import { tabBarSpace, useTheme } from '../ui/theme';
@@ -205,6 +224,31 @@ function FocusShell({ initial }: { initial: Loaded }) {
         ? { ...settings.controls, blockReels: false }
         : settings.controls,
     [reelsOpen, settings.controls],
+  );
+
+  const instagramGuardConfig = useMemo(
+    () => buildGuardConfig(effectiveControls, settings.grayscale),
+    [effectiveControls, settings.grayscale],
+  );
+
+  // ---- other apps ------------------------------------------------------
+  const [activeService, setActiveService] = useState<ServiceId>(
+    initial.settings.lastService,
+  );
+  // An app's WebView is created the first time it is opened, then kept.
+  const [opened, setOpened] = useState<ServiceId[]>([
+    initial.settings.lastService,
+  ]);
+  const youtube = useRef<ServiceBrowserHandle>(null);
+  const snapchat = useRef<ServiceBrowserHandle>(null);
+  const [youtubePath, setYoutubePath] = useState('/');
+  const youtubeGuardConfig = useMemo(
+    () => buildYouTubeGuardConfig(settings.youtube, settings.grayscale),
+    [settings.youtube, settings.grayscale],
+  );
+  const snapchatGuardConfig = useMemo(
+    () => buildSnapchatGuardConfig(settings.grayscale),
+    [settings.grayscale],
   );
 
   // Tick every second while a window runs (countdown + exact stop); wake up
@@ -668,6 +712,60 @@ function FocusShell({ initial }: { initial: Loaded }) {
     [block, currentPath, openPath, ownProfilePath, screen, settings.controls],
   );
 
+  const selectService = useCallback(
+    (id: ServiceId) => {
+      // Nothing keeps playing in an app you left.
+      if (id !== activeService) {
+        if (activeService === 'instagram') {
+          browser.current?.pauseMedia();
+        } else if (activeService === 'youtube') {
+          youtube.current?.pauseMedia();
+        } else {
+          snapchat.current?.pauseMedia();
+        }
+      }
+      setActiveService(id);
+      setOpened(prev => (prev.includes(id) ? prev : [...prev, id]));
+      updateSettings({ lastService: id });
+      setScreen('browser');
+    },
+    [activeService, updateSettings],
+  );
+
+  const onYouTubeTab = useCallback(
+    (tab: TabId) => {
+      const yt = settings.youtube;
+      switch (tab) {
+        case 'ytHome': {
+          if (yt.home === 'search') {
+            setScreen('search');
+            break;
+          }
+          const root = youtubeHomePathFor(yt);
+          if (screen !== 'browser') {
+            setScreen('browser');
+          } else if (youtubePath === root) {
+            youtube.current?.scrollToTop();
+          } else {
+            youtube.current?.navigate(root);
+          }
+          break;
+        }
+        case 'ytSearch':
+          setScreen('search');
+          break;
+        case 'ytYou':
+          setScreen('browser');
+          youtube.current?.navigate(YOUTUBE_YOU_PATH);
+          break;
+        case 'focus':
+          setScreen('settings');
+          break;
+      }
+    },
+    [screen, settings.youtube, youtubePath],
+  );
+
   const leaveBlock = useCallback(() => {
     if (block?.navigated) {
       browser.current?.leaveBlocked();
@@ -781,13 +879,25 @@ function FocusShell({ initial }: { initial: Loaded }) {
 
   // Like Instagram's app: no tab bar inside a chat, where the composer
   // sits at the bottom of the screen.
+  const onInstagram = activeService === 'instagram';
   const showTabBar = !(
+    onInstagram &&
     screen === 'browser' &&
     !block &&
     /^\/direct\/t\//i.test(currentPath)
   );
+  const tabSpace = tabBarSpace(insets.bottom);
 
-  const activeTab: TabId =
+  const youtubeTab: TabId =
+    screen === 'search'
+      ? 'ytSearch'
+      : screen === 'settings'
+      ? 'focus'
+      : /^\/(?:feed\/(?:you|library|history)|playlist)/.test(youtubePath)
+      ? 'ytYou'
+      : 'ytHome';
+
+  const instagramTab: TabId =
     screen === 'search'
       ? 'search'
       : screen === 'settings'
@@ -806,20 +916,22 @@ function FocusShell({ initial }: { initial: Loaded }) {
     <View style={[styles.fill, { backgroundColor: theme.webBackground }]}>
       <StatusBar barStyle={theme.dark ? 'light-content' : 'dark-content'} />
 
-      {/* The WebView stays mounted for the app's whole lifetime. */}
+      {/* Every app's WebView stays mounted; only the active one is shown. */}
       <View
+        pointerEvents={onInstagram ? 'auto' : 'none'}
         style={[
           styles.browser,
-          // Full height: Instagram scrolls underneath the floating tab bar.
+          // Full height: the page scrolls underneath the floating tab bar.
           { top: insets.top },
+          onInstagram ? null : styles.hidden,
         ]}
       >
         <BrowserView
           ref={browser}
           initialUrl={startUrl}
-          controls={effectiveControls}
-          grayscale={settings.grayscale}
-          bottomInset={showTabBar ? tabBarSpace(insets.bottom) : 0}
+          service={INSTAGRAM_SERVICE_RULES}
+          guardConfig={instagramGuardConfig}
+          bottomInset={showTabBar ? tabSpace : 0}
           onRoute={handleRoute}
           onBlocked={handleBlocked}
           onMessage={handleMessage}
@@ -851,7 +963,62 @@ function FocusShell({ initial }: { initial: Loaded }) {
         ) : null}
       </View>
 
-      {screen === 'search' ? (
+      {opened.includes('youtube') ? (
+        <View
+          pointerEvents={activeService === 'youtube' ? 'auto' : 'none'}
+          style={[
+            styles.browser,
+            { top: insets.top },
+            activeService === 'youtube' ? null : styles.hidden,
+          ]}
+        >
+          <ServiceBrowser
+            ref={youtube}
+            initialUrl={YOUTUBE_ORIGIN + youtubeHomePathFor(settings.youtube)}
+            service={YOUTUBE_SERVICE_RULES}
+            guardConfig={youtubeGuardConfig}
+            skeleton="videos"
+            bottomInset={tabSpace}
+            onRoute={setYoutubePath}
+            onSearch={() => setScreen('search')}
+          />
+        </View>
+      ) : null}
+
+      {opened.includes('snapchat') ? (
+        <View
+          pointerEvents={activeService === 'snapchat' ? 'auto' : 'none'}
+          style={[
+            styles.browser,
+            { top: insets.top },
+            activeService === 'snapchat' ? null : styles.hidden,
+          ]}
+        >
+          <ServiceBrowser
+            ref={snapchat}
+            initialUrl={SNAPCHAT_ORIGIN + '/'}
+            service={SNAPCHAT_SERVICE_RULES}
+            guardConfig={snapchatGuardConfig}
+            userAgent={SNAPCHAT_USER_AGENT}
+            skeleton="inbox"
+            bottomInset={tabSpace}
+            onRoute={() => {}}
+            onSearch={() => {}}
+          />
+        </View>
+      ) : null}
+
+      {screen === 'search' && activeService === 'youtube' ? (
+        <YouTubeSearchScreen
+          visible
+          onSearch={path => {
+            setScreen('browser');
+            youtube.current?.navigate(path);
+          }}
+        />
+      ) : null}
+
+      {screen === 'search' && onInstagram ? (
         <SearchScreen
           visible
           history={searchHistory}
@@ -866,6 +1033,8 @@ function FocusShell({ initial }: { initial: Loaded }) {
         <SettingsScreen
           settings={settings}
           onChange={updateSettings}
+          activeService={activeService}
+          onSelectService={selectService}
           health={health}
           diagnostics={diagnostics}
           clearingWebsiteData={clearing}
@@ -894,9 +1063,24 @@ function FocusShell({ initial }: { initial: Loaded }) {
         />
       ) : null}
 
-      {showTabBar ? (
+      {showTabBar && activeService === 'youtube' ? (
         <TabBar
-          active={activeTab}
+          tabs={YOUTUBE_TABS}
+          active={youtubeTab}
+          onPress={onYouTubeTab}
+        />
+      ) : null}
+      {showTabBar && activeService === 'snapchat' ? (
+        <TabBar
+          tabs={[]}
+          active={screen === 'settings' ? 'focus' : ''}
+          onPress={tab => tab === 'focus' && setScreen('settings')}
+        />
+      ) : null}
+      {showTabBar && onInstagram ? (
+        <TabBar
+          tabs={INSTAGRAM_TABS}
+          active={instagramTab}
           onPress={onTab}
           reelsCountdown={
             reels.state === 'active'
@@ -925,5 +1109,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
+  },
+  // Hidden apps stay mounted (no reload), just invisible and untouchable.
+  hidden: {
+    opacity: 0,
   },
 });

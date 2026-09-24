@@ -4,6 +4,18 @@ import {
   HomeFeed,
   policyFor,
 } from '../../controls/controls';
+import { BlockReason, RouteRule, ServiceRules } from '../engine/types';
+import {
+  DEFAULT_YOUTUBE_CONTROLS,
+  YouTubeControls,
+  youtubePolicyFor,
+} from '../../controls/youtube';
+import {
+  YOUTUBE_ORIGIN,
+  YOUTUBE_SERVICE_RULES,
+  YOUTUBE_SUBSCRIPTIONS_PATH,
+} from '../youtube/routes';
+import { SNAPCHAT_ORIGIN, SNAPCHAT_SERVICE_RULES } from '../snapchat/routes';
 import {
   GUARDED_HOSTS,
   INSTAGRAM_FOLLOWING_PATH,
@@ -32,19 +44,29 @@ const SUGGESTED_LABELS = [
   'vorgeschlagene beiträge',
 ];
 
+export type GuardService = 'instagram' | 'youtube' | 'snapchat';
+
 export type GuardConfig = {
+  service: GuardService;
   version: string;
   origin: string;
   guardedHosts: string[];
-  rules: typeof INSTAGRAM_ROUTE_RULES;
+  rules: readonly RouteRule[];
   policy: RoutePolicy;
+  /** Blocked routes that silently go elsewhere instead of a block screen. */
+  redirects: Partial<Record<BlockReason, string>>;
+  /** Elements hidden via CSS (structure/href based, never text). */
+  hiddenSelectors: string[];
+  /** A page counts as rendered once one of these exists. */
+  contentSelector: string;
+  pullToRefresh: boolean;
   /** Link targets that open the native Focus search instead. */
   searchPaths: string[];
   /** Entry points hidden via early CSS (matched on href only, never on text). */
   hiddenLinkSelectors: string[];
   /** Hide Instagram's bottom tab bar; Focus shows its own. */
   hideInstagramNav: boolean;
-  homeFeed: HomeFeed;
+  homeFeed: HomeFeed | 'none';
   followingPath: string;
   inboxPath: string;
   grayscale: boolean;
@@ -71,11 +93,16 @@ export function buildGuardConfig(
     hidden.push('a[href$="/saved/"]');
   }
   return {
+    service: 'instagram',
     version: INSTAGRAM_RULE_VERSION,
     origin: INSTAGRAM_ORIGIN,
     guardedHosts: [...GUARDED_HOSTS],
     rules: INSTAGRAM_ROUTE_RULES,
     policy,
+    redirects: { feed: INSTAGRAM_INBOX_PATH },
+    hiddenSelectors: [],
+    contentSelector: 'main, [role="main"], article, form, nav',
+    pullToRefresh: true,
     searchPaths: policy.explore ? ['/explore/'] : [],
     hiddenLinkSelectors: hidden,
     hideInstagramNav: true,
@@ -87,6 +114,105 @@ export function buildGuardConfig(
     suggestedLabels: controls.hideSuggested ? SUGGESTED_LABELS : [],
     webAppId: INSTAGRAM_WEB_APP_ID,
   };
+}
+
+/** Base for apps without Instagram's extras. */
+function basicConfig(
+  service: GuardService,
+  origin: string,
+  rules: ServiceRules,
+  policy: RoutePolicy,
+  grayscale: boolean,
+): GuardConfig {
+  return {
+    service,
+    version: INSTAGRAM_RULE_VERSION,
+    origin,
+    guardedHosts: [...rules.guardedHosts],
+    rules: rules.rules,
+    policy,
+    redirects: {},
+    hiddenSelectors: [],
+    contentSelector: 'main, [role="main"], body > div',
+    pullToRefresh: false,
+    searchPaths: [],
+    hiddenLinkSelectors: [],
+    hideInstagramNav: false,
+    homeFeed: 'none',
+    followingPath: '/',
+    inboxPath: '/',
+    grayscale,
+    sponsoredLabels: [],
+    suggestedLabels: [],
+    webAppId: '',
+  };
+}
+
+/**
+ * YouTube (m.youtube.com). Selectors are YouTube's own custom elements,
+ * the same ones established Shorts filter lists rely on.
+ */
+export function buildYouTubeGuardConfig(
+  controls: YouTubeControls = DEFAULT_YOUTUBE_CONTROLS,
+  grayscale = false,
+): GuardConfig {
+  const config = basicConfig(
+    'youtube',
+    YOUTUBE_ORIGIN,
+    YOUTUBE_SERVICE_RULES,
+    youtubePolicyFor(controls),
+    grayscale,
+  );
+  // Focus has its own tab bar.
+  const hidden = ['ytm-pivot-bar-renderer'];
+  if (controls.blockShorts) {
+    hidden.push(
+      'ytm-reel-shelf-renderer',
+      'ytm-shorts-lockup-view-model',
+      'ytm-rich-section-renderer:has(ytm-shorts-lockup-view-model)',
+      'grid-shelf-view-model:has(ytm-shorts-lockup-view-model)',
+      'ytm-video-with-context-renderer:has(ytm-thumbnail-overlay-time-status-renderer[data-style="SHORTS"])',
+      'ytm-compact-video-renderer:has(ytm-thumbnail-overlay-time-status-renderer[data-style="SHORTS"])',
+      'ytm-chip-cloud-chip-renderer:has([aria-label="Shorts"])',
+      'yt-tab-shape[tab-title="Shorts"]',
+      'a[href^="/shorts"]',
+    );
+  }
+  if (controls.hideRelated) {
+    hidden.push(
+      'ytm-watch-next-secondary-results-renderer',
+      'ytm-item-section-renderer[section-identifier="related-items"]',
+      'ytm-compact-autoplay-renderer',
+    );
+  }
+  if (controls.hideComments) {
+    hidden.push(
+      'ytm-comments-entry-point-header-renderer',
+      'ytm-comment-section-renderer',
+      'ytm-item-section-renderer[section-identifier="comment-item-section"]',
+    );
+  }
+  return {
+    ...config,
+    redirects:
+      controls.home === 'subscriptions'
+        ? { ytHome: YOUTUBE_SUBSCRIPTIONS_PATH }
+        : {},
+    hiddenSelectors: hidden,
+    contentSelector:
+      'ytm-browse, ytm-watch, ytm-search, ytm-rich-grid-renderer, ytm-section-list-renderer',
+  };
+}
+
+/** Snapchat for Web: only the blocking rules, the web app is chat-first. */
+export function buildSnapchatGuardConfig(grayscale = false): GuardConfig {
+  return basicConfig(
+    'snapchat',
+    SNAPCHAT_ORIGIN,
+    SNAPCHAT_SERVICE_RULES,
+    { spotlight: true, snapMap: true },
+    grayscale,
+  );
 }
 
 /**
@@ -149,7 +275,7 @@ const GUARD_SOURCE = String.raw`
   var domWorkScheduled = false;
   var lastDomWork = 0;
   var DOM_WORK_MIN_GAP_MS = 120;
-  var SAFE_PATH = /^\/[A-Za-z0-9._\-\/]*(\?variant=[a-z]+)?$/;
+  var SAFE_PATH = /^\/[A-Za-z0-9._\-\/@]*(\?[A-Za-z0-9_=&%.+\-]*)?$/;
   var rules = [];
   var lastRoutePath = null;
   var lastAllowedPath = null;
@@ -169,8 +295,12 @@ const GUARD_SOURCE = String.raw`
     return config.guardedHosts.indexOf(location.hostname) !== -1;
   }
 
-  function reasonFor(path) {
+  function reasonFor(path, host) {
+    var currentHost = host || location.hostname;
     for (var i = 0; i < rules.length; i++) {
+      if (rules[i].host && rules[i].host !== currentHost) {
+        continue;
+      }
       if (rules[i].re.test(path)) {
         if (rules[i].effect === 'allow') {
           return null;
@@ -190,6 +320,9 @@ const GUARD_SOURCE = String.raw`
     }
     if (config.hideInstagramNav) {
       css += '[' + NAV_ATTR + ']{display:none!important;}';
+    }
+    if (config.hiddenSelectors.length) {
+      css += config.hiddenSelectors.join(',') + '{display:none!important;}';
     }
     css += '[' + HIDDEN_ATTR + ']{display:none!important;}';
     css +=
@@ -306,6 +439,9 @@ const GUARD_SOURCE = String.raw`
   // ---- pull to refresh -------------------------------------------
 
   function canRefresh(path) {
+    if (!config.pullToRefresh) {
+      return false;
+    }
     if (path === '/' || path === config.inboxPath) {
       return true;
     }
@@ -486,7 +622,7 @@ const GUARD_SOURCE = String.raw`
   }
 
   function hasContent() {
-    return document.querySelector('main, [role="main"], article, form, nav') !== null;
+    return document.querySelector(config.contentSelector) !== null;
   }
 
   function fireSettled() {
@@ -608,8 +744,10 @@ const GUARD_SOURCE = String.raw`
       return;
     }
     ensureStyle(false);
-    tidyInstagramNav();
-    hideFollowingBackLink();
+    if (config.service === 'instagram') {
+      tidyInstagramNav();
+      hideFollowingBackLink();
+    }
     var path = location.pathname || '/';
     if (ptrState === 'refreshing' && path !== ptrPath) {
       finishRefresh();
@@ -623,9 +761,11 @@ const GUARD_SOURCE = String.raw`
       }
     }
     var reason = reasonFor(path);
-    if (reason === 'feed') {
-      // "Messages only": home is never shown, go straight to the inbox.
-      redirectOnce(config.inboxPath, false);
+    var redirect = reason ? config.redirects[reason] : null;
+    if (redirect) {
+      // E.g. "Messages only" (Instagram home → inbox) or YouTube home →
+      // subscriptions: go there quietly instead of showing a block screen.
+      redirectOnce(redirect, false);
       lastRoutePath = path;
       return;
     }
@@ -670,7 +810,12 @@ const GUARD_SOURCE = String.raw`
     for (var i = 0; i < next.rules.length; i++) {
       var rule = next.rules[i];
       try {
-        compiled.push({ re: new RegExp(rule.pattern, 'i'), effect: rule.effect, reason: rule.reason });
+        compiled.push({
+          re: new RegExp(rule.pattern, 'i'),
+          host: rule.host,
+          effect: rule.effect,
+          reason: rule.reason
+        });
       } catch (e) {
         post({ type: 'FILTER_ERROR', code: 'BAD_RULE' });
       }
@@ -722,7 +867,7 @@ const GUARD_SOURCE = String.raw`
       post({ type: 'OPEN_SEARCH' });
       return;
     }
-    var reason = reasonFor(url.pathname);
+    var reason = reasonFor(url.pathname, url.hostname);
     if (reason) {
       stop(event);
       post({ type: 'BLOCKED_ROUTE', path: url.pathname, reason: reason, navigated: false });
@@ -893,7 +1038,7 @@ export function buildGuardScript(
   return `${GUARD_SOURCE}(${JSON.stringify(config)});\ntrue;`;
 }
 
-const CALLABLE_PATH = /^\/[A-Za-z0-9._\-/]*(\?variant=[a-z]+)?$/;
+const CALLABLE_PATH = /^\/[A-Za-z0-9._\-/@]*(\?[A-Za-z0-9_=&%.+-]*)?$/;
 
 /** Script that navigates inside Instagram, preferring SPA navigation. */
 export function navigateScript(path: string): string | null {
@@ -907,6 +1052,9 @@ export function navigateScript(path: string): string | null {
 
 export const LEAVE_BLOCKED_SCRIPT =
   "(function(){if(window.__focusGuard){window.__focusGuard.leaveBlocked();}else{location.replace('/');}})();true;";
+
+export const PAUSE_MEDIA_SCRIPT =
+  "(function(){var m=document.querySelectorAll('video,audio');for(var i=0;i<m.length;i++){try{m[i].pause();}catch(e){}}})();true;";
 
 export const SCROLL_TO_TOP_SCRIPT =
   '(function(){if(window.__focusGuard){window.__focusGuard.scrollToTop();}})();true;';

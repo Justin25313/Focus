@@ -1,6 +1,6 @@
 # Focus
 
-Instagram ohne Reels, Explore und algorithmischen Ballast – als private iPhone-App.
+Instagram, YouTube und Snapchat ohne Endlos-Feeds – als private iPhone-App.
 Kein Konto, kein Backend, kein Tracking, kein Abo.
 
 Focus lädt Instagram (mobile Web) in einer dauerhaften WebView und legt eine
@@ -8,6 +8,19 @@ Schutzschicht darüber. Nachrichten, Profile, Stories und Beiträge funktioniere
 normal; Reels-Feed, Explore und Vorschläge bleiben draußen.
 
 ## Funktionen
+
+**Apps:** Instagram · YouTube · Snapchat (Beta). Der runde Focus-Knopf rechts in der
+Leiste führt zur Zentrale; jede App hat ihre eigene WebView und bleibt beim Wechsel erhalten.
+
+**YouTube:** Shorts gesperrt (Player, Kanal-Tabs, Regale, Links) · Start = Abos, „Nur Suche“
+oder YouTube-Startseite · Trends/Erkunden/Gaming gesperrt · Empfehlungen unter Videos und
+Kommentare optional ausgeblendet · eigene Suche.
+
+**Snapchat (Beta):** Snapchat für Web (Chats, Snaps, Stories von Freunden). Spotlight,
+Discover und Karte gibt es dort nicht; geteilte Spotlight-/Discover-Links und die Web-Karte
+sind gesperrt. Focus meldet sich als Desktop-Browser, weil Snapchat Web nur dafür gedacht ist.
+
+**Instagram:**
 
 - **Modi:** Ausgewogen (Standard) · Stories + Nachrichten · Nur Nachrichten · Eigene
 - **Startseite:** „Folge ich“ (nur Accounts, denen du folgst) · nur Stories · „Für dich“ · aus
@@ -54,9 +67,14 @@ Voraussetzungen am Mac: Xcode, Node ≥ 22, `brew install cocoapods`.
 src/
   app/FocusApp.tsx          Shell: Tabs, Zustand, Aktionen
   controls/controls.ts      Modi und Schalter → Routen-Policy
+  services/services.ts      Die Apps (Name, Beta, User-Agent)
+  app/ServiceBrowser.tsx    Browser für YouTube/Snapchat (Guard, Sperre, Laden)
   filtering/
-    instagram/routes.ts     Routen-Regeln (einzige Quelle, versioniert)
-    instagram/scripts.ts    In-Page-Guard für WKWebView
+    engine/types.ts         Gemeinsame Sperrgründe, Regel- und App-Typen
+    instagram/routes.ts     Instagram-Regeln (versioniert)
+    youtube/routes.ts       YouTube-Regeln
+    snapchat/routes.ts      Snapchat-Regeln
+    instagram/scripts.ts    In-Page-Guard für WKWebView (Konfiguration je App)
     engine/RouteGuard.ts    Entscheidung für jede Navigation
     engine/messages.ts      Validierung der WebView-Bridge
   usage/usage.ts            Lokale Nutzungszeit

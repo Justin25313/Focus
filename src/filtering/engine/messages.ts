@@ -88,9 +88,10 @@ function parseUsers(value: unknown): SearchUser[] | null {
 export function parseWebMessage(
   data: string,
   sourceUrl: string,
+  allowedHosts: ReadonlySet<string> = GUARDED_HOSTS,
 ): WebMessage | null {
   const source = parseUrl(sourceUrl);
-  if (!source || source.scheme !== 'https' || !GUARDED_HOSTS.has(source.host)) {
+  if (!source || source.scheme !== 'https' || !allowedHosts.has(source.host)) {
     return null;
   }
   if (typeof data !== 'string' || data.length > 20000) {

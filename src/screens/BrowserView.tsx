@@ -9,7 +9,6 @@ import React, {
 } from 'react';
 import { Linking, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { Controls } from '../controls/controls';
 import type {
   ShouldStartLoadRequest,
   WebViewErrorEvent,
@@ -20,14 +19,17 @@ import type {
 import {
   blockReasonForPath,
   decideNavigation,
-  instagramPathFromUrl,
+  parseUrl,
+  servicePathFromUrl,
 } from '../filtering/engine/RouteGuard';
+import { ServiceRules } from '../filtering/engine/types';
 import { WebMessage, parseWebMessage } from '../filtering/engine/messages';
 import { BlockReason } from '../filtering/instagram/routes';
 import {
+  GuardConfig,
   LEAVE_BLOCKED_SCRIPT,
+  PAUSE_MEDIA_SCRIPT,
   SCROLL_TO_TOP_SCRIPT,
-  buildGuardConfig,
   buildGuardScript,
   configureScript,
   navigateScript,
@@ -35,11 +37,13 @@ import {
 } from '../filtering/instagram/scripts';
 
 /**
- * Appended to WKWebView's default user agent so Instagram serves its
- * regular mobile-Safari experience rather than a degraded in-app one.
+ * Appended to WKWebView's default user agent so sites serve their regular
+ * mobile-Safari experience rather than a degraded in-app one.
  */
 const USER_AGENT_SUFFIX = 'Version/18.0 Safari/604.1';
 
+export type UserAgent = { suffix: string } | { full: string };
+const DEFAULT_USER_AGENT: UserAgent = { suffix: USER_AGENT_SUFFIX };
 // react-native-webview's typings default the extra-props generic to
 // `undefined`, which collapses to `never` under strict TypeScript.
 type InstagramWebView = WebView<object>;
@@ -62,6 +66,8 @@ export type BrowserHandle = {
   replaceWith: (url: string) => void;
   search: (query: string, requestId: number) => void;
   clearCaches: () => void;
+  /** Stops video/audio, e.g. when switching to another app. */
+  pauseMedia: () => void;
 };
 
 export type BrowserEvents = {
@@ -77,22 +83,26 @@ export type BrowserEvents = {
 
 type Props = BrowserEvents & {
   initialUrl: string;
-  controls: Controls;
-  grayscale: boolean;
+  /** Which app this WebView shows: its hosts and route rules. */
+  service: ServiceRules;
+  guardConfig: GuardConfig;
+  userAgent?: UserAgent;
   /** Space kept free under the page for the floating tab bar. */
   bottomInset: number;
 };
 
 /**
- * The Instagram WebView. It is mounted once and never re-keyed, so
- * switching tabs, backgrounding, Control Center or locking the phone
- * never reloads Instagram. `initialUrl` is only read on first mount.
+ * One app's WebView (Instagram, YouTube, …). It is mounted once and never
+ * re-keyed, so switching tabs or apps, backgrounding, Control Center or
+ * locking the phone never reloads it. `initialUrl` is only read on first
+ * mount.
  */
 function BrowserViewImpl(
   {
     initialUrl,
-    controls,
-    grayscale,
+    service,
+    guardConfig,
+    userAgent = DEFAULT_USER_AGENT,
     bottomInset,
     onRoute,
     onBlocked,
@@ -107,6 +117,8 @@ function BrowserViewImpl(
   const webRef = useRef<InstagramWebView>(null);
   const source = useRef({ uri: initialUrl }).current;
   const lastExternal = useRef<{ url: string; at: number } | null>(null);
+  const serviceRef = useRef(service);
+  serviceRef.current = service;
 
   const inject = useCallback((script: string) => {
     webRef.current?.injectJavaScript(script);
@@ -114,11 +126,7 @@ function BrowserViewImpl(
 
   // The guard config follows the user's controls. New page loads get it via
   // the document-start script; the current page is reconfigured in place,
-  // so changing a mode never reloads Instagram.
-  const guardConfig = useMemo(
-    () => buildGuardConfig(controls, grayscale),
-    [controls, grayscale],
-  );
+  // so changing a mode never reloads the page.
   const guardScript = useMemo(
     () => buildGuardScript(guardConfig),
     [guardConfig],
@@ -150,6 +158,7 @@ function BrowserViewImpl(
         inject(`location.replace(${JSON.stringify(url)});true;`),
       search: (query, requestId) => inject(searchScript(query, requestId)),
       clearCaches: () => webRef.current?.clearCache(true),
+      pauseMedia: () => inject(PAUSE_MEDIA_SCRIPT),
     }),
     [inject],
   );
@@ -169,6 +178,7 @@ function BrowserViewImpl(
       const decision = decideNavigation(
         { url: request.url, isTopFrame: request.isTopFrame },
         policyRef.current,
+        serviceRef.current,
       );
       switch (decision.action) {
         case 'allow':
@@ -192,11 +202,16 @@ function BrowserViewImpl(
 
   const handleNavigationStateChange = useCallback(
     (nav: WebViewNavigation) => {
-      const path = instagramPathFromUrl(nav.url);
+      const path = servicePathFromUrl(nav.url, serviceRef.current);
       if (!path) {
         return;
       }
-      const reason = blockReasonForPath(path, policyRef.current);
+      const reason = blockReasonForPath(
+        path,
+        policyRef.current,
+        serviceRef.current,
+        parseUrl(nav.url)?.host,
+      );
       if (reason) {
         onBlocked({ reason, path, navigated: true });
       } else if (!nav.loading) {
@@ -211,6 +226,7 @@ function BrowserViewImpl(
       const message = parseWebMessage(
         event.nativeEvent.data,
         event.nativeEvent.url,
+        serviceRef.current.guardedHosts,
       );
       if (message) {
         onMessage(message);
@@ -269,7 +285,10 @@ function BrowserViewImpl(
       onContentProcessDidTerminate={handleProcessTerminated}
       injectedJavaScriptBeforeContentLoaded={guardScript}
       injectedJavaScriptBeforeContentLoadedForMainFrameOnly
-      applicationNameForUserAgent={USER_AGENT_SUFFIX}
+      applicationNameForUserAgent={
+        'suffix' in userAgent ? userAgent.suffix : undefined
+      }
+      userAgent={'full' in userAgent ? userAgent.full : undefined}
       // Persistent website data store: login survives restarts.
       incognito={false}
       cacheEnabled

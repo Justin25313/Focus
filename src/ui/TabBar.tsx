@@ -24,22 +24,25 @@ import {
 } from './icons';
 import { TAB_BAR_PILL_HEIGHT, tabBarBottom, useTheme } from './theme';
 
-export type TabId =
-  | 'feed'
-  | 'reels'
-  | 'search'
-  | 'messages'
-  | 'profile'
-  | 'focus';
+export type TabId = string;
 
-/** Buttons of the current app (Instagram); other services can bring their own. */
-const APP_TABS: { id: TabId; label: string; Icon: typeof HomeIcon }[] = [
+export type TabItem = { id: TabId; label: string; Icon: typeof HomeIcon };
+
+/** Instagram's buttons, in the app's order. */
+export const INSTAGRAM_TABS: TabItem[] = [
   { id: 'feed', label: 'Instagram', Icon: HomeIcon },
   // Only while a timed Reels window is running.
   { id: 'reels', label: 'Reels', Icon: ReelsIcon },
   { id: 'messages', label: 'Nachrichten', Icon: MessageIcon },
   { id: 'search', label: 'Suche', Icon: SearchIcon },
   { id: 'profile', label: 'Profil', Icon: ProfileIcon },
+];
+
+/** YouTube: start (subscriptions), search, your library. No Shorts. */
+export const YOUTUBE_TABS: TabItem[] = [
+  { id: 'ytHome', label: 'YouTube', Icon: HomeIcon },
+  { id: 'ytSearch', label: 'Suche', Icon: SearchIcon },
+  { id: 'ytYou', label: 'Du', Icon: ProfileIcon },
 ];
 
 const GAP = 10;
@@ -88,11 +91,14 @@ function Glass({
  * back to Focus (later also to other apps).
  */
 export function TabBar({
+  tabs,
   active,
   onPress,
   hiddenTabs = [],
   reelsCountdown,
 }: {
+  /** The current app's buttons; empty for apps that bring their own UI. */
+  tabs: TabItem[];
   active: TabId;
   onPress: (tab: TabId) => void;
   /** Tabs that do not apply right now (e.g. no profile before login). */
@@ -103,6 +109,7 @@ export function TabBar({
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const focusSelected = active === 'focus';
+  const visibleTabs = tabs.filter(tab => !hiddenTabs.includes(tab.id));
 
   return (
     <LiquidGlassContainerView
@@ -110,10 +117,10 @@ export function TabBar({
       pointerEvents="box-none"
       style={[styles.wrap, { bottom: tabBarBottom(insets.bottom) }]}
     >
-      <Glass style={styles.pill}>
-        <View accessibilityRole="tablist" style={styles.row}>
-          {APP_TABS.filter(tab => !hiddenTabs.includes(tab.id)).map(
-            ({ id, label, Icon }) => {
+      {visibleTabs.length > 0 ? (
+        <Glass style={styles.pill}>
+          <View accessibilityRole="tablist" style={styles.row}>
+            {visibleTabs.map(({ id, label, Icon }) => {
               const selected = id === active;
               return (
                 <Pressable
@@ -147,10 +154,12 @@ export function TabBar({
                   </View>
                 </Pressable>
               );
-            },
-          )}
-        </View>
-      </Glass>
+            })}
+          </View>
+        </Glass>
+      ) : (
+        <View style={styles.spacer} />
+      )}
 
       <Glass style={styles.circle}>
         <Pressable
@@ -180,6 +189,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: GAP,
+  },
+  spacer: {
+    flex: 1,
   },
   pill: {
     flex: 1,

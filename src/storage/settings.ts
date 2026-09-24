@@ -3,25 +3,36 @@ import {
   DEFAULT_CONTROLS,
   parseControls,
 } from '../controls/controls';
+import {
+  DEFAULT_YOUTUBE_CONTROLS,
+  YouTubeControls,
+  parseYouTubeControls,
+} from '../controls/youtube';
+import { ServiceId, isServiceId } from '../services/services';
 
 export type FocusSettings = {
-  schemaVersion: 3;
+  schemaVersion: 4;
   onboardingComplete: boolean;
   openInstagramOnLaunch: boolean;
   keepLastLocation: boolean;
   grayscale: boolean;
   trackUsage: boolean;
   controls: Controls;
+  youtube: YouTubeControls;
+  /** The app Focus opens on launch: the one used last. */
+  lastService: ServiceId;
 };
 
 export const DEFAULT_SETTINGS: FocusSettings = {
-  schemaVersion: 3,
+  schemaVersion: 4,
   onboardingComplete: false,
   openInstagramOnLaunch: true,
   keepLastLocation: true,
   grayscale: false,
   trackUsage: true,
   controls: DEFAULT_CONTROLS,
+  youtube: DEFAULT_YOUTUBE_CONTROLS,
+  lastService: 'instagram',
 };
 
 function bool(value: unknown, fallback: boolean): boolean {
@@ -36,6 +47,7 @@ function bool(value: unknown, fallback: boolean): boolean {
  * Migrations:
  *  v1 → v2: adds `grayscale` and `controls` (defaults = Balanced).
  *  v2 → v3: adds `trackUsage` (default on, local only).
+ *  v3 → v4: adds `youtube` controls and `lastService` (Instagram).
  */
 export function parseSettings(raw: unknown): FocusSettings {
   if (typeof raw !== 'object' || raw === null) {
@@ -43,7 +55,7 @@ export function parseSettings(raw: unknown): FocusSettings {
   }
   const data = raw as Record<string, unknown>;
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     onboardingComplete: bool(
       data.onboardingComplete,
       DEFAULT_SETTINGS.onboardingComplete,
@@ -59,5 +71,7 @@ export function parseSettings(raw: unknown): FocusSettings {
     grayscale: bool(data.grayscale, DEFAULT_SETTINGS.grayscale),
     trackUsage: bool(data.trackUsage, DEFAULT_SETTINGS.trackUsage),
     controls: parseControls(data.controls),
+    youtube: parseYouTubeControls(data.youtube),
+    lastService: isServiceId(data.lastService) ? data.lastService : 'instagram',
   };
 }

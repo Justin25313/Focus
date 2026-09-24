@@ -19,6 +19,9 @@ import {
   formatCountdown,
   lockoutMinutes,
 } from '../controls/reelsSession';
+import { YouTubeControls, YouTubeHome } from '../controls/youtube';
+import { SERVICE_IDS, SERVICE_INFO, ServiceId } from '../services/services';
+import { AppRow, Segmented } from '../ui/AppPicker';
 import { Diagnostics } from '../storage/diagnostics';
 import { UsageLog } from '../usage/usage';
 import { AboutScreen } from './AboutScreen';
@@ -52,6 +55,8 @@ type Props = {
   reels: ReelsStatus;
   onStartReels: (minutes: number) => void;
   onEndReels: () => void;
+  activeService: ServiceId;
+  onSelectService: (id: ServiceId) => void;
 };
 
 const REASON_LABEL: Record<BlockReason, string> = {
@@ -61,6 +66,12 @@ const REASON_LABEL: Record<BlockReason, string> = {
   feed: 'Feed',
   stories: 'Stories',
   saved: 'Gespeichert',
+  shorts: 'Shorts',
+  ytHome: 'YouTube-Start',
+  ytSubs: 'YouTube-Abos',
+  ytExplore: 'YouTube-Trends',
+  spotlight: 'Spotlight',
+  snapMap: 'Snap Map',
 };
 
 const MODES: Record<PresetId, { label: string; detail: string }> = {
@@ -98,6 +109,24 @@ const HOME_FEEDS: { id: HomeFeed; label: string; detail: string }[] = [
   { id: 'off', label: 'Aus', detail: 'Focus öffnet direkt die Nachrichten.' },
 ];
 
+const YOUTUBE_HOMES: { id: YouTubeHome; label: string; detail: string }[] = [
+  {
+    id: 'subscriptions',
+    label: 'Abos',
+    detail: 'Neue Videos von Kanälen, die du abonniert hast.',
+  },
+  {
+    id: 'search',
+    label: 'Nur Suche',
+    detail: 'Kein Feed. Suchen, ansehen, fertig.',
+  },
+  {
+    id: 'normal',
+    label: 'YouTube-Startseite',
+    detail: 'Empfehlungen von YouTube, ohne Shorts.',
+  },
+];
+
 export function SettingsScreen({
   settings,
   onChange,
@@ -114,10 +143,15 @@ export function SettingsScreen({
   reels,
   onStartReels,
   onEndReels,
+  activeService,
+  onSelectService,
 }: Props) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [showAbout, setShowAbout] = useState(false);
+  const [editing, setEditing] = useState<ServiceId>(activeService);
+  const setYouTube = (patch: Partial<YouTubeControls>) =>
+    onChange({ youtube: { ...settings.youtube, ...patch } });
 
   const controls = settings.controls;
   const mode = modeOf(controls);
@@ -189,119 +223,223 @@ export function SettingsScreen({
           Instagram-Steuerung
         </Text>
 
+        <GroupedSection title="Apps">
+          {SERVICE_IDS.map(id => (
+            <AppRow
+              key={id}
+              id={id}
+              active={id === activeService}
+              onPress={() => onSelectService(id)}
+            />
+          ))}
+        </GroupedSection>
+
         {settings.trackUsage ? (
           <UsageCard log={usageLog} now={Date.now()} />
         ) : null}
 
-        <GroupedSection
-          title="Modus"
-          footer={
-            mode === 'custom'
-              ? 'Eigene Einstellung – wähle einen Modus, um zurückzusetzen.'
-              : 'Änderungen gelten sofort, ohne Instagram neu zu laden.'
-          }
-        >
-          {PRESET_ORDER.map(id => (
-            <CheckRow
-              key={id}
-              label={MODES[id].label}
-              detail={MODES[id].detail}
-              checked={mode === id}
-              onPress={() => onChange({ controls: PRESETS[id] })}
-            />
-          ))}
-          {mode === 'custom' ? (
-            <CheckRow
-              label="Eigene"
-              detail="Du hast einzelne Schalter unten angepasst."
-              checked
-              onPress={() => {}}
-            />
-          ) : null}
-        </GroupedSection>
+        <Segmented
+          options={SERVICE_IDS.map(id => ({
+            id,
+            label: SERVICE_INFO[id].name,
+          }))}
+          value={editing}
+          onChange={setEditing}
+        />
 
-        <GroupedSection title="Startseite">
-          {HOME_FEEDS.map(feed => (
-            <CheckRow
-              key={feed.id}
-              label={feed.label}
-              detail={feed.detail}
-              checked={controls.homeFeed === feed.id}
-              onPress={() => setControls({ homeFeed: feed.id })}
-            />
-          ))}
-        </GroupedSection>
+        {editing === 'instagram' ? (
+          <>
+            <GroupedSection
+              title="Modus"
+              footer={
+                mode === 'custom'
+                  ? 'Eigene Einstellung – wähle einen Modus, um zurückzusetzen.'
+                  : 'Änderungen gelten sofort, ohne Instagram neu zu laden.'
+              }
+            >
+              {PRESET_ORDER.map(id => (
+                <CheckRow
+                  key={id}
+                  label={MODES[id].label}
+                  detail={MODES[id].detail}
+                  checked={mode === id}
+                  onPress={() => onChange({ controls: PRESETS[id] })}
+                />
+              ))}
+              {mode === 'custom' ? (
+                <CheckRow
+                  label="Eigene"
+                  detail="Du hast einzelne Schalter unten angepasst."
+                  checked
+                  onPress={() => {}}
+                />
+              ) : null}
+            </GroupedSection>
 
-        <GroupedSection
-          title="Inhalte"
-          footer="Werbung und Vorschläge verschwinden nur bei eindeutiger Kennzeichnung – lieber einmal Werbung als ein fehlender Beitrag von Freunden."
-        >
-          <SwitchRow
-            label="Reels sperren"
-            value={controls.blockReels}
-            onValueChange={value => setDiscoveryBlock('blockReels', value)}
-          />
-          <SwitchRow
-            label="Explore sperren"
-            value={controls.blockExplore}
-            onValueChange={value => setDiscoveryBlock('blockExplore', value)}
-          />
-          <SwitchRow
-            label="Stories sperren"
-            value={controls.blockStories}
-            onValueChange={value => setControls({ blockStories: value })}
-          />
-          <SwitchRow
-            label="Gespeichert sperren"
-            value={controls.blockSaved}
-            onValueChange={value => setControls({ blockSaved: value })}
-          />
-          <SwitchRow
-            label="Werbung ausblenden"
-            value={controls.hideSponsored}
-            onValueChange={value => setControls({ hideSponsored: value })}
-          />
-          <SwitchRow
-            label="Vorschläge ausblenden"
-            value={controls.hideSuggested}
-            onValueChange={value => setControls({ hideSuggested: value })}
-          />
-        </GroupedSection>
+            <GroupedSection title="Startseite">
+              {HOME_FEEDS.map(feed => (
+                <CheckRow
+                  key={feed.id}
+                  label={feed.label}
+                  detail={feed.detail}
+                  checked={controls.homeFeed === feed.id}
+                  onPress={() => setControls({ homeFeed: feed.id })}
+                />
+              ))}
+            </GroupedSection>
 
-        {controls.blockReels ? (
-          <GroupedSection
-            title="Reels-Zeitfenster"
-            footer="Einmal gestartet, nicht verlängerbar. Danach sind Reels mindestens 5 Minuten gesperrt – so lange wie das Zeitfenster."
-          >
-            {reels.state === 'active' ? (
-              <ValueRow
-                label="Reels offen"
-                value={`noch ${formatCountdown(reels.remainingMs)}`}
-                valueColor={theme.accent}
+            <GroupedSection
+              title="Inhalte"
+              footer="Werbung und Vorschläge verschwinden nur bei eindeutiger Kennzeichnung – lieber einmal Werbung als ein fehlender Beitrag von Freunden."
+            >
+              <SwitchRow
+                label="Reels sperren"
+                value={controls.blockReels}
+                onValueChange={value => setDiscoveryBlock('blockReels', value)}
               />
-            ) : null}
-            {reels.state === 'active' ? (
-              <ButtonRow
-                label="Jetzt beenden"
-                onPress={onEndReels}
-                destructive
+              <SwitchRow
+                label="Explore sperren"
+                value={controls.blockExplore}
+                onValueChange={value =>
+                  setDiscoveryBlock('blockExplore', value)
+                }
               />
-            ) : null}
-            {reels.state === 'locked' ? (
-              <ValueRow
-                label="Gesperrt bis"
-                value={formatTimestamp(reels.until)}
+              <SwitchRow
+                label="Stories sperren"
+                value={controls.blockStories}
+                onValueChange={value => setControls({ blockStories: value })}
               />
-            ) : null}
-            {reels.state === 'idle'
-              ? REELS_WINDOWS_MIN.map(minutes => (
-                  <ButtonRow
-                    key={minutes}
-                    label={`Reels für ${minutes} Minuten`}
-                    onPress={() => confirmReels(minutes)}
+              <SwitchRow
+                label="Gespeichert sperren"
+                value={controls.blockSaved}
+                onValueChange={value => setControls({ blockSaved: value })}
+              />
+              <SwitchRow
+                label="Werbung ausblenden"
+                value={controls.hideSponsored}
+                onValueChange={value => setControls({ hideSponsored: value })}
+              />
+              <SwitchRow
+                label="Vorschläge ausblenden"
+                value={controls.hideSuggested}
+                onValueChange={value => setControls({ hideSuggested: value })}
+              />
+            </GroupedSection>
+
+            {controls.blockReels ? (
+              <GroupedSection
+                title="Reels-Zeitfenster"
+                footer="Einmal gestartet, nicht verlängerbar. Danach sind Reels mindestens 5 Minuten gesperrt – so lange wie das Zeitfenster."
+              >
+                {reels.state === 'active' ? (
+                  <ValueRow
+                    label="Reels offen"
+                    value={`noch ${formatCountdown(reels.remainingMs)}`}
+                    valueColor={theme.accent}
                   />
-                ))
-              : null}
+                ) : null}
+                {reels.state === 'active' ? (
+                  <ButtonRow
+                    label="Jetzt beenden"
+                    onPress={onEndReels}
+                    destructive
+                  />
+                ) : null}
+                {reels.state === 'locked' ? (
+                  <ValueRow
+                    label="Gesperrt bis"
+                    value={formatTimestamp(reels.until)}
+                  />
+                ) : null}
+                {reels.state === 'idle'
+                  ? REELS_WINDOWS_MIN.map(minutes => (
+                      <ButtonRow
+                        key={minutes}
+                        label={`Reels für ${minutes} Minuten`}
+                        onPress={() => confirmReels(minutes)}
+                      />
+                    ))
+                  : null}
+              </GroupedSection>
+            ) : null}
+
+            <GroupedSection
+              title="Instagram"
+              footer="Manches (Kamera, Filter, bestimmte Posting-Funktionen) gibt es nur in der offiziellen App. Öffne sie dafür gezielt – und danach wieder Focus."
+            >
+              <ButtonRow label="Seite neu laden" onPress={onReload} />
+              <ButtonRow
+                label="Zum Posten: Instagram-App öffnen"
+                onPress={onOpenInstagramApp}
+              />
+            </GroupedSection>
+          </>
+        ) : null}
+
+        {editing === 'youtube' ? (
+          <>
+            <GroupedSection
+              title="YouTube-Start"
+              footer="Ohne Startseite gibt es keine Empfehlungs-Endlosliste – nur das, was du abonniert hast oder suchst."
+            >
+              {YOUTUBE_HOMES.map(home => (
+                <CheckRow
+                  key={home.id}
+                  label={home.label}
+                  detail={home.detail}
+                  checked={settings.youtube.home === home.id}
+                  onPress={() => setYouTube({ home: home.id })}
+                />
+              ))}
+            </GroupedSection>
+            <GroupedSection
+              title="YouTube-Inhalte"
+              footer="Trends, Erkunden und Gaming sind immer gesperrt."
+            >
+              <SwitchRow
+                label="Shorts sperren"
+                value={settings.youtube.blockShorts}
+                onValueChange={value => {
+                  if (value) {
+                    setYouTube({ blockShorts: true });
+                    return;
+                  }
+                  Alert.alert(
+                    'Shorts wirklich erlauben?',
+                    'Damit ist der Shorts-Feed in Focus wieder erreichbar – genau das, wovor Focus schützt.',
+                    [
+                      { text: 'Gesperrt lassen', style: 'cancel' },
+                      {
+                        text: 'Erlauben',
+                        style: 'destructive',
+                        onPress: () => setYouTube({ blockShorts: false }),
+                      },
+                    ],
+                  );
+                }}
+              />
+              <SwitchRow
+                label="Empfehlungen unter Videos ausblenden"
+                detail="Kein „Als Nächstes“ – nach dem Video ist Schluss."
+                value={settings.youtube.hideRelated}
+                onValueChange={value => setYouTube({ hideRelated: value })}
+              />
+              <SwitchRow
+                label="Kommentare ausblenden"
+                value={settings.youtube.hideComments}
+                onValueChange={value => setYouTube({ hideComments: value })}
+              />
+            </GroupedSection>
+          </>
+        ) : null}
+
+        {editing === 'snapchat' ? (
+          <GroupedSection
+            title="Snapchat (Beta)"
+            footer="Snapchat für Web ist für Computer gedacht; Focus gibt sich dort als Desktop-Browser aus. Chats, Snaps und Stories von Freunden gehen, Spotlight und Discover gibt es im Web ohnehin nicht."
+          >
+            <ValueRow label="Spotlight & Discover" value="Gesperrt" />
+            <ValueRow label="Snap Map" value="Gesperrt" />
           </GroupedSection>
         ) : null}
 
@@ -316,8 +454,8 @@ export function SettingsScreen({
 
         <GroupedSection title="Verhalten">
           <SwitchRow
-            label="Instagram beim Start öffnen"
-            detail="Focus antippen – und du bist sofort in Instagram."
+            label="Zuletzt genutzte App öffnen"
+            detail="Focus antippen – und du bist sofort in Instagram, YouTube oder Snapchat."
             value={settings.openInstagramOnLaunch}
             onValueChange={value => onChange({ openInstagramOnLaunch: value })}
           />
@@ -332,17 +470,6 @@ export function SettingsScreen({
             detail="Nur Zeit mit Instagram im Vordergrund. Bleibt auf diesem iPhone."
             value={settings.trackUsage}
             onValueChange={value => onChange({ trackUsage: value })}
-          />
-        </GroupedSection>
-
-        <GroupedSection
-          title="Instagram"
-          footer="Manches (Kamera, Filter, bestimmte Posting-Funktionen) gibt es nur in der offiziellen App. Öffne sie dafür gezielt – und danach wieder Focus."
-        >
-          <ButtonRow label="Seite neu laden" onPress={onReload} />
-          <ButtonRow
-            label="Zum Posten: Instagram-App öffnen"
-            onPress={onOpenInstagramApp}
           />
         </GroupedSection>
 
@@ -438,7 +565,7 @@ export function SettingsScreen({
         </GroupedSection>
 
         <Text style={[styles.about, { color: theme.tertiaryLabel }]}>
-          Focus 0.6 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
+          Focus 0.7 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
           Deine Einstellungen bleiben auf diesem iPhone.
         </Text>
       </ScrollView>

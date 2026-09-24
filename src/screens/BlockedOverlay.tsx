@@ -31,6 +31,30 @@ const COPY: Record<BlockReason, { title: string; body: string }> = {
     title: 'Gespeichert ist aus',
     body: 'Gespeicherte Beiträge sind in Focus ausgeschaltet – sie werden schnell zur eigenen Endlosliste.',
   },
+  shorts: {
+    title: 'Shorts sind aus',
+    body: 'Shorts ziehen dich von einem Video ins nächste. In Focus bleiben sie gesperrt.',
+  },
+  ytHome: {
+    title: 'Was willst du sehen?',
+    body: 'Die YouTube-Startseite mit Empfehlungen ist aus. Such gezielt nach einem Video oder Kanal.',
+  },
+  ytSubs: {
+    title: 'Nur Suche',
+    body: 'In diesem Modus gibt es kein Abo-Feed – nur gezielte Suche. Den Modus änderst du im Focus-Tab.',
+  },
+  ytExplore: {
+    title: 'Trends sind aus',
+    body: 'Trends, Erkunden und Gaming sind algorithmische Endlos-Listen und bleiben gesperrt.',
+  },
+  spotlight: {
+    title: 'Spotlight ist aus',
+    body: 'Spotlight und Discover sind der Endlos-Feed von Snapchat. In Focus bleiben sie gesperrt.',
+  },
+  snapMap: {
+    title: 'Die Snap Map ist aus',
+    body: 'Die Karte lädt zum Stöbern ein. In Focus bleibt sie gesperrt.',
+  },
 };
 
 export function BlockedOverlay({
@@ -77,10 +101,15 @@ export function BlockedOverlay({
         {reason === 'explore' ? (
           <PrimaryButton title="Profil suchen" onPress={onSearch} />
         ) : null}
+        {reason === 'ytHome' || reason === 'ytSubs' ? (
+          <PrimaryButton title="Suchen" onPress={onSearch} />
+        ) : null}
         <PrimaryButton
           title="Zurück"
           onPress={onBack}
-          secondary={reason === 'explore'}
+          secondary={
+            reason === 'explore' || reason === 'ytHome' || reason === 'ytSubs'
+          }
         />
         {reason === 'sharedReel' && !timeUp ? (
           <PrimaryButton

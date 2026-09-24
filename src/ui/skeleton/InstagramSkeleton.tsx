@@ -7,7 +7,13 @@ import { AvatarRow, Bone, Circle, Lines, Pulse } from './Skeleton';
  * Placeholders shaped like the Instagram page that is about to appear, so
  * the swap from skeleton to real content does not move anything around.
  */
-export type SkeletonVariant = 'feed' | 'inbox' | 'profile' | 'post' | 'generic';
+export type SkeletonVariant =
+  | 'feed'
+  | 'inbox'
+  | 'profile'
+  | 'post'
+  | 'generic'
+  | 'videos';
 
 export function skeletonForRoute(kind: RouteKind): SkeletonVariant {
   switch (kind) {
@@ -33,6 +39,7 @@ export function InstagramSkeleton({ variant }: { variant: SkeletonVariant }) {
       {variant === 'profile' ? <Profile /> : null}
       {variant === 'post' ? <Post /> : null}
       {variant === 'generic' ? <Generic /> : null}
+      {variant === 'videos' ? <Videos /> : null}
     </Pulse>
   );
 }
@@ -140,6 +147,32 @@ function Profile() {
   );
 }
 
+/** YouTube: 16:9 thumbnails with channel avatar and two title lines. */
+function Videos() {
+  const { width } = useWindowDimensions();
+  return (
+    <View>
+      <View style={styles.header}>
+        <Bone width={96} height={22} />
+        <View style={styles.headerIcons}>
+          <Circle size={26} />
+          <Circle size={26} />
+        </View>
+      </View>
+      {[0, 1, 2].map(i => (
+        <View key={i} style={styles.video}>
+          <Bone width={width} height={(width * 9) / 16} radius={0} />
+          <AvatarRow
+            size={36}
+            widths={[i % 2 ? '80%' : '90%', '45%']}
+            style={styles.videoMeta}
+          />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function Generic() {
   return (
     <View>
@@ -231,6 +264,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 1,
+  },
+  video: {
+    marginBottom: 12,
+  },
+  videoMeta: {
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    alignItems: 'flex-start',
   },
   generic: {
     paddingHorizontal: 16,

@@ -24,16 +24,10 @@ export const INSTAGRAM_INBOX_PATH = '/direct/inbox/';
 /** Chronological feed of followed accounts only. */
 export const INSTAGRAM_FOLLOWING_PATH = '/?variant=following';
 
-export const BLOCK_REASONS = [
-  'reels',
-  'sharedReel',
-  'explore',
-  'feed',
-  'stories',
-  'saved',
-] as const;
+import { RoutePolicy, RouteRule, ServiceRules } from '../engine/types';
 
-export type BlockReason = (typeof BLOCK_REASONS)[number];
+export { BLOCK_REASONS } from '../engine/types';
+export type { BlockReason, RoutePolicy, RouteRule } from '../engine/types';
 
 export type RouteKind =
   | 'home'
@@ -44,10 +38,6 @@ export type RouteKind =
   | 'search'
   | 'auth'
   | 'other';
-
-export type RouteRule =
-  | { id: string; pattern: string; effect: 'allow' }
-  | { id: string; pattern: string; effect: 'block'; reason: BlockReason };
 
 /**
  * Ordered: the first matching rule wins. Patterns are matched
@@ -93,9 +83,6 @@ export const INSTAGRAM_ROUTE_RULES: readonly RouteRule[] = [
     reason: 'saved',
   },
 ];
-
-/** Which block reasons are active; derived from the user's controls. */
-export type RoutePolicy = Record<BlockReason, boolean>;
 
 /** The "Balanced" default: discovery blocked, social features open. */
 export const DEFAULT_POLICY: RoutePolicy = {
@@ -239,6 +226,12 @@ export function isInAppHost(host: string): boolean {
     host.endsWith('.facebook.com')
   );
 }
+
+export const INSTAGRAM_SERVICE_RULES: ServiceRules = {
+  rules: INSTAGRAM_ROUTE_RULES,
+  guardedHosts: GUARDED_HOSTS,
+  isInAppHost,
+};
 
 /** Schemes handed to iOS instead of loading in the WebView. */
 export const SYSTEM_SCHEMES: ReadonlySet<string> = new Set([
