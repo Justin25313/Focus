@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "check": "npm run typecheck && npm run lint && npm test",
-    "pods": "cd ios && bundle install && bundle exec pod install"
+    "pods": "cd ios && bundle install && bundle exec pod install",
+    "ipa": "./scripts/build-ipa.sh"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^3.1.1",

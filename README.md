@@ -81,6 +81,20 @@ Mit einem kostenlosen Personal Team läuft das Zertifikat nach 7 Tagen ab. Dann
 startet Focus nicht mehr – einfach iPhone anschließen und in Xcode erneut **▶︎ Run**.
 Deine Instagram-Anmeldung und die Focus-Einstellungen bleiben dabei erhalten.
 
+### Ohne 7-Tage-Kabel: SideStore
+
+SideStore erneuert die Signatur automatisch auf dem iPhone.
+
+1. **iPhone:** *Entwicklermodus* an (siehe oben) und aus dem App Store **LocalDevVPN** installieren.
+2. **Mac:** Installer von [docs.sidestore.io](https://docs.sidestore.io) laden (iloader), iPhone per Kabel
+   anschließen, mit der Apple-ID anmelden, **SideStore installieren** lassen.
+3. **iPhone:** *Einstellungen → Allgemein → VPN & Geräteverwaltung* → Apple-ID → *Vertrauen*.
+   SideStore öffnen, mit derselben Apple-ID anmelden, LocalDevVPN verbinden.
+4. **Mac:** `npm run ipa` → erzeugt `dist/Focus.ipa`. Per AirDrop aufs iPhone → *Öffnen in SideStore*
+   (oder in SideStore: *My Apps → +*).
+5. Fertig. SideStore erneuert Focus im Hintergrund, solange LocalDevVPN bei der Aktualisierung aktiv ist.
+   Neue Focus-Version: `git pull && npm run ipa` und erneut in SideStore öffnen.
+
 ### Empfohlenes Setup
 
 1. Instagram-App vom Home-Bildschirm entfernen („Aus Home-Bildschirm entfernen“ – sie bleibt in der App-Mediathek).
