@@ -1,0 +1,89 @@
+import {
+  parseDiagnostics,
+  EMPTY_DIAGNOSTICS,
+} from '../src/storage/diagnostics';
+import {
+  addToSearchHistory,
+  MAX_SEARCH_HISTORY,
+  parseSearchHistory,
+} from '../src/storage/searchHistory';
+import { DEFAULT_SETTINGS, parseSettings } from '../src/storage/settings';
+
+describe('parseSettings', () => {
+  it('returns defaults for missing or broken data', () => {
+    expect(parseSettings(null)).toEqual(DEFAULT_SETTINGS);
+    expect(parseSettings('garbage')).toEqual(DEFAULT_SETTINGS);
+    expect(parseSettings({})).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('keeps valid values and drops invalid ones', () => {
+    expect(
+      parseSettings({
+        onboardingComplete: true,
+        openInstagramOnLaunch: false,
+        keepLastLocation: 'yes',
+        unknown: 1,
+      }),
+    ).toEqual({
+      schemaVersion: 1,
+      onboardingComplete: true,
+      openInstagramOnLaunch: false,
+      keepLastLocation: true,
+    });
+  });
+
+  it('defaults match the PRD personal configuration', () => {
+    expect(DEFAULT_SETTINGS.openInstagramOnLaunch).toBe(true);
+    expect(DEFAULT_SETTINGS.keepLastLocation).toBe(true);
+  });
+});
+
+describe('parseDiagnostics', () => {
+  it('tolerates junk', () => {
+    expect(parseDiagnostics(undefined)).toEqual(EMPTY_DIAGNOSTICS);
+    expect(
+      parseDiagnostics({
+        blockedCount: 'x',
+        lastBlocked: { path: '/reels/', reason: 'nope', at: 1 },
+      }),
+    ).toEqual(EMPTY_DIAGNOSTICS);
+  });
+
+  it('round-trips valid data', () => {
+    const data = {
+      lastFilterReadyAt: 10,
+      lastBlocked: { path: '/reels/', reason: 'reels' as const, at: 11 },
+      blockedCount: 4,
+      lastUnknownRoute: { path: '/x/y/z/', at: 12 },
+      lastError: { code: 'FILTER_TIMEOUT', at: 13 },
+      webProcessRestarts: 1,
+    };
+    expect(parseDiagnostics(JSON.parse(JSON.stringify(data)))).toEqual(data);
+  });
+});
+
+describe('search history', () => {
+  it('moves repeated names to the front, case-insensitively', () => {
+    expect(addToSearchHistory(['a', 'natgeo', 'b'], 'NatGeo')).toEqual([
+      'NatGeo',
+      'a',
+      'b',
+    ]);
+  });
+
+  it('is capped', () => {
+    let history: string[] = [];
+    for (let i = 0; i < 30; i++) {
+      history = addToSearchHistory(history, `user${i}`);
+    }
+    expect(history).toHaveLength(MAX_SEARCH_HISTORY);
+    expect(history[0]).toBe('user29');
+  });
+
+  it('drops invalid stored entries', () => {
+    expect(parseSearchHistory(['ok', 5, 'explore', 'bad name'])).toEqual([
+      'ok',
+    ]);
+    expect(parseSearchHistory('x')).toEqual([]);
+  });
+});
