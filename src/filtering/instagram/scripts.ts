@@ -1,14 +1,36 @@
 import {
+  Controls,
+  DEFAULT_CONTROLS,
+  HomeFeed,
+  policyFor,
+} from '../../controls/controls';
+import {
   GUARDED_HOSTS,
+  INSTAGRAM_FOLLOWING_PATH,
+  INSTAGRAM_INBOX_PATH,
   INSTAGRAM_ORIGIN,
   INSTAGRAM_ROUTE_RULES,
   INSTAGRAM_RULE_VERSION,
   RoutePolicy,
-  STRICT_POLICY,
 } from './routes';
 
 /** Public app id Instagram's own web client sends with API requests. */
 const INSTAGRAM_WEB_APP_ID = '936619743392459';
+
+/**
+ * Post labels, matched only as the exact, complete text of a small leaf
+ * element near the top of a post. A post is only hidden on an exact
+ * match: showing an ad now and then beats hiding a friend's post.
+ */
+const SPONSORED_LABELS = ['sponsored', 'gesponsert', 'anzeige', 'werbung'];
+const SUGGESTED_LABELS = [
+  'suggested for you',
+  'suggested posts',
+  'für dich vorgeschlagen',
+  'vorgeschlagen für dich',
+  'vorschläge für dich',
+  'vorgeschlagene beiträge',
+];
 
 export type GuardConfig = {
   version: string;
@@ -22,12 +44,20 @@ export type GuardConfig = {
   hiddenLinkSelectors: string[];
   /** Hide Instagram's bottom tab bar; Focus shows its own. */
   hideInstagramNav: boolean;
+  homeFeed: HomeFeed;
+  followingPath: string;
+  inboxPath: string;
+  grayscale: boolean;
+  sponsoredLabels: string[];
+  suggestedLabels: string[];
   webAppId: string;
 };
 
 export function buildGuardConfig(
-  policy: RoutePolicy = STRICT_POLICY,
+  controls: Controls = DEFAULT_CONTROLS,
+  grayscale = false,
 ): GuardConfig {
+  const policy = policyFor(controls);
   const hidden: string[] = [];
   if (policy.reels) {
     hidden.push(
@@ -36,6 +66,9 @@ export function buildGuardConfig(
       'a[href$="/reels/"]',
       'a[href^="https://www.instagram.com/reels/"]',
     );
+  }
+  if (policy.saved) {
+    hidden.push('a[href$="/saved/"]');
   }
   return {
     version: INSTAGRAM_RULE_VERSION,
@@ -46,6 +79,12 @@ export function buildGuardConfig(
     searchPaths: policy.explore ? ['/explore/'] : [],
     hiddenLinkSelectors: hidden,
     hideInstagramNav: true,
+    homeFeed: controls.homeFeed,
+    followingPath: INSTAGRAM_FOLLOWING_PATH,
+    inboxPath: INSTAGRAM_INBOX_PATH,
+    grayscale,
+    sponsoredLabels: controls.hideSponsored ? SPONSORED_LABELS : [],
+    suggestedLabels: controls.hideSuggested ? SUGGESTED_LABELS : [],
     webAppId: INSTAGRAM_WEB_APP_ID,
   };
 }
@@ -62,6 +101,9 @@ export function buildGuardConfig(
  *  - hide Instagram's own bottom tab bar (Focus has a native one) and
  *    report the signed-in user's profile path found in it
  *  - tell the app when a page has settled, so its loading skeleton can go
+ *  - apply the home feed mode (Following feed, hidden feed, no feed)
+ *  - hide posts labelled as sponsored or suggested (exact label match only)
+ *  - grayscale
  *
  * DOM work is driven by one batched MutationObserver, so changes apply
  * before the next paint instead of popping in later.
@@ -84,6 +126,11 @@ const GUARD_SOURCE = String.raw`
   var PROFILE_PATH = /^\/([A-Za-z0-9._]{1,30})\/$/;
   var NOT_PROFILES = ['explore', 'reels', 'reel', 'direct', 'accounts', 'p', 'stories', 'tv'];
   var ownProfilePath = null;
+  var ROUTE_ATTR = 'data-focus-route';
+  var HIDDEN_ATTR = 'data-focus-hidden';
+  var SCAN_ATTR = 'data-focus-scan';
+  var MAX_SCANS = 5;
+  var lastRedirectAt = 0;
   var SETTLE_QUIET_MS = 250;
   var SETTLE_MAX_MS = 4000;
   var settlePath = null;
@@ -92,7 +139,7 @@ const GUARD_SOURCE = String.raw`
   var domWorkScheduled = false;
   var lastDomWork = 0;
   var DOM_WORK_MIN_GAP_MS = 120;
-  var SAFE_PATH = /^\/[A-Za-z0-9._\-\/]*$/;
+  var SAFE_PATH = /^\/[A-Za-z0-9._\-\/]*(\?variant=[a-z]+)?$/;
   var rules = [];
   var lastRoutePath = null;
   var lastAllowedPath = null;
@@ -131,6 +178,18 @@ const GUARD_SOURCE = String.raw`
     }
     if (config.hideInstagramNav) {
       css += '[' + NAV_ATTR + ']{display:none!important;}';
+    }
+    css += '[' + HIDDEN_ATTR + ']{display:none!important;}';
+    if (config.homeFeed === 'hidden') {
+      css +=
+        'html[' + ROUTE_ATTR + '="home"] main article{display:none!important;}' +
+        'html[' + ROUTE_ATTR + '="home"] main::after{content:"Feed ausgeblendet – Stories oben, Nachrichten über Focus.";' +
+        'display:block;text-align:center;padding:48px 32px;color:#8e8e8e;' +
+        'font:15px/1.4 -apple-system,system-ui,sans-serif;}';
+    }
+    if (config.grayscale) {
+      // On the root element a filter does not break position:fixed.
+      css += 'html{filter:grayscale(1)!important;}';
     }
     return css;
   }
@@ -289,6 +348,73 @@ const GUARD_SOURCE = String.raw`
     }, Math.max(16, DOM_WORK_MIN_GAP_MS - gap));
   }
 
+  function hasLabel(article, labels) {
+    var nodes = article.querySelectorAll('span, a, div, h2');
+    var limit = Math.min(nodes.length, 60);
+    for (var i = 0; i < limit; i++) {
+      if (nodes[i].childElementCount === 0) {
+        var text = (nodes[i].textContent || '').trim().toLowerCase();
+        if (text && text.length <= 40 && labels.indexOf(text) !== -1) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  function filterPosts() {
+    if (!config.sponsoredLabels.length && !config.suggestedLabels.length) {
+      return;
+    }
+    var articles = document.querySelectorAll('article:not([' + HIDDEN_ATTR + '])');
+    for (var i = 0; i < articles.length; i++) {
+      var article = articles[i];
+      var scans = Number(article.getAttribute(SCAN_ATTR) || 0);
+      if (scans >= MAX_SCANS) {
+        continue;
+      }
+      article.setAttribute(SCAN_ATTR, String(scans + 1));
+      var kind = hasLabel(article, config.sponsoredLabels)
+        ? 'sponsored'
+        : hasLabel(article, config.suggestedLabels)
+        ? 'suggested'
+        : null;
+      if (kind) {
+        article.setAttribute(HIDDEN_ATTR, kind);
+        post({ type: 'CONTENT_HIDDEN', kind: kind });
+      }
+    }
+  }
+
+  // Undo hiding that the current config no longer asks for, and rescan.
+  function resetPostFilter() {
+    var hidden = document.querySelectorAll('[' + HIDDEN_ATTR + ']');
+    for (var i = 0; i < hidden.length; i++) {
+      var kind = hidden[i].getAttribute(HIDDEN_ATTR);
+      var labels = kind === 'sponsored' ? config.sponsoredLabels : config.suggestedLabels;
+      if (!labels.length) {
+        hidden[i].removeAttribute(HIDDEN_ATTR);
+      }
+    }
+    var scanned = document.querySelectorAll('[' + SCAN_ATTR + ']');
+    for (var j = 0; j < scanned.length; j++) {
+      scanned[j].removeAttribute(SCAN_ATTR);
+    }
+  }
+
+  function redirectOnce(target, replace) {
+    if (Date.now() - lastRedirectAt < 3000) {
+      return;
+    }
+    lastRedirectAt = Date.now();
+    if (replace) {
+      // Indirection only so tests can observe full-page redirects.
+      (w.__focusReplaceForTests || location.replace.bind(location))(target);
+    } else {
+      navigate(target);
+    }
+  }
+
   function check() {
     if (!isGuardedHost()) {
       return;
@@ -296,7 +422,30 @@ const GUARD_SOURCE = String.raw`
     ensureStyle(false);
     tidyInstagramNav();
     var path = location.pathname || '/';
+    var root = document.documentElement;
+    if (root) {
+      if (path === '/') {
+        root.setAttribute(ROUTE_ATTR, 'home');
+      } else {
+        root.removeAttribute(ROUTE_ATTR);
+      }
+    }
     var reason = reasonFor(path);
+    if (reason === 'feed') {
+      // "Messages only": home is never shown, go straight to the inbox.
+      redirectOnce(config.inboxPath, false);
+      lastRoutePath = path;
+      return;
+    }
+    if (
+      !reason &&
+      path === '/' &&
+      config.homeFeed === 'following' &&
+      !/[?&]variant=/.test(location.search)
+    ) {
+      redirectOnce(config.followingPath, true);
+    }
+    filterPosts();
     if (reason) {
       if (!blocked || lastRoutePath !== path) {
         setBlocked(true);
@@ -336,6 +485,7 @@ const GUARD_SOURCE = String.raw`
     }
     rules = compiled;
     ensureStyle(true);
+    resetPostFilter();
     lastRoutePath = null;
     safeCheck();
   }
@@ -409,7 +559,7 @@ const GUARD_SOURCE = String.raw`
       location.assign(config.origin + path);
       return;
     }
-    if (reasonFor(path)) {
+    if (reasonFor(path.split('?')[0])) {
       return;
     }
     var anchor = document.querySelector('a[href="' + path + '"]');
@@ -526,13 +676,20 @@ const GUARD_SOURCE = String.raw`
   setInterval(safeCheck, 1000);
 })`;
 
+/** Applies a new config to an already running guard. */
+export function configureScript(config: GuardConfig): string {
+  return `(function(){if(window.__focusGuard){window.__focusGuard.configure(${JSON.stringify(
+    config,
+  )});}})();true;`;
+}
+
 export function buildGuardScript(
   config: GuardConfig = buildGuardConfig(),
 ): string {
   return `${GUARD_SOURCE}(${JSON.stringify(config)});\ntrue;`;
 }
 
-const CALLABLE_PATH = /^\/[A-Za-z0-9._\-/]*$/;
+const CALLABLE_PATH = /^\/[A-Za-z0-9._\-/]*(\?variant=[a-z]+)?$/;
 
 /** Script that navigates inside Instagram, preferring SPA navigation. */
 export function navigateScript(path: string): string | null {

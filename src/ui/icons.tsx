@@ -135,6 +135,14 @@ export function ChevronIcon({ color, size = 14 }: IconProps) {
   );
 }
 
+export function CheckIcon({ color, size = 18 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d="m4.5 12.5 5 5 10-11" {...stroke(color)} strokeWidth={2.6} />
+    </Svg>
+  );
+}
+
 export function VerifiedIcon({ color, size = 14 }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">

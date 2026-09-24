@@ -23,12 +23,12 @@ const TABS: { id: TabId; label: string; Icon: typeof HomeIcon }[] = [
 export function TabBar({
   active,
   onPress,
-  showProfile,
+  hiddenTabs = [],
 }: {
   active: TabId;
   onPress: (tab: TabId) => void;
-  /** The profile tab appears once the signed-in account is known. */
-  showProfile: boolean;
+  /** Tabs that do not apply right now (e.g. no profile before login). */
+  hiddenTabs?: TabId[];
 }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -45,7 +45,7 @@ export function TabBar({
         },
       ]}
     >
-      {TABS.filter(tab => showProfile || tab.id !== 'profile').map(
+      {TABS.filter(tab => !hiddenTabs.includes(tab.id)).map(
         ({ id, label, Icon }) => {
           const selected = id === active;
           const color = selected ? theme.label : theme.secondaryLabel;

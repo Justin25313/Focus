@@ -12,15 +12,28 @@
  *   /explore/          Explore grid (also mobile web search tab)  → block
  *   /explore/tags/…    Hashtag grid                               → block
  *   /explore/search/   Plain search page                          → allow
+ *
+ * Mode-dependent (see src/controls): / (home feed), /stories/…, /<user>/saved/
  */
 
-export const INSTAGRAM_RULE_VERSION = '2026.09.1';
+export const INSTAGRAM_RULE_VERSION = '2026.09.2';
 
 export const INSTAGRAM_ORIGIN = 'https://www.instagram.com';
 export const INSTAGRAM_HOME_PATH = '/';
 export const INSTAGRAM_INBOX_PATH = '/direct/inbox/';
+/** Chronological feed of followed accounts only. */
+export const INSTAGRAM_FOLLOWING_PATH = '/?variant=following';
 
-export type BlockReason = 'reels' | 'sharedReel' | 'explore';
+export const BLOCK_REASONS = [
+  'reels',
+  'sharedReel',
+  'explore',
+  'feed',
+  'stories',
+  'saved',
+] as const;
+
+export type BlockReason = (typeof BLOCK_REASONS)[number];
 
 export type RouteKind =
   | 'home'
@@ -41,6 +54,7 @@ export type RouteRule =
  * case-insensitively against the URL pathname.
  */
 export const INSTAGRAM_ROUTE_RULES: readonly RouteRule[] = [
+  { id: 'home', pattern: '^/$', effect: 'block', reason: 'feed' },
   { id: 'explore-search', pattern: '^/explore/search/?$', effect: 'allow' },
   {
     id: 'explore',
@@ -66,15 +80,31 @@ export const INSTAGRAM_ROUTE_RULES: readonly RouteRule[] = [
     effect: 'block',
     reason: 'reels',
   },
+  {
+    id: 'stories',
+    pattern: '^/stories(?:/|$)',
+    effect: 'block',
+    reason: 'stories',
+  },
+  {
+    id: 'profile-saved',
+    pattern: '^/[^/]+/saved(?:/|$)',
+    effect: 'block',
+    reason: 'saved',
+  },
 ];
 
-/** Which block reasons are active. Milestone 2: everything is always on. */
+/** Which block reasons are active; derived from the user's controls. */
 export type RoutePolicy = Record<BlockReason, boolean>;
 
-export const STRICT_POLICY: RoutePolicy = {
+/** The "Balanced" default: discovery blocked, social features open. */
+export const DEFAULT_POLICY: RoutePolicy = {
   reels: true,
   sharedReel: true,
   explore: true,
+  feed: false,
+  stories: false,
+  saved: false,
 };
 
 /**

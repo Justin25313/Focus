@@ -36,6 +36,8 @@
 	</dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Instagram in Focus möchte die Kamera nutzen, um Fotos für Nachrichten oder Beiträge aufzunehmen.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Nur für die Entwicklerversion: lädt Änderungen live vom Mac im selben WLAN.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Instagram in Focus möchte das Mikrofon für Video- und Sprachaufnahmen nutzen.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

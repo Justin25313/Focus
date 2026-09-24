@@ -7,6 +7,7 @@ import {
   MAX_SEARCH_HISTORY,
   parseSearchHistory,
 } from '../src/storage/searchHistory';
+import { PRESETS } from '../src/controls/controls';
 import { DEFAULT_SETTINGS, parseSettings } from '../src/storage/settings';
 
 describe('parseSettings', () => {
@@ -25,11 +26,31 @@ describe('parseSettings', () => {
         unknown: 1,
       }),
     ).toEqual({
-      schemaVersion: 1,
+      ...DEFAULT_SETTINGS,
       onboardingComplete: true,
       openInstagramOnLaunch: false,
       keepLastLocation: true,
     });
+  });
+
+  it('migrates v1 settings to the Balanced controls', () => {
+    const migrated = parseSettings({
+      schemaVersion: 1,
+      onboardingComplete: true,
+      openInstagramOnLaunch: true,
+      keepLastLocation: false,
+    });
+    expect(migrated.schemaVersion).toBe(2);
+    expect(migrated.keepLastLocation).toBe(false);
+    expect(migrated.grayscale).toBe(false);
+    expect(migrated.controls).toEqual(PRESETS.balanced);
+  });
+
+  it('repairs broken controls field by field', () => {
+    const parsed = parseSettings({
+      controls: { blockReels: false, homeFeed: 'weird', blockStories: 'yes' },
+    });
+    expect(parsed.controls).toEqual({ ...PRESETS.balanced, blockReels: false });
   });
 
   it('defaults match the PRD personal configuration', () => {
@@ -57,6 +78,8 @@ describe('parseDiagnostics', () => {
       lastUnknownRoute: { path: '/x/y/z/', at: 12 },
       lastError: { code: 'FILTER_TIMEOUT', at: 13 },
       webProcessRestarts: 1,
+      hiddenSponsored: 2,
+      hiddenSuggested: 3,
     };
     expect(parseDiagnostics(JSON.parse(JSON.stringify(data)))).toEqual(data);
   });

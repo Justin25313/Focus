@@ -1,6 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  Controls,
+  PRESETS,
+  PRESET_ORDER,
+  PresetId,
+} from '../controls/controls';
+import { CheckRow, GroupedSection } from '../ui/Grouped';
 import { FocusIcon } from '../ui/icons';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { useTheme } from '../ui/theme';
@@ -20,8 +27,25 @@ const POINTS: { title: string; body: string }[] = [
   },
 ];
 
-export function OnboardingScreen({ onContinue }: { onContinue: () => void }) {
+const MODE_LABELS: Record<PresetId, { label: string; detail: string }> = {
+  balanced: {
+    label: 'Ausgewogen',
+    detail: 'Feed nur von Leuten, denen du folgst.',
+  },
+  storiesMessages: {
+    label: 'Stories + Nachrichten',
+    detail: 'Kein Feed, nur Stories und DMs.',
+  },
+  messages: { label: 'Nur Nachrichten', detail: 'Nur Direktnachrichten.' },
+};
+
+export function OnboardingScreen({
+  onContinue,
+}: {
+  onContinue: (controls: Controls) => void;
+}) {
   const theme = useTheme();
+  const [preset, setPreset] = useState<PresetId>('balanced');
   const insets = useSafeAreaInsets();
   return (
     <View
@@ -61,13 +85,33 @@ export function OnboardingScreen({ onContinue }: { onContinue: () => void }) {
           ))}
         </View>
 
+        <Text style={[styles.modeTitle, { color: theme.label }]}>
+          Wähle deinen Modus
+        </Text>
+        <View style={styles.modes}>
+          <GroupedSection footer="Jederzeit änderbar im Focus-Tab.">
+            {PRESET_ORDER.map(id => (
+              <CheckRow
+                key={id}
+                label={MODE_LABELS[id].label}
+                detail={MODE_LABELS[id].detail}
+                checked={preset === id}
+                onPress={() => setPreset(id)}
+              />
+            ))}
+          </GroupedSection>
+        </View>
+
         <Text style={[styles.tip, { color: theme.secondaryLabel }]}>
           Tipp: Leg Focus auf den Platz der Instagram-App und verschiebe
           Instagram in die App-Mediathek.
         </Text>
       </ScrollView>
       <View style={styles.footer}>
-        <PrimaryButton title="Instagram öffnen" onPress={onContinue} />
+        <PrimaryButton
+          title="Instagram öffnen"
+          onPress={() => onContinue(PRESETS[preset])}
+        />
       </View>
     </View>
   );
@@ -125,10 +169,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
   },
+  modeTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 36,
+    marginBottom: 12,
+  },
+  modes: {
+    marginHorizontal: -32,
+  },
   tip: {
     fontSize: 14,
     lineHeight: 20,
-    marginTop: 36,
+    marginTop: 4,
   },
   footer: {
     paddingHorizontal: 24,

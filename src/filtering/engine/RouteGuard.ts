@@ -5,7 +5,7 @@ import {
   RouteKind,
   RoutePolicy,
   RouteRule,
-  STRICT_POLICY,
+  DEFAULT_POLICY,
   SYSTEM_SCHEMES,
   isInAppHost,
   isPersistableKind,
@@ -54,7 +54,7 @@ const COMPILED_RULES: readonly CompiledRule[] = INSTAGRAM_ROUTE_RULES.map(
 /** Returns the active block reason for an Instagram path, or null. */
 export function blockReasonForPath(
   path: string,
-  policy: RoutePolicy = STRICT_POLICY,
+  policy: RoutePolicy = DEFAULT_POLICY,
 ): BlockReason | null {
   for (const { rule, regex } of COMPILED_RULES) {
     if (regex.test(path)) {
@@ -77,7 +77,7 @@ export type NavigationRequest = {
  */
 export function decideNavigation(
   request: NavigationRequest,
-  policy: RoutePolicy = STRICT_POLICY,
+  policy: RoutePolicy = DEFAULT_POLICY,
 ): NavigationDecision {
   const parsed = parseUrl(request.url);
   if (!parsed) {
@@ -123,7 +123,7 @@ export function decideNavigation(
  */
 export function isSafeRouteToPersist(
   path: string,
-  policy: RoutePolicy = STRICT_POLICY,
+  policy: RoutePolicy = DEFAULT_POLICY,
 ): boolean {
   if (!path.startsWith('/') || path.length > 256) {
     return false;

@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { ChevronIcon } from './icons';
+import { CheckIcon, ChevronIcon } from './icons';
 import { useTheme } from './theme';
 
 /** Native-feeling inset grouped list, in the style of iOS Settings. */
@@ -78,6 +78,39 @@ export function SwitchRow({
         trackColor={{ true: theme.accent }}
       />
     </View>
+  );
+}
+
+/** One option of a single-choice list; shows a checkmark when selected. */
+export function CheckRow({
+  label,
+  detail,
+  checked,
+  onPress,
+}: RowBaseProps & { checked: boolean; onPress: () => void }) {
+  const theme = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="radio"
+      accessibilityState={{ checked }}
+      style={({ pressed }) => [
+        styles.row,
+        pressed ? { backgroundColor: theme.fill } : null,
+      ]}
+    >
+      <View style={styles.rowText}>
+        <Text style={[styles.label, { color: theme.label }]}>{label}</Text>
+        {detail ? (
+          <Text style={[styles.detail, { color: theme.secondaryLabel }]}>
+            {detail}
+          </Text>
+        ) : null}
+      </View>
+      <View style={styles.check}>
+        {checked ? <CheckIcon color={theme.accent} /> : null}
+      </View>
+    </Pressable>
   );
 }
 
@@ -181,6 +214,10 @@ const styles = StyleSheet.create({
   },
   flex: {
     flex: 1,
+  },
+  check: {
+    width: 22,
+    alignItems: 'center',
   },
   label: {
     fontSize: 17,

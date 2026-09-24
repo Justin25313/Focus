@@ -5,7 +5,10 @@ import {
   isSafeRouteToPersist,
   parseUrl,
 } from '../src/filtering/engine/RouteGuard';
-import { routeKindForPath } from '../src/filtering/instagram/routes';
+import {
+  DEFAULT_POLICY,
+  routeKindForPath,
+} from '../src/filtering/instagram/routes';
 
 const ig = (path: string) => `https://www.instagram.com${path}`;
 
@@ -70,7 +73,11 @@ describe('blocked Instagram routes', () => {
   });
 
   it('respects a relaxed policy', () => {
-    const policy = { reels: false, sharedReel: false, explore: true };
+    const policy = {
+      ...DEFAULT_POLICY,
+      reels: false,
+      sharedReel: false,
+    };
     expect(blockReasonForPath('/reels/', policy)).toBeNull();
     expect(blockReasonForPath('/explore/', policy)).toBe('explore');
   });

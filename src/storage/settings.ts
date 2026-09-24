@@ -1,15 +1,25 @@
+import {
+  Controls,
+  DEFAULT_CONTROLS,
+  parseControls,
+} from '../controls/controls';
+
 export type FocusSettings = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   onboardingComplete: boolean;
   openInstagramOnLaunch: boolean;
   keepLastLocation: boolean;
+  grayscale: boolean;
+  controls: Controls;
 };
 
 export const DEFAULT_SETTINGS: FocusSettings = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   onboardingComplete: false,
   openInstagramOnLaunch: true,
   keepLastLocation: true,
+  grayscale: false,
+  controls: DEFAULT_CONTROLS,
 };
 
 function bool(value: unknown, fallback: boolean): boolean {
@@ -19,7 +29,10 @@ function bool(value: unknown, fallback: boolean): boolean {
 /**
  * Turns whatever is in storage into valid settings. Unknown or broken
  * values fall back to defaults so an old or corrupted file never blocks
- * launch. New schema versions add their migration steps here.
+ * launch.
+ *
+ * Migrations:
+ *  v1 → v2: adds `grayscale` and `controls` (defaults = Balanced).
  */
 export function parseSettings(raw: unknown): FocusSettings {
   if (typeof raw !== 'object' || raw === null) {
@@ -27,7 +40,7 @@ export function parseSettings(raw: unknown): FocusSettings {
   }
   const data = raw as Record<string, unknown>;
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     onboardingComplete: bool(
       data.onboardingComplete,
       DEFAULT_SETTINGS.onboardingComplete,
@@ -40,5 +53,7 @@ export function parseSettings(raw: unknown): FocusSettings {
       data.keepLastLocation,
       DEFAULT_SETTINGS.keepLastLocation,
     ),
+    grayscale: bool(data.grayscale, DEFAULT_SETTINGS.grayscale),
+    controls: parseControls(data.controls),
   };
 }

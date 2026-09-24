@@ -1,10 +1,27 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { INSTAGRAM_RULE_VERSION } from '../filtering/instagram/routes';
+import {
+  BlockReason,
+  INSTAGRAM_RULE_VERSION,
+} from '../filtering/instagram/routes';
+import {
+  Controls,
+  HomeFeed,
+  PRESETS,
+  PRESET_ORDER,
+  PresetId,
+  modeOf,
+} from '../controls/controls';
 import { Diagnostics } from '../storage/diagnostics';
 import { FocusSettings } from '../storage/settings';
-import { ButtonRow, GroupedSection, SwitchRow, ValueRow } from '../ui/Grouped';
+import {
+  ButtonRow,
+  CheckRow,
+  GroupedSection,
+  SwitchRow,
+  ValueRow,
+} from '../ui/Grouped';
 import { formatTimestamp } from '../ui/format';
 import { TAB_BAR_HEIGHT, useTheme } from '../ui/theme';
 
@@ -23,11 +40,49 @@ type Props = {
   onResetDiagnostics: () => void;
 };
 
-const REASON_LABEL = {
+const REASON_LABEL: Record<BlockReason, string> = {
   reels: 'Reels',
   sharedReel: 'Einzelnes Reel',
   explore: 'Explore',
-} as const;
+  feed: 'Feed',
+  stories: 'Stories',
+  saved: 'Gespeichert',
+};
+
+const MODES: Record<PresetId, { label: string; detail: string }> = {
+  balanced: {
+    label: 'Ausgewogen',
+    detail:
+      'Feed nur von Leuten, denen du folgst. Stories, Nachrichten, Profile.',
+  },
+  storiesMessages: {
+    label: 'Stories + Nachrichten',
+    detail: 'Kein Feed. Stories, Nachrichten und Profile bleiben.',
+  },
+  messages: {
+    label: 'Nur Nachrichten',
+    detail: 'Nur Direktnachrichten und was dir geschickt wird.',
+  },
+};
+
+const HOME_FEEDS: { id: HomeFeed; label: string; detail: string }[] = [
+  {
+    id: 'following',
+    label: 'Folge ich',
+    detail: 'Nur Accounts, denen du folgst – neueste zuerst.',
+  },
+  {
+    id: 'hidden',
+    label: 'Nur Stories',
+    detail: 'Stories oben, keine Beiträge.',
+  },
+  {
+    id: 'normal',
+    label: 'Für dich',
+    detail: 'Instagrams Standard-Feed, gefiltert.',
+  },
+  { id: 'off', label: 'Aus', detail: 'Focus öffnet direkt die Nachrichten.' },
+];
 
 export function SettingsScreen({
   settings,
@@ -43,6 +98,36 @@ export function SettingsScreen({
 }: Props) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+
+  const controls = settings.controls;
+  const mode = modeOf(controls);
+  const setControls = (patch: Partial<Controls>) =>
+    onChange({ controls: { ...controls, ...patch } });
+
+  // Discovery blocks are the point of Focus; switching them off is allowed
+  // but deliberate.
+  const setDiscoveryBlock = (
+    key: 'blockReels' | 'blockExplore',
+    value: boolean,
+  ) => {
+    if (value) {
+      setControls({ [key]: true });
+      return;
+    }
+    const what = key === 'blockReels' ? 'Reels' : 'Explore';
+    Alert.alert(
+      `${what} wirklich erlauben?`,
+      `Damit ist der ${what}-Feed in Focus wieder erreichbar – genau das, wovor Focus schützt.`,
+      [
+        { text: 'Gesperrt lassen', style: 'cancel' },
+        {
+          text: 'Erlauben',
+          style: 'destructive',
+          onPress: () => setControls({ [key]: false }),
+        },
+      ],
+    );
+  };
 
   const healthLabel =
     health === 'active'
@@ -73,12 +158,87 @@ export function SettingsScreen({
         </Text>
 
         <GroupedSection
-          title="Schutz"
-          footer="In dieser Version immer aktiv. Voreinstellungen wie „Nur Nachrichten“ und „Stories + Nachrichten“ folgen."
+          title="Modus"
+          footer={
+            mode === 'custom'
+              ? 'Eigene Einstellung – wähle einen Modus, um zurückzusetzen.'
+              : 'Änderungen gelten sofort, ohne Instagram neu zu laden.'
+          }
         >
-          <ValueRow label="Reels-Feed" value="Gesperrt" />
-          <ValueRow label="Explore" value="Gesperrt" />
-          <ValueRow label="Einzelne Reels" value="Gesperrt" />
+          {PRESET_ORDER.map(id => (
+            <CheckRow
+              key={id}
+              label={MODES[id].label}
+              detail={MODES[id].detail}
+              checked={mode === id}
+              onPress={() => onChange({ controls: PRESETS[id] })}
+            />
+          ))}
+          {mode === 'custom' ? (
+            <CheckRow
+              label="Eigene"
+              detail="Du hast einzelne Schalter unten angepasst."
+              checked
+              onPress={() => {}}
+            />
+          ) : null}
+        </GroupedSection>
+
+        <GroupedSection title="Startseite">
+          {HOME_FEEDS.map(feed => (
+            <CheckRow
+              key={feed.id}
+              label={feed.label}
+              detail={feed.detail}
+              checked={controls.homeFeed === feed.id}
+              onPress={() => setControls({ homeFeed: feed.id })}
+            />
+          ))}
+        </GroupedSection>
+
+        <GroupedSection
+          title="Inhalte"
+          footer="Werbung und Vorschläge verschwinden nur bei eindeutiger Kennzeichnung – lieber einmal Werbung als ein fehlender Beitrag von Freunden."
+        >
+          <SwitchRow
+            label="Reels sperren"
+            value={controls.blockReels}
+            onValueChange={value => setDiscoveryBlock('blockReels', value)}
+          />
+          <SwitchRow
+            label="Explore sperren"
+            value={controls.blockExplore}
+            onValueChange={value => setDiscoveryBlock('blockExplore', value)}
+          />
+          <SwitchRow
+            label="Stories sperren"
+            value={controls.blockStories}
+            onValueChange={value => setControls({ blockStories: value })}
+          />
+          <SwitchRow
+            label="Gespeichert sperren"
+            value={controls.blockSaved}
+            onValueChange={value => setControls({ blockSaved: value })}
+          />
+          <SwitchRow
+            label="Werbung ausblenden"
+            value={controls.hideSponsored}
+            onValueChange={value => setControls({ hideSponsored: value })}
+          />
+          <SwitchRow
+            label="Vorschläge ausblenden"
+            value={controls.hideSuggested}
+            onValueChange={value => setControls({ hideSuggested: value })}
+          />
+        </GroupedSection>
+
+        <GroupedSection title="Darstellung">
+          <SwitchRow
+            label="Graustufen"
+            detail="Instagram ohne Farbe ist spürbar weniger fesselnd."
+            value={settings.grayscale}
+            onValueChange={value => onChange({ grayscale: value })}
+          />
         </GroupedSection>
 
         <GroupedSection title="Verhalten">
@@ -132,6 +292,10 @@ export function SettingsScreen({
             label="Gesperrte Aufrufe"
             value={String(diagnostics.blockedCount)}
           />
+          <ValueRow
+            label="Ausgeblendet"
+            value={`${diagnostics.hiddenSponsored} Werbung · ${diagnostics.hiddenSuggested} Vorschläge`}
+          />
           {diagnostics.lastBlocked ? (
             <ValueRow
               label="Zuletzt gesperrt"
@@ -182,7 +346,7 @@ export function SettingsScreen({
         </GroupedSection>
 
         <Text style={[styles.about, { color: theme.tertiaryLabel }]}>
-          Focus 0.1 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
+          Focus 0.2 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
           Deine Einstellungen bleiben auf diesem iPhone.
         </Text>
       </ScrollView>

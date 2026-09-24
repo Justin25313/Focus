@@ -15,9 +15,9 @@ import {
   instagramPathFromUrl,
   isSafeRouteToPersist,
 } from '../filtering/engine/RouteGuard';
+import { Controls, homePathFor, policyFor } from '../controls/controls';
 import { SearchUser, WebMessage } from '../filtering/engine/messages';
 import {
-  INSTAGRAM_HOME_PATH,
   INSTAGRAM_INBOX_PATH,
   INSTAGRAM_ORIGIN,
   routeKindForPath,
@@ -95,10 +95,13 @@ async function loadState(): Promise<Loaded> {
   const restore =
     settings.keepLastLocation &&
     typeof rawRoute === 'string' &&
-    isSafeRouteToPersist(rawRoute);
+    isSafeRouteToPersist(rawRoute, policyFor(settings.controls));
   return {
     settings,
-    initialUrl: INSTAGRAM_ORIGIN + (restore ? rawRoute : INSTAGRAM_HOME_PATH),
+    initialUrl:
+      INSTAGRAM_ORIGIN +
+      // "/" is restored as the mode's home (e.g. the Following feed).
+      (restore && rawRoute !== '/' ? rawRoute : homePathFor(settings.controls)),
     diagnostics: parseDiagnostics(rawDiagnostics),
     searchHistory: parseSearchHistory(rawHistory),
     ownProfilePath:
@@ -137,6 +140,8 @@ function FocusShell({ initial }: { initial: Loaded }) {
   const [diagnostics, setDiagnostics] = useState(initial.diagnostics);
   const [searchHistory, setSearchHistory] = useState(initial.searchHistory);
   const [ownProfilePath, setOwnProfilePath] = useState(initial.ownProfilePath);
+  // Read once when the WebView mounts (after onboarding on first launch).
+  const [startUrl, setStartUrl] = useState(initial.initialUrl);
   const [screen, setScreen] = useState<Screen>(
     initial.settings.openInstagramOnLaunch ? 'browser' : 'settings',
   );
@@ -188,7 +193,8 @@ function FocusShell({ initial }: { initial: Loaded }) {
 
   const routeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rememberRoute = useCallback((path: string) => {
-    if (!settingsRef.current.keepLastLocation || !isSafeRouteToPersist(path)) {
+    const { keepLastLocation, controls } = settingsRef.current;
+    if (!keepLastLocation || !isSafeRouteToPersist(path, policyFor(controls))) {
       return;
     }
     if (routeTimer.current) {
@@ -258,8 +264,18 @@ function FocusShell({ initial }: { initial: Loaded }) {
   const blockRef = useRef<BlockState | null>(null);
   blockRef.current = block;
 
+  const openPathRef = useRef<(path: string) => void>(() => {});
+
   const handleBlocked = useCallback(
     (state: BlockState) => {
+      if (state.reason === 'feed') {
+        // "Messages only" has no home: go to the inbox instead of a block
+        // screen. When the page is already on /, the guard redirects itself.
+        if (!state.navigated) {
+          openPathRef.current(INSTAGRAM_INBOX_PATH);
+        }
+        return;
+      }
       const prev = blockRef.current;
       const duplicate =
         prev !== null &&
@@ -325,6 +341,13 @@ function FocusShell({ initial }: { initial: Loaded }) {
           } else {
             hideLoadingIn(LOADING_STALE_MS);
           }
+          break;
+        case 'CONTENT_HIDDEN':
+          updateDiagnostics(prev =>
+            message.kind === 'sponsored'
+              ? { ...prev, hiddenSponsored: prev.hiddenSponsored + 1 }
+              : { ...prev, hiddenSuggested: prev.hiddenSuggested + 1 },
+          );
           break;
         case 'OWN_PROFILE':
           setOwnProfilePath(prev => {
@@ -412,13 +435,15 @@ function FocusShell({ initial }: { initial: Loaded }) {
     (path: string) => {
       setBlock(null);
       setScreen('browser');
-      if (path.toLowerCase() !== currentPathRef.current.toLowerCase()) {
-        showLoading(skeletonForRoute(routeKindForPath(path)));
+      const pathname = path.split('?')[0];
+      if (pathname.toLowerCase() !== currentPathRef.current.toLowerCase()) {
+        showLoading(skeletonForRoute(routeKindForPath(pathname)));
       }
       browser.current?.navigate(path);
     },
     [showLoading],
   );
+  openPathRef.current = openPath;
 
   const openProfile = useCallback(
     (username: string) => {
@@ -462,7 +487,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
       const goTo = (root: string, belongs: boolean) => {
         if (screen !== 'browser' && belongs && !block) {
           setScreen('browser');
-        } else if (onBrowser && currentPath === root) {
+        } else if (onBrowser && currentPath === root.split('?')[0]) {
           browser.current?.scrollToTop();
         } else {
           openPath(root);
@@ -471,7 +496,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
       switch (tab) {
         case 'feed':
           goTo(
-            INSTAGRAM_HOME_PATH,
+            homePathFor(settings.controls),
             kind !== 'direct' && !isOwnProfile(currentPath, ownProfilePath),
           );
           break;
@@ -491,7 +516,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
           break;
       }
     },
-    [block, currentPath, openPath, ownProfilePath, screen],
+    [block, currentPath, openPath, ownProfilePath, screen, settings.controls],
   );
 
   const leaveBlock = useCallback(() => {
@@ -540,7 +565,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
               clearTimeout(timeout);
               setClearing(false);
               browser.current?.replaceWith(
-                INSTAGRAM_ORIGIN + INSTAGRAM_HOME_PATH,
+                INSTAGRAM_ORIGIN + homePathFor(settingsRef.current.controls),
               );
               Alert.alert(
                 complete ? 'Gelöscht' : 'Teilweise gelöscht',
@@ -595,8 +620,9 @@ function FocusShell({ initial }: { initial: Loaded }) {
       <>
         <StatusBar barStyle={theme.dark ? 'light-content' : 'dark-content'} />
         <OnboardingScreen
-          onContinue={() => {
-            updateSettings({ onboardingComplete: true });
+          onContinue={(controls: Controls) => {
+            updateSettings({ onboardingComplete: true, controls });
+            setStartUrl(INSTAGRAM_ORIGIN + homePathFor(controls));
             setScreen('browser');
           }}
         />
@@ -630,7 +656,9 @@ function FocusShell({ initial }: { initial: Loaded }) {
       >
         <BrowserView
           ref={browser}
-          initialUrl={initial.initialUrl}
+          initialUrl={startUrl}
+          controls={settings.controls}
+          grayscale={settings.grayscale}
           onRoute={handleRoute}
           onBlocked={handleBlocked}
           onMessage={handleMessage}
@@ -694,7 +722,12 @@ function FocusShell({ initial }: { initial: Loaded }) {
         <TabBar
           active={activeTab}
           onPress={onTab}
-          showProfile={ownProfilePath !== null}
+          hiddenTabs={[
+            ...(ownProfilePath === null ? (['profile'] as const) : []),
+            ...(settings.controls.homeFeed === 'off'
+              ? (['feed'] as const)
+              : []),
+          ]}
         />
       </View>
     </View>

@@ -7,10 +7,9 @@ Focus lädt Instagram (mobile Web) in einer dauerhaften WebView und legt eine
 Schutzschicht darüber: Reels-Feed und Explore sind gesperrt, Nachrichten,
 Profile, Stories und Beiträge funktionieren normal.
 
-> Stand: **Meilenstein 1 + 2** aus dem PRD (stabile WebView-Hülle, Routen-Schutz),
-> plus eine native Profilsuche als Ersatz für das gesperrte Explore.
-> Voreinstellungen (Balanced, Nur Nachrichten, …), Feed-Filter, Graustufen und
-> Nutzungszeit folgen in Meilenstein 3–6.
+> Stand: **Meilenstein 1–3** aus dem PRD plus Teile von 4: stabile WebView-Hülle,
+> Routen-Schutz, Modi (Ausgewogen, Stories + Nachrichten, Nur Nachrichten, Eigene),
+> „Folge ich“-Feed, Graustufen, vorsichtiger Werbe-/Vorschlagsfilter, Lade-Skeletons.
 
 ---
 
@@ -107,6 +106,20 @@ Jeder Commit erhöht die Build-Nummer, daran erkennt SideStore neue Versionen.
 ---
 
 ## Entwicklung
+
+### Schnell auf dem iPhone testen (Focus Dev)
+
+Einmalig: `npm run ipa:dev` → `dist/FocusDev.ipa` per AirDrop an SideStore.
+„Focus Dev“ ist eine eigene App neben Focus (eigene Bundle-ID), die ihren Code live
+vom Mac lädt:
+
+1. Am Mac `npm start` (Metro) – iPhone und Mac im selben WLAN.
+2. Focus Dev öffnen, „Lokales Netzwerk“ erlauben.
+3. Code ändern → die App aktualisiert sich sofort (Fast Refresh). Schütteln öffnet das Dev-Menü.
+
+Neu bauen muss man Focus Dev nur bei nativen Änderungen (neue Pakete, `ios/`).
+Ohne laufenden Mac startet Focus Dev mit dem zuletzt eingebauten Stand.
+Hinweis: Kostenlose Apple-IDs erlauben 3 aktive Apps (SideStore, Focus, Focus Dev).
 
 ```sh
 npm start           # Metro-Bundler (für Debug-Builds)

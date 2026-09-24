@@ -3,11 +3,14 @@
  * runs it at document start.
  *
  * @jest-environment jsdom
- * @jest-environment-options {"url": "https://www.instagram.com/"}
+ * @jest-environment-options {"url": "https://www.instagram.com/?variant=following"}
  */
 /// <reference lib="dom" />
+import { PRESETS } from '../src/controls/controls';
 import {
+  buildGuardConfig,
   buildGuardScript,
+  configureScript,
   navigateScript,
   searchScript,
 } from '../src/filtering/instagram/scripts';
@@ -253,6 +256,143 @@ describe('injected guard script', () => {
     await new Promise<void>(resolve => setTimeout(resolve, 60));
     expect(bar.hasAttribute('data-focus-ig-nav')).toBe(true);
     bar.remove();
+  });
+
+  describe('modes', () => {
+    const configure = (...args: Parameters<typeof buildGuardConfig>) =>
+      // eslint-disable-next-line no-eval
+      (0, eval)(configureScript(buildGuardConfig(...args)));
+    let clock = Date.now();
+    beforeEach(() => {
+      // Redirects are throttled; give every test a fresh 10 s window.
+      clock += 10000;
+      jest.spyOn(Date, 'now').mockReturnValue(clock);
+    });
+    afterEach(() => {
+      jest.restoreAllMocks();
+      configure();
+    });
+
+    it('sends home to the Following feed', () => {
+      const replace = jest.fn();
+      (window as any).__focusReplaceForTests = replace;
+      history.pushState({}, '', '/');
+      expect(replace).toHaveBeenCalledWith('/?variant=following');
+      history.pushState({}, '', '/natgeo/');
+      delete (window as any).__focusReplaceForTests;
+    });
+
+    it('leaves an explicitly chosen feed variant alone', () => {
+      const replace = jest.fn();
+      (window as any).__focusReplaceForTests = replace;
+      history.pushState({}, '', '/?variant=home');
+      expect(replace).not.toHaveBeenCalled();
+      history.pushState({}, '', '/natgeo/');
+      delete (window as any).__focusReplaceForTests;
+    });
+
+    it('Messages only: home goes straight to the inbox', () => {
+      configure(PRESETS.messages);
+      const inbox = document.createElement('a');
+      inbox.setAttribute('href', '/direct/inbox/');
+      const onClick = jest.fn();
+      inbox.addEventListener('click', onClick);
+      document.body.appendChild(inbox);
+
+      history.pushState({}, '', '/');
+      expect(onClick).toHaveBeenCalledTimes(1);
+      expect(messagesOfType('BLOCKED_ROUTE')).toHaveLength(0);
+
+      inbox.remove();
+      history.pushState({}, '', '/natgeo/');
+    });
+
+    it('Messages only: Stories show the block screen', () => {
+      configure(PRESETS.messages);
+      history.pushState({}, '', '/stories/natgeo/123/');
+      expect(lastOfType('BLOCKED_ROUTE')).toMatchObject({
+        reason: 'stories',
+        navigated: true,
+      });
+      history.pushState({}, '', '/natgeo/');
+    });
+
+    it('Stories + Messages hides feed posts on the home page only', () => {
+      configure(PRESETS.storiesMessages);
+      const css = document.getElementById('focus-guard-style')?.textContent;
+      expect(css).toContain(
+        'html[data-focus-route="home"] main article{display:none!important;}',
+      );
+      history.pushState({}, '', '/');
+      expect(document.documentElement.getAttribute('data-focus-route')).toBe(
+        'home',
+      );
+      history.pushState({}, '', '/natgeo/');
+      expect(document.documentElement.hasAttribute('data-focus-route')).toBe(
+        false,
+      );
+    });
+
+    it('grayscale is a root filter that can be switched off again', () => {
+      configure(PRESETS.balanced, true);
+      const style = () =>
+        document.getElementById('focus-guard-style')?.textContent ?? '';
+      expect(style()).toContain('html{filter:grayscale(1)!important;}');
+      configure(PRESETS.balanced, false);
+      expect(style()).not.toContain('grayscale');
+    });
+  });
+
+  describe('feed filter', () => {
+    const article = (...texts: string[]) => {
+      const el = document.createElement('article');
+      const header = document.createElement('header');
+      for (const text of texts) {
+        const span = document.createElement('span');
+        span.textContent = text;
+        header.appendChild(span);
+      }
+      el.appendChild(header);
+      return el;
+    };
+
+    it('hides only posts with an exact sponsored or suggested label', async () => {
+      const main = document.createElement('main');
+      const ad = article('brand', 'Gesponsert');
+      const suggested = article('stranger', 'Suggested for you');
+      const friend = article('friend', 'Wir wurden gesponsert von Oma');
+      const friend2 = article('anzeigenhauptmeister', 'Berlin');
+      main.append(ad, suggested, friend, friend2);
+      document.body.appendChild(main);
+      await new Promise<void>(resolve => setTimeout(resolve, 60));
+
+      expect(ad.getAttribute('data-focus-hidden')).toBe('sponsored');
+      expect(suggested.getAttribute('data-focus-hidden')).toBe('suggested');
+      expect(friend.hasAttribute('data-focus-hidden')).toBe(false);
+      expect(friend2.hasAttribute('data-focus-hidden')).toBe(false);
+      expect(messagesOfType('CONTENT_HIDDEN')).toEqual([
+        { type: 'CONTENT_HIDDEN', kind: 'sponsored' },
+        { type: 'CONTENT_HIDDEN', kind: 'suggested' },
+      ]);
+
+      // Switching the filter off shows the posts again, without a reload.
+      // eslint-disable-next-line no-eval
+      (0, eval)(
+        configureScript(
+          buildGuardConfig({
+            ...PRESETS.balanced,
+            hideSponsored: false,
+            hideSuggested: false,
+          }),
+        ),
+      );
+      expect(ad.hasAttribute('data-focus-hidden')).toBe(false);
+      expect(suggested.hasAttribute('data-focus-hidden')).toBe(false);
+
+      // eslint-disable-next-line no-eval
+      (0, eval)(configureScript(buildGuardConfig()));
+      main.remove();
+    });
   });
 
   it('can be injected twice without side effects', () => {

@@ -1,4 +1,5 @@
 import {
+  BLOCK_REASONS,
   BlockReason,
   GUARDED_HOSTS,
   routeKindForPath,
@@ -27,6 +28,8 @@ export type WebMessage =
       navigated: boolean;
     }
   | { type: 'OPEN_SEARCH' }
+  /** A post was hidden by the feed filter. */
+  | { type: 'CONTENT_HIDDEN'; kind: 'sponsored' | 'suggested' }
   /** The page finished rendering after a load or navigation. */
   | { type: 'PAGE_READY'; path: string }
   /** Profile link of the signed-in account, read from Instagram's own nav. */
@@ -38,11 +41,7 @@ export type WebMessage =
       users: SearchUser[];
     };
 
-const BLOCK_REASONS: ReadonlySet<string> = new Set([
-  'reels',
-  'sharedReel',
-  'explore',
-]);
+const KNOWN_REASONS: ReadonlySet<string> = new Set(BLOCK_REASONS);
 const MAX_PATH = 512;
 const MAX_USERS = 25;
 
@@ -127,7 +126,7 @@ export function parseWebMessage(
       if (
         isPath(msg.path) &&
         typeof msg.reason === 'string' &&
-        BLOCK_REASONS.has(msg.reason) &&
+        KNOWN_REASONS.has(msg.reason) &&
         typeof msg.navigated === 'boolean'
       ) {
         return {
@@ -140,6 +139,10 @@ export function parseWebMessage(
       return null;
     case 'OPEN_SEARCH':
       return { type: 'OPEN_SEARCH' };
+    case 'CONTENT_HIDDEN':
+      return msg.kind === 'sponsored' || msg.kind === 'suggested'
+        ? { type: 'CONTENT_HIDDEN', kind: msg.kind }
+        : null;
     case 'PAGE_READY':
       return isPath(msg.path) ? { type: 'PAGE_READY', path: msg.path } : null;
     case 'OWN_PROFILE':

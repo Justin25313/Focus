@@ -18,6 +18,18 @@ const COPY: Record<BlockReason, { title: string; body: string }> = {
     title: 'Explore ist aus',
     body: 'Algorithmische Vorschläge bleiben draußen. Suchst du jemand Bestimmtes? Die Focus-Suche findet Profile direkt.',
   },
+  feed: {
+    title: 'Der Feed ist aus',
+    body: 'In diesem Modus gibt es nur Nachrichten. Den Modus änderst du im Focus-Tab.',
+  },
+  stories: {
+    title: 'Stories sind aus',
+    body: 'Stories hast du in Focus ausgeschaltet. Den Modus änderst du im Focus-Tab.',
+  },
+  saved: {
+    title: 'Gespeichert ist aus',
+    body: 'Gespeicherte Beiträge sind in Focus ausgeschaltet – sie werden schnell zur eigenen Endlosliste.',
+  },
 };
 
 export function BlockedOverlay({

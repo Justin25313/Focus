@@ -1,4 +1,4 @@
-import { BlockReason } from '../filtering/instagram/routes';
+import { BLOCK_REASONS, BlockReason } from '../filtering/instagram/routes';
 
 /** Local-only diagnostics. Never leaves the device. */
 export type Diagnostics = {
@@ -8,6 +8,8 @@ export type Diagnostics = {
   lastUnknownRoute: { path: string; at: number } | null;
   lastError: { code: string; at: number } | null;
   webProcessRestarts: number;
+  hiddenSponsored: number;
+  hiddenSuggested: number;
 };
 
 export const EMPTY_DIAGNOSTICS: Diagnostics = {
@@ -17,6 +19,8 @@ export const EMPTY_DIAGNOSTICS: Diagnostics = {
   lastUnknownRoute: null,
   lastError: null,
   webProcessRestarts: 0,
+  hiddenSponsored: 0,
+  hiddenSuggested: 0,
 };
 
 function num(value: unknown): number | null {
@@ -42,13 +46,11 @@ export function parseDiagnostics(raw: unknown): Diagnostics {
     lastBlocked:
       blocked &&
       typeof blocked.path === 'string' &&
-      (blocked.reason === 'reels' ||
-        blocked.reason === 'sharedReel' ||
-        blocked.reason === 'explore') &&
+      (BLOCK_REASONS as readonly unknown[]).includes(blocked.reason) &&
       num(blocked.at) !== null
         ? {
             path: blocked.path,
-            reason: blocked.reason,
+            reason: blocked.reason as BlockReason,
             at: blocked.at as number,
           }
         : null,
@@ -62,5 +64,7 @@ export function parseDiagnostics(raw: unknown): Diagnostics {
         ? { code: error.code, at: error.at as number }
         : null,
     webProcessRestarts: num(data.webProcessRestarts) ?? 0,
+    hiddenSponsored: num(data.hiddenSponsored) ?? 0,
+    hiddenSuggested: num(data.hiddenSuggested) ?? 0,
   };
 }

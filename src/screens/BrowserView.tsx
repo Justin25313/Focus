@@ -2,11 +2,14 @@ import React, {
   forwardRef,
   memo,
   useCallback,
+  useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
 } from 'react';
 import { Linking, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
+import { Controls } from '../controls/controls';
 import type {
   ShouldStartLoadRequest,
   WebViewErrorEvent,
@@ -24,7 +27,9 @@ import { BlockReason } from '../filtering/instagram/routes';
 import {
   LEAVE_BLOCKED_SCRIPT,
   SCROLL_TO_TOP_SCRIPT,
+  buildGuardConfig,
   buildGuardScript,
+  configureScript,
   navigateScript,
   searchScript,
 } from '../filtering/instagram/scripts';
@@ -38,9 +43,6 @@ const USER_AGENT_SUFFIX = 'Version/18.0 Safari/604.1';
 // react-native-webview's typings default the extra-props generic to
 // `undefined`, which collapses to `never` under strict TypeScript.
 type InstagramWebView = WebView<object>;
-
-/** Static: the guard reads its policy from the bundled rules. */
-const GUARD_SCRIPT = buildGuardScript();
 
 /** WebKit/NSURL error codes that are not real failures. */
 const IGNORED_ERROR_CODES = new Set([-999, 102, 204]);
@@ -72,7 +74,11 @@ export type BrowserEvents = {
   onProcessTerminated: () => void;
 };
 
-type Props = BrowserEvents & { initialUrl: string };
+type Props = BrowserEvents & {
+  initialUrl: string;
+  controls: Controls;
+  grayscale: boolean;
+};
 
 /**
  * The Instagram WebView. It is mounted once and never re-keyed, so
@@ -82,6 +88,8 @@ type Props = BrowserEvents & { initialUrl: string };
 function BrowserViewImpl(
   {
     initialUrl,
+    controls,
+    grayscale,
     onRoute,
     onBlocked,
     onMessage,
@@ -99,6 +107,28 @@ function BrowserViewImpl(
   const inject = useCallback((script: string) => {
     webRef.current?.injectJavaScript(script);
   }, []);
+
+  // The guard config follows the user's controls. New page loads get it via
+  // the document-start script; the current page is reconfigured in place,
+  // so changing a mode never reloads Instagram.
+  const guardConfig = useMemo(
+    () => buildGuardConfig(controls, grayscale),
+    [controls, grayscale],
+  );
+  const guardScript = useMemo(
+    () => buildGuardScript(guardConfig),
+    [guardConfig],
+  );
+  const policyRef = useRef(guardConfig.policy);
+  policyRef.current = guardConfig.policy;
+  const configured = useRef(false);
+  useEffect(() => {
+    if (!configured.current) {
+      configured.current = true;
+      return;
+    }
+    inject(configureScript(guardConfig));
+  }, [guardConfig, inject]);
 
   useImperativeHandle(
     ref,
@@ -132,10 +162,10 @@ function BrowserViewImpl(
 
   const onShouldStartLoadWithRequest = useCallback(
     (request: ShouldStartLoadRequest) => {
-      const decision = decideNavigation({
-        url: request.url,
-        isTopFrame: request.isTopFrame,
-      });
+      const decision = decideNavigation(
+        { url: request.url, isTopFrame: request.isTopFrame },
+        policyRef.current,
+      );
       switch (decision.action) {
         case 'allow':
           return true;
@@ -162,7 +192,7 @@ function BrowserViewImpl(
       if (!path) {
         return;
       }
-      const reason = blockReasonForPath(path);
+      const reason = blockReasonForPath(path, policyRef.current);
       if (reason) {
         onBlocked({ reason, path, navigated: true });
       } else if (!nav.loading) {
@@ -224,7 +254,7 @@ function BrowserViewImpl(
       onLoadEnd={handleLoadEnd}
       onError={handleError}
       onContentProcessDidTerminate={handleProcessTerminated}
-      injectedJavaScriptBeforeContentLoaded={GUARD_SCRIPT}
+      injectedJavaScriptBeforeContentLoaded={guardScript}
       injectedJavaScriptBeforeContentLoadedForMainFrameOnly
       applicationNameForUserAgent={USER_AGENT_SUFFIX}
       // Persistent website data store: login survives restarts.
