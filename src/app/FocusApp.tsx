@@ -78,6 +78,16 @@ type Loaded = {
   usageLog: UsageLog;
 };
 
+/** Pages where pulling down reloads, as in Instagram's app. */
+function canPullToRefresh(path: string): boolean {
+  const kind = routeKindForPath(path);
+  return (
+    kind === 'home' ||
+    kind === 'profile' ||
+    path.toLowerCase() === INSTAGRAM_INBOX_PATH
+  );
+}
+
 /** Whether `path` is the signed-in user's profile or one of its tabs. */
 function isOwnProfile(path: string, ownPath: string | null): boolean {
   return (
@@ -391,8 +401,13 @@ function FocusShell({ initial }: { initial: Loaded }) {
 
   const filterTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleLoadStart = useCallback(
-    (url: string) => {
+    (url: string, isReload: boolean) => {
       setHealth(prev => (prev === 'active' ? prev : 'starting'));
+      if (isReload) {
+        // Pull-to-refresh: the native spinner is the loading indicator,
+        // exactly like in Instagram's app.
+        return;
+      }
       const path = instagramPathFromUrl(url);
       showLoading(path ? skeletonForRoute(routeKindForPath(path)) : 'generic');
     },
@@ -675,6 +690,8 @@ function FocusShell({ initial }: { initial: Loaded }) {
           initialUrl={startUrl}
           controls={settings.controls}
           grayscale={settings.grayscale}
+          pullToRefresh={canPullToRefresh(currentPath)}
+          darkMode={theme.dark}
           onRoute={handleRoute}
           onBlocked={handleBlocked}
           onMessage={handleMessage}

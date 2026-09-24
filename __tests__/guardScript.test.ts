@@ -71,6 +71,9 @@ describe('injected guard script', () => {
     const style = document.getElementById('focus-guard-style');
     expect(style?.textContent).toContain('a[href="/reels/"]');
     expect(style?.textContent).toContain('html[data-focus-blocked] body');
+    expect(style?.textContent).toContain(
+      '*::-webkit-scrollbar{display:none!important;',
+    );
     expect(
       (window as unknown as { __focusGuard: unknown }).__focusGuard,
     ).toBeDefined();

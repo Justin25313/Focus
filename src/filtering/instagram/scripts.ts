@@ -173,6 +173,8 @@ const GUARD_SOURCE = String.raw`
 
   function cssText() {
     var css = 'html[' + BLOCKED_ATTR + '] body{visibility:hidden!important;}';
+    // No scrollbars anywhere, like the native app (inner scrollers too).
+    css += '*{scrollbar-width:none!important;}*::-webkit-scrollbar{display:none!important;width:0!important;height:0!important;}';
     if (config.hiddenLinkSelectors.length) {
       css += config.hiddenLinkSelectors.join(',') + '{display:none!important;}';
     }

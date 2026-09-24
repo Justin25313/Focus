@@ -68,7 +68,8 @@ export type BrowserEvents = {
   onRoute: (path: string) => void;
   onBlocked: (state: BlockState) => void;
   onMessage: (message: WebMessage) => void;
-  onLoadStart: (url: string) => void;
+  /** `isReload`: pull-to-refresh or an explicit reload of the same page. */
+  onLoadStart: (url: string, isReload: boolean) => void;
   onLoadEnd: (url: string) => void;
   onLoadError: (code: number) => void;
   onProcessTerminated: () => void;
@@ -78,6 +79,9 @@ type Props = BrowserEvents & {
   initialUrl: string;
   controls: Controls;
   grayscale: boolean;
+  /** Pull down at the top to reload, like Instagram's app (not in chats). */
+  pullToRefresh: boolean;
+  darkMode: boolean;
 };
 
 /**
@@ -90,6 +94,8 @@ function BrowserViewImpl(
     initialUrl,
     controls,
     grayscale,
+    pullToRefresh,
+    darkMode,
     onRoute,
     onBlocked,
     onMessage,
@@ -216,7 +222,11 @@ function BrowserViewImpl(
   );
 
   const handleLoadStart = useCallback(
-    (event: WebViewNavigationEvent) => onLoadStart(event.nativeEvent.url),
+    (event: WebViewNavigationEvent) =>
+      onLoadStart(
+        event.nativeEvent.url,
+        event.nativeEvent.navigationType === 'reload',
+      ),
     [onLoadStart],
   );
 
@@ -270,8 +280,12 @@ function BrowserViewImpl(
       contentInsetAdjustmentBehavior="never"
       automaticallyAdjustContentInsets={false}
       decelerationRate="normal"
-      // Pull-to-refresh would reload DMs while scrolling up; refresh lives in the Focus tab.
-      pullToRefreshEnabled={false}
+      // Only where Instagram's app has it too; in a chat, scrolling up to
+      // older messages must never reload the conversation.
+      pullToRefreshEnabled={pullToRefresh}
+      refreshControlLightMode={darkMode}
+      showsVerticalScrollIndicator={false}
+      showsHorizontalScrollIndicator={false}
       fraudulentWebsiteWarningEnabled
       webviewDebuggingEnabled={__DEV__}
     />
