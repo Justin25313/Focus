@@ -4,228 +4,90 @@ Instagram ohne Reels, Explore und algorithmischen Ballast – als private iPhone
 Kein Konto, kein Backend, kein Tracking, kein Abo.
 
 Focus lädt Instagram (mobile Web) in einer dauerhaften WebView und legt eine
-Schutzschicht darüber: Reels-Feed und Explore sind gesperrt, Nachrichten,
-Profile, Stories und Beiträge funktionieren normal.
+Schutzschicht darüber. Nachrichten, Profile, Stories und Beiträge funktionieren
+normal; Reels-Feed, Explore und Vorschläge bleiben draußen.
 
-> Stand: **Meilenstein 1–3** aus dem PRD plus Teile von 4: stabile WebView-Hülle,
-> Routen-Schutz, Modi (Ausgewogen, Stories + Nachrichten, Nur Nachrichten, Eigene),
-> „Folge ich“-Feed, Graustufen, vorsichtiger Werbe-/Vorschlagsfilter, Lade-Skeletons.
+## Funktionen
 
----
+- **Modi:** Ausgewogen (Standard) · Stories + Nachrichten · Nur Nachrichten · Eigene
+- **Startseite:** „Folge ich“ (nur Accounts, denen du folgst) · nur Stories · „Für dich“ · aus
+- **Gesperrt:** Reels-Feed, einzelne Reels, Profil-Reels, Explore; optional Stories und Gespeichert
+- **Ausgeblendet:** eindeutig markierte Werbung und Vorschläge, Reels-Einstiege, Instagrams eigene Leiste
+- **Suche:** eigene Profilsuche (Name, `@benutzername` oder Link) statt Explore
+- **Graustufen**, **Nutzungszeit** (nur lokal), **letzter Ort** nach Neustart
+- **Kein Neuladen** bei App-Wechsel, Sperren oder Kontrollzentrum; Lade-Skeletons statt Springen
+- Login direkt bei Instagram – Focus sieht und speichert kein Passwort
 
-## Was schon funktioniert
+## Installieren & aktualisieren (SideStore)
 
-| Bereich | Verhalten |
-| --- | --- |
-| **Start** | Focus öffnet direkt Instagram (abschaltbar). Erster Start: ein kurzer Willkommensbildschirm. |
-| **Login** | Direkt bei Instagram in der WebView. Focus sieht und speichert dein Passwort nie. Die Sitzung bleibt nach Neustarts erhalten (persistenter WebKit-Datenspeicher). |
-| **Kein Neuladen** | Die WebView wird genau einmal erzeugt. App-Wechsel, Kontrollzentrum, Sperren/Entsperren und Tab-Wechsel laden Instagram nicht neu – Route und Scrollposition bleiben. |
-| **Reels** | `/reels/…`, `/reel/…` und Profil-Reels-Tabs sind gesperrt. Reels-Links in der Navigation sind ausgeblendet. |
-| **Explore** | `/explore/…` (Raster, Hashtags, Orte) ist gesperrt. Ein Tipp auf Instagrams Such-Icon öffnet stattdessen die Focus-Suche. |
-| **Suche** | Eigener Tab: Namen oder `@benutzername` eingeben, oder einen Instagram-Link einfügen. Nutzt Instagrams eigene Kontosuche – ohne Vorschläge, ohne Raster. |
-| **Nachrichten** | Eigener Tab, springt direkt in `/direct/inbox/`. |
-| **Letzter Ort** | Nach einem echten Neustart geht es beim letzten sicheren Ort weiter (Feed, DMs, Profil, Beitrag – nie Reels, Explore oder Login-Seiten). |
-| **Links** | Externe Links öffnen in Safari. Unbekannte App-Schemata (z. B. `instagram://`) werden blockiert. |
-| **Posten** | Einfache Posts gehen evtl. über Instagram Web. Für alles andere: „Zum Posten: Instagram-App öffnen“ im Focus-Tab. |
-| **Diagnose** | Filterstatus, Regelversion, letzte Sperre, unbekannte Routen, Fehler – nur lokal. |
-| **Daten** | „Instagram-Websitedaten löschen“ (Cookies, Cache, Login) und „Focus zurücksetzen“. |
+Jeder Push baut per GitHub Action eine unsignierte `Focus.ipa` und veröffentlicht sie
+als Release. SideStore signiert sie mit deiner Apple-ID und erneuert die 7-Tage-Signatur
+selbst (LocalDevVPN, Einrichtung: [docs.sidestore.io](https://docs.sidestore.io)).
 
-### iPhone 15 Pro
+In SideStore unter **Sources → +** einmal hinzufügen:
 
-- Layout über Safe-Area-Insets: Dynamic Island oben, Home-Indikator unten.
-- 120-Hz-ProMotion ist aktiviert (`CADisableMinimumFrameDurationOnPhone`).
-- Nur Hochformat, nur iPhone, Hell- und Dunkelmodus folgen dem System.
-- Mindestversion iOS 16.
+```
+https://github.com/Justin25313/Focus/releases/latest/download/source.json
+```
 
----
-
-## Auf dein iPhone installieren (kostenlos, Xcode Personal Team)
-
-### Einmalig vorbereiten (Mac)
-
-1. **Xcode** aus dem Mac App Store installieren und einmal öffnen (Zusatzkomponenten installieren lassen).
-2. **Node.js ≥ 22** installieren, z. B. mit Homebrew: `brew install node`
-3. **CocoaPods** über Homebrew: `brew install cocoapods` (nicht über die System-Ruby von macOS)
-4. Repository klonen und Abhängigkeiten installieren:
-
-   ```sh
-   git clone https://github.com/Justin25313/Focus.git
-   cd Focus
-   npm install
-   npm run pods        # = cd ios && bundle install && bundle exec pod install
-   ```
-
-### In Xcode signieren
-
-1. `ios/Focus.xcworkspace` öffnen (**die .xcworkspace, nicht die .xcodeproj**).
-2. Links das Projekt **Focus** → Target **Focus** → Tab **Signing & Capabilities**.
-3. **Team:** dein Apple-Account („Personal Team“). Falls noch keiner da ist: *Add an Account…*
-4. **Bundle Identifier:** ist `com.justin25313.focus`. Meldet Xcode, dass er vergeben ist, ändere ihn auf etwas Eigenes (z. B. `com.deinname.focus`).
-
-### Release-Build auf dem iPhone
-
-Damit Focus ohne laufenden Mac funktioniert, muss das JavaScript in die App gebündelt werden:
-
-1. Menü **Product → Scheme → Edit Scheme… → Run → Build Configuration: Release**.
-2. iPhone per Kabel verbinden, oben als Ziel auswählen.
-3. **iPhone vorbereiten** (nur beim ersten Mal):
-   - *Einstellungen → Datenschutz & Sicherheit → Entwicklermodus* einschalten, iPhone neu starten.
-4. In Xcode **▶︎ Run** (⌘R).
-5. Beim ersten Start sagt iOS „Nicht vertrauenswürdiger Entwickler“:
-   *Einstellungen → Allgemein → VPN & Geräteverwaltung → dein Apple-Account → Vertrauen*.
-
-### Alle 7 Tage neu signieren
-
-Mit einem kostenlosen Personal Team läuft das Zertifikat nach 7 Tagen ab. Dann
-startet Focus nicht mehr – einfach iPhone anschließen und in Xcode erneut **▶︎ Run**.
-Deine Instagram-Anmeldung und die Focus-Einstellungen bleiben dabei erhalten.
-
-### Ohne 7-Tage-Kabel: SideStore
-
-SideStore erneuert die Signatur automatisch auf dem iPhone (einmalige Einrichtung
-siehe [docs.sidestore.io](https://docs.sidestore.io), inkl. LocalDevVPN).
-
-**Builds kommen automatisch aus GitHub:** Bei jedem Push baut die GitHub-Action
-[`ios-build.yml`](.github/workflows/ios-build.yml) eine unsignierte `Focus.ipa` und
-veröffentlicht sie als Release – zusammen mit `source.json`, einer SideStore-Quelle.
-
-| Repo | Installieren / aktualisieren |
-| --- | --- |
-| **öffentlich** | Einmal in SideStore *Sources → +* die Quelle hinzufügen: `https://github.com/Justin25313/Focus/releases/latest/download/source.json`. Danach erscheinen Updates in *My Apps* → **Update**. |
-| **privat** | Auf dem iPhone in Safari (bei GitHub angemeldet) *Releases* öffnen → `Focus.ipa` laden → *Teilen* → **SideStore**. |
-
-Lokal auf dem Mac geht es weiterhin mit `npm run ipa` → `dist/Focus.ipa` per AirDrop an SideStore.
-Jeder Commit erhöht die Build-Nummer, daran erkennt SideStore neue Versionen.
-
-### Empfohlenes Setup
-
-1. Instagram-App vom Home-Bildschirm entfernen („Aus Home-Bildschirm entfernen“ – sie bleibt in der App-Mediathek).
-2. Focus an ihren Platz legen.
-3. „Instagram beim Start öffnen“ eingeschaltet lassen.
-
----
+Updates erscheinen danach in *My Apps* → **Update**. Login und Einstellungen bleiben erhalten.
 
 ## Entwicklung
 
-### Schnell auf dem iPhone testen (Focus Dev)
-
-Einmalig: `npm run ipa:dev` → `dist/FocusDev.ipa` per AirDrop an SideStore.
-„Focus Dev“ ist eine eigene App neben Focus (eigene Bundle-ID), die ihren Code live
-vom Mac lädt:
-
-1. Am Mac `npm start` (Metro) – iPhone und Mac im selben WLAN.
-2. Focus Dev öffnen, „Lokales Netzwerk“ erlauben.
-3. Code ändern → die App aktualisiert sich sofort (Fast Refresh). Schütteln öffnet das Dev-Menü.
-
-Neu bauen muss man Focus Dev nur bei nativen Änderungen (neue Pakete, `ios/`).
-Ohne laufenden Mac startet Focus Dev mit dem zuletzt eingebauten Stand.
-Hinweis: Kostenlose Apple-IDs erlauben 3 aktive Apps (SideStore, Focus, Focus Dev).
-
 ```sh
-npm start           # Metro-Bundler (für Debug-Builds)
-npm run ios         # Build + Start im Simulator
-npm run check       # Typecheck + Lint + Tests
+npm install
+npm run check      # Typecheck, Lint, Tests
+npm run ipa        # Release-ipa lokal bauen → dist/Focus.ipa
 ```
 
-Im Debug-Build ist die WebView über Safari → Entwickler → *[iPhone]* inspizierbar
-(`webviewDebuggingEnabled`), praktisch für die QA der Instagram-Routen.
+**Live auf dem iPhone testen:** einmal `npm run ipa:dev` → `dist/FocusDev.ipa` per
+AirDrop an SideStore. „Focus Dev“ ist eine eigene App, die ihren Code live vom Mac lädt:
+`npm start`, gleiches WLAN, lokales Netzwerk erlauben – Änderungen erscheinen sofort.
+Neu bauen nur bei nativen Änderungen (Pakete, `ios/`).
 
-### Architektur
+Voraussetzungen am Mac: Xcode, Node ≥ 22, `brew install cocoapods`.
+
+### Aufbau
 
 ```
-App.tsx
 src/
-  app/FocusApp.tsx              Shell: Tabs, Zustand, Persistenz, Aktionen
-  screens/
-    BrowserView.tsx             Die eine Instagram-WebView (nie neu gemountet)
-    BlockedOverlay.tsx          Nativer Sperrbildschirm
-    SearchScreen.tsx            Focus-Suche (Ersatz für Explore)
-    SettingsScreen.tsx          Focus-Tab: Verhalten, Diagnose, Daten
-    OnboardingScreen.tsx        Erster Start
+  app/FocusApp.tsx          Shell: Tabs, Zustand, Aktionen
+  controls/controls.ts      Modi und Schalter → Routen-Policy
   filtering/
-    instagram/routes.ts         Einzige Quelle der Routen-Regeln (+ Versionsnummer)
-    instagram/scripts.ts        In-Page-Guard (läuft bei document-start in WKWebView)
-    instagram/search.ts         Eingabe-Interpretation der Suche
-    engine/RouteGuard.ts        Entscheidung für jede Navigation
-    engine/messages.ts          Validierung der WebView-Bridge
-  storage/                      Einstellungen, letzter Ort, Diagnose, Suchverlauf (AsyncStorage)
-  ui/                           Theme, Icons, gruppierte Listen, Tab-Leiste
-  ui/skeleton/                  Lade-Skeletons: Bausteine (Pulse, Bone, Circle, Lines, AvatarRow)
-                                + Instagram-Varianten (Feed, Nachrichten, Profil, Beitrag)
-ios/Focus/AppDelegate.swift     + WebsiteDataJanitor (löscht WebKit-Daten auf Anfrage)
+    instagram/routes.ts     Routen-Regeln (einzige Quelle, versioniert)
+    instagram/scripts.ts    In-Page-Guard für WKWebView
+    engine/RouteGuard.ts    Entscheidung für jede Navigation
+    engine/messages.ts      Validierung der WebView-Bridge
+  usage/usage.ts            Lokale Nutzungszeit
+  screens/                  WebView, Suche, Focus-Tab, Sperr-/Ladeflächen
+  storage/                  Einstellungen, Diagnose, Verlauf (AsyncStorage)
+  ui/, ui/skeleton/         Theme, Icons, Listen, Tab-Leiste, Skeleton-Bausteine
+ios/Focus/AppDelegate.swift + WebsiteDataJanitor (löscht WebKit-Daten auf Anfrage)
 ```
 
-**Zwei Schutzebenen, beide aus denselben Regeln (`routes.ts`):**
+- **Zwei Schutzebenen aus denselben Regeln:** nativ vor jedem Seitenaufruf, und in der
+  Seite (Instagram ist eine Single-Page-App) über `pushState`-Hooks, Klick-Abfang und
+  einen MutationObserver. Landet die Seite doch auf einer gesperrten Route, wird sie
+  unsichtbar und stumm geschaltet (fail closed).
+- **Bridge:** nur fest definierte Nachrichtentypen, zur Laufzeit validiert, nur von
+  `https://www.instagram.com`. Die Seite kann nie Code in der App ausführen.
+- **Filter:** nie über Text allein, außer für Werbung/Vorschläge – dort nur bei exakter
+  Beschriftung. Lieber einmal Werbung als ein fehlender Beitrag von Freunden.
+- Neue Ladezustände immer aus `ui/skeleton/Skeleton.tsx` bauen.
+- Instagram ändert sein Web: unbekannte Routen zeigt der Focus-Tab unter *Filterstatus*;
+  Regeln in `routes.ts` anpassen und die Regelversion erhöhen.
 
-1. **Nativ** – `onShouldStartLoadWithRequest` prüft jede echte Navigation, bevor
-   sie lädt; `onNavigationStateChange` prüft zusätzlich jede URL-Änderung.
-2. **In der Seite** – Instagram ist eine Single-Page-App, viele Wechsel laufen über
-   `history.pushState`. Der Guard hängt sich in `pushState`/`replaceState`/`popstate`
-   ein, fängt Klicks auf gesperrte Links ab, bevor Instagrams Router sie sieht,
-   und prüft zusätzlich jede Sekunde die URL. Landet die Seite doch auf einer
-   gesperrten Route, wird sie sofort unsichtbar geschaltet und alle Videos pausiert
-   (fail closed); „Zurück“ geht per `history.back()` zurück – ohne Neuladen.
+## Sicherheit
 
-**Bridge:** Die Seite kann nur fest definierte Nachrichtentypen senden
-(`FILTER_READY`, `FILTER_ERROR`, `ROUTE_CHANGED`, `BLOCKED_ROUTE`, `PAGE_READY`,
-`OWN_PROFILE`, `OPEN_SEARCH`, `SEARCH_RESULTS`). Jede Nachricht wird zur Laufzeit validiert; Nachrichten von
-anderen Origins als `https://www.instagram.com` werden verworfen.
+Keine Geheimnisse im Repo; `.gitignore` schließt Signier-Material, Kopplungsdateien,
+`.env` und Builds aus. Commits nur über `noreply`-Adressen. Die Action läuft nur in
+diesem Repo und darf nur Releases anlegen. Instagram-Login, Cookies, Einstellungen und
+Nutzungszeit liegen ausschließlich auf dem iPhone.
 
-**Laden ohne Springen:** Solange Instagram lädt, liegt ein Skeleton in der Form der
-Zielseite über der WebView. Der Guard meldet `PAGE_READY`, sobald echter Inhalt da ist
-und das DOM kurz ruhig war; dann blendet das Skeleton weich aus. Instagrams eigene
-untere Leiste wird per MutationObserver sofort beim Rendern ausgeblendet – Focus hat
-eine native Leiste mit Instagram, Suche, Nachrichten, Profil und Focus.
-Neue Ladezustände in der App bitte immer aus `ui/skeleton/Skeleton.tsx` bauen.
+## Grenzen
 
-**Websitedaten löschen:** Instagrams Session-Cookie ist `HttpOnly` und von JS aus
-unerreichbar. Statt eines eigenen Native-Moduls schreibt JS über React Natives
-`Settings`-API ein Flag in `NSUserDefaults`; der `WebsiteDataJanitor` im
-`AppDelegate` löscht dann den kompletten `WKWebsiteDataStore` und meldet Vollzug.
-
-### Routen-Annahmen
-
-Siehe Kommentar in [`src/filtering/instagram/routes.ts`](src/filtering/instagram/routes.ts).
-Instagram ändert sein Web regelmäßig – bei der QA auf dem iPhone unbedingt prüfen
-und neue Varianten dort eintragen (und die Regelversion erhöhen).
-Unbekannte Routen erscheinen im Focus-Tab unter *Filterstatus → Unbekannte Route*.
-
----
-
-## Sicherheit & öffentliches Repo
-
-- Im Repo liegen **keine Geheimnisse**: kein Passwort, kein Token, kein Zertifikat.
-  Die GitHub-Action nutzt nur GitHubs automatisches, kurzlebiges Token.
-- `.gitignore` schließt Signier-Material (`*.p12`, `*.mobileprovision`, …),
-  Kopplungsdateien von SideStore, `.env`-Dateien und alle Build-Ergebnisse aus.
-- Commits laufen über die anonyme GitHub-Adresse
-  (`…@users.noreply.github.com`), nie über eine private E-Mail.
-- Die Action läuft nur im Original-Repo, nie in Forks, und darf nur Releases anlegen.
-- Instagram-Login, Cookies und Einstellungen liegen ausschließlich auf dem iPhone.
-
-## Bekannte Grenzen
-
-- Instagram Web ≠ Instagram-App: Kamera, Filter, manche Posting- und Creator-Funktionen,
-  Anrufe und Push-Benachrichtigungen fehlen.
-- Geteilte Reels sind vorerst **komplett** gesperrt (PRD §12/§55: lieber gesperrt als
-  ein Schlupfloch in den Reels-Feed). Der Sperrbildschirm bietet an, das Reel einmal in
-  der Instagram-App zu öffnen.
-- Die Namenssuche nutzt Instagrams internen Such-Endpunkt. Ändert Instagram ihn,
-  funktioniert weiterhin das direkte Öffnen per `@benutzername` oder Link.
+- Instagram Web ≠ Instagram-App: Kamera, Filter, manche Posting-Funktionen, Anrufe und
+  Push-Benachrichtigungen fehlen. Dafür gibt es „Zum Posten: Instagram-App öffnen“.
+- Geteilte Reels sind vorerst gesperrt (lieber gesperrt als ein Schlupfloch in den Feed).
 - Die offizielle Instagram-App wird nicht gesperrt (kein Screen-Time-Shield ohne
-  kostenpflichtigen Entwickler-Account – geplant als optionaler Meilenstein 7).
-
-## Manuelle QA-Checkliste (iPhone)
-
-- [ ] Login, 2FA, Logout, Neustart → noch angemeldet
-- [ ] Home-Feed, DM-Inbox, DM-Unterhaltung, Profil, Beitrag, Karussell, Story
-- [ ] Reels-Tab / Reels-Link / Profil-Reels → Sperrbildschirm, „Zurück“ ohne Neuladen
-- [ ] Such-Icon in Instagram → Focus-Suche; Hashtag-Link → Explore-Sperre
-- [ ] Geteiltes Reel in DMs → Sperrbildschirm, „Einmal in der Instagram-App öffnen“
-- [ ] Profil öffnen, scrollen, Kontrollzentrum + Helligkeit → gleiche Position
-- [ ] DM öffnen, 30 s in Nachrichten-App, zurück → gleiche DM
-- [ ] Video abspielen, sperren, innerhalb 30 s entsperren → kein Sprung zum Feed
-- [ ] App beenden, neu starten → letzter sicherer Ort
-- [ ] Flugmodus → „Instagram ist nicht erreichbar“ → „Erneut versuchen“
-- [ ] Externer Link im Profil → Safari
-- [ ] Websitedaten löschen → abgemeldet
+  bezahlten Entwickler-Account).

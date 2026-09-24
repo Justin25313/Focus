@@ -40,7 +40,8 @@ describe('parseSettings', () => {
       openInstagramOnLaunch: true,
       keepLastLocation: false,
     });
-    expect(migrated.schemaVersion).toBe(2);
+    expect(migrated.schemaVersion).toBe(3);
+    expect(migrated.trackUsage).toBe(true);
     expect(migrated.keepLastLocation).toBe(false);
     expect(migrated.grayscale).toBe(false);
     expect(migrated.controls).toEqual(PRESETS.balanced);

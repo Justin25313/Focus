@@ -36,4 +36,5 @@ export const STORAGE_KEYS = {
   diagnostics: 'focus.diagnostics',
   searchHistory: 'focus.searchHistory',
   ownProfile: 'focus.ownProfile',
+  usage: 'focus.usage',
 } as const;

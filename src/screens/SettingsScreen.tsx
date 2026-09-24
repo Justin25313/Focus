@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -14,6 +14,9 @@ import {
   modeOf,
 } from '../controls/controls';
 import { Diagnostics } from '../storage/diagnostics';
+import { UsageLog } from '../usage/usage';
+import { AboutScreen } from './AboutScreen';
+import { UsageCard } from './UsageCard';
 import { FocusSettings } from '../storage/settings';
 import {
   ButtonRow,
@@ -38,6 +41,8 @@ type Props = {
   onClearWebsiteData: () => void;
   onResetSettings: () => void;
   onResetDiagnostics: () => void;
+  usageLog: UsageLog;
+  onResetUsage: () => void;
 };
 
 const REASON_LABEL: Record<BlockReason, string> = {
@@ -95,9 +100,12 @@ export function SettingsScreen({
   onClearWebsiteData,
   onResetSettings,
   onResetDiagnostics,
+  usageLog,
+  onResetUsage,
 }: Props) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
+  const [showAbout, setShowAbout] = useState(false);
 
   const controls = settings.controls;
   const mode = modeOf(controls);
@@ -156,6 +164,10 @@ export function SettingsScreen({
         <Text style={[styles.subtitle, { color: theme.secondaryLabel }]}>
           Instagram-Steuerung
         </Text>
+
+        {settings.trackUsage ? (
+          <UsageCard log={usageLog} now={Date.now()} />
+        ) : null}
 
         <GroupedSection
           title="Modus"
@@ -254,6 +266,12 @@ export function SettingsScreen({
             value={settings.keepLastLocation}
             onValueChange={value => onChange({ keepLastLocation: value })}
           />
+          <SwitchRow
+            label="Nutzungszeit zählen"
+            detail="Nur Zeit mit Instagram im Vordergrund. Bleibt auf diesem iPhone."
+            value={settings.trackUsage}
+            onValueChange={value => onChange({ trackUsage: value })}
+          />
         </GroupedSection>
 
         <GroupedSection
@@ -330,12 +348,25 @@ export function SettingsScreen({
           />
         </GroupedSection>
 
+        <GroupedSection>
+          <ButtonRow
+            label="Datenschutz & Grenzen"
+            onPress={() => setShowAbout(true)}
+            chevron
+          />
+        </GroupedSection>
+
         <GroupedSection title="Daten">
           <ButtonRow
             label="Instagram-Websitedaten löschen"
             detail="Löscht Cookies, Cache und Login. Du musst dich neu anmelden."
             onPress={onClearWebsiteData}
             busy={clearingWebsiteData}
+            destructive
+          />
+          <ButtonRow
+            label="Nutzungszeit zurücksetzen"
+            onPress={onResetUsage}
             destructive
           />
           <ButtonRow
@@ -346,10 +377,11 @@ export function SettingsScreen({
         </GroupedSection>
 
         <Text style={[styles.about, { color: theme.tertiaryLabel }]}>
-          Focus 0.2 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
+          Focus 0.3 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
           Deine Einstellungen bleiben auf diesem iPhone.
         </Text>
       </ScrollView>
+      {showAbout ? <AboutScreen onBack={() => setShowAbout(false)} /> : null}
     </View>
   );
 }

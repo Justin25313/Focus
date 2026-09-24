@@ -5,20 +5,22 @@ import {
 } from '../controls/controls';
 
 export type FocusSettings = {
-  schemaVersion: 2;
+  schemaVersion: 3;
   onboardingComplete: boolean;
   openInstagramOnLaunch: boolean;
   keepLastLocation: boolean;
   grayscale: boolean;
+  trackUsage: boolean;
   controls: Controls;
 };
 
 export const DEFAULT_SETTINGS: FocusSettings = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   onboardingComplete: false,
   openInstagramOnLaunch: true,
   keepLastLocation: true,
   grayscale: false,
+  trackUsage: true,
   controls: DEFAULT_CONTROLS,
 };
 
@@ -33,6 +35,7 @@ function bool(value: unknown, fallback: boolean): boolean {
  *
  * Migrations:
  *  v1 → v2: adds `grayscale` and `controls` (defaults = Balanced).
+ *  v2 → v3: adds `trackUsage` (default on, local only).
  */
 export function parseSettings(raw: unknown): FocusSettings {
   if (typeof raw !== 'object' || raw === null) {
@@ -40,7 +43,7 @@ export function parseSettings(raw: unknown): FocusSettings {
   }
   const data = raw as Record<string, unknown>;
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     onboardingComplete: bool(
       data.onboardingComplete,
       DEFAULT_SETTINGS.onboardingComplete,
@@ -54,6 +57,7 @@ export function parseSettings(raw: unknown): FocusSettings {
       DEFAULT_SETTINGS.keepLastLocation,
     ),
     grayscale: bool(data.grayscale, DEFAULT_SETTINGS.grayscale),
+    trackUsage: bool(data.trackUsage, DEFAULT_SETTINGS.trackUsage),
     controls: parseControls(data.controls),
   };
 }

@@ -50,6 +50,8 @@ import {
   skeletonForRoute,
 } from '../ui/skeleton/InstagramSkeleton';
 import { TabBar, TabId } from '../ui/TabBar';
+import { UsageLog, parseUsageLog } from '../usage/usage';
+import { useUsageTracker } from '../usage/useUsageTracker';
 import { TAB_BAR_HEIGHT, useTheme } from '../ui/theme';
 
 /** Keys shared with AppDelegate.swift (NSUserDefaults). */
@@ -73,6 +75,7 @@ type Loaded = {
   diagnostics: Diagnostics;
   searchHistory: string[];
   ownProfilePath: string | null;
+  usageLog: UsageLog;
 };
 
 /** Whether `path` is the signed-in user's profile or one of its tabs. */
@@ -83,14 +86,21 @@ function isOwnProfile(path: string, ownPath: string | null): boolean {
 }
 
 async function loadState(): Promise<Loaded> {
-  const [rawSettings, rawRoute, rawDiagnostics, rawHistory, rawProfile] =
-    await Promise.all([
-      readJson(STORAGE_KEYS.settings),
-      readJson(STORAGE_KEYS.lastRoute),
-      readJson(STORAGE_KEYS.diagnostics),
-      readJson(STORAGE_KEYS.searchHistory),
-      readJson(STORAGE_KEYS.ownProfile),
-    ]);
+  const [
+    rawSettings,
+    rawRoute,
+    rawDiagnostics,
+    rawHistory,
+    rawProfile,
+    rawUsage,
+  ] = await Promise.all([
+    readJson(STORAGE_KEYS.settings),
+    readJson(STORAGE_KEYS.lastRoute),
+    readJson(STORAGE_KEYS.diagnostics),
+    readJson(STORAGE_KEYS.searchHistory),
+    readJson(STORAGE_KEYS.ownProfile),
+    readJson(STORAGE_KEYS.usage),
+  ]);
   const settings = parseSettings(rawSettings);
   const restore =
     settings.keepLastLocation &&
@@ -109,6 +119,7 @@ async function loadState(): Promise<Loaded> {
       routeKindForPath(rawProfile) === 'profile'
         ? rawProfile
         : null,
+    usageLog: parseUsageLog(rawUsage),
   };
 }
 
@@ -155,6 +166,11 @@ function FocusShell({ initial }: { initial: Loaded }) {
   const [clearing, setClearing] = useState(false);
   const [loading, setLoading] = useState<SkeletonVariant | null>(
     skeletonForRoute(routeKindForPath(initialPath)),
+  );
+
+  const usage = useUsageTracker(
+    initial.usageLog,
+    settings.trackUsage && settings.onboardingComplete && screen === 'browser',
   );
 
   const settingsRef = useRef(settings);
@@ -715,6 +731,17 @@ function FocusShell({ initial }: { initial: Loaded }) {
           onClearWebsiteData={clearWebsiteData}
           onResetSettings={resetSettings}
           onResetDiagnostics={resetDiagnostics}
+          usageLog={usage.log}
+          onResetUsage={() =>
+            Alert.alert('Nutzungszeit zurücksetzen?', undefined, [
+              { text: 'Abbrechen', style: 'cancel' },
+              {
+                text: 'Zurücksetzen',
+                style: 'destructive',
+                onPress: usage.reset,
+              },
+            ])
+          }
         />
       ) : null}
 

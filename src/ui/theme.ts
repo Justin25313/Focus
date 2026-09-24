@@ -17,6 +17,8 @@ const light = {
   barBackground: 'rgba(249,249,249,0.97)',
   webBackground: '#FFFFFF',
   skeleton: '#EDEDF0',
+  // Validated for the light surface (lightness band, chroma, contrast).
+  chartBar: '#12875F',
 };
 
 const dark: typeof light = {
@@ -35,6 +37,8 @@ const dark: typeof light = {
   barBackground: 'rgba(22,22,24,0.97)',
   webBackground: '#000000',
   skeleton: '#1F1F22',
+  // Validated for the dark surface.
+  chartBar: '#34A984',
 };
 
 export type Theme = typeof light & { dark: boolean };
