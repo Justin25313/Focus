@@ -200,7 +200,7 @@ const GUARD_SOURCE = String.raw`
       '[' + PTR_SPACER_ATTR + ']{transition:height .2s ease;overflow:hidden;}';
     if (config.homeFeed === 'following') {
       // The Following feed's back arrow leads to the "For you" feed.
-      css += '[' + BACK_ATTR + ']{display:none!important;}';
+      css += '[' + BACK_ATTR + ']{visibility:hidden!important;pointer-events:none!important;}';
     }
     if (config.homeFeed === 'hidden') {
       css +=
@@ -441,16 +441,31 @@ const GUARD_SOURCE = String.raw`
     }
   }
 
+  // The Following feed's header starts with a back arrow to "For you".
+  // Find whatever is tappable at the header's left edge and hide it
+  // (keeping its space, so the title does not jump).
   function hideFollowingBackLink() {
-    if (config.homeFeed !== 'following' || location.pathname !== '/') {
+    if (
+      config.homeFeed !== 'following' ||
+      location.pathname !== '/' ||
+      typeof document.elementFromPoint !== 'function'
+    ) {
       return;
     }
-    var links = document.querySelectorAll('a[href="/"]:not([' + BACK_ATTR + '])');
-    for (var i = 0; i < links.length; i++) {
-      var rect = links[i].getBoundingClientRect();
-      if (rect.height > 0 && rect.top < 80 && rect.height < 60 && rect.width < 80) {
-        links[i].setAttribute(BACK_ATTR, '');
+    var bottom = headerBottom();
+    var el = document.elementFromPoint(28, bottom ? bottom / 2 : 24);
+    for (var depth = 0; el && el !== document.body && depth < 8; depth++) {
+      if (el.hasAttribute && el.hasAttribute(BACK_ATTR)) {
+        return;
       }
+      if (el.matches && el.matches('a, button, [role="button"], [role="link"]')) {
+        var rect = el.getBoundingClientRect();
+        if (rect.left < 60 && rect.width < 90 && rect.height < 80) {
+          el.setAttribute(BACK_ATTR, '');
+        }
+        return;
+      }
+      el = el.parentElement;
     }
   }
 

@@ -377,7 +377,7 @@ export function SettingsScreen({
         </GroupedSection>
 
         <Text style={[styles.about, { color: theme.tertiaryLabel }]}>
-          Focus 0.4 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
+          Focus 0.5 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
           Deine Einstellungen bleiben auf diesem iPhone.
         </Text>
       </ScrollView>

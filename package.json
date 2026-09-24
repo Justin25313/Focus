@@ -1,6 +1,6 @@
 {
   "name": "Focus",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "scripts": {
     "ios": "react-native run-ios",
@@ -14,6 +14,7 @@
     "ipa:dev": "./scripts/build-ipa.sh --dev"
   },
   "dependencies": {
+    "@callstack/liquid-glass": "^0.8.2",
     "@react-native-async-storage/async-storage": "^3.1.1",
     "@react-native-community/blur": "^4.4.1",
     "react": "19.2.3",

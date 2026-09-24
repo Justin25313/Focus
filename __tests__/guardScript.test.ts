@@ -413,6 +413,36 @@ describe('injected guard script', () => {
     });
   });
 
+  it("hides the Following feed's back arrow at the header's left edge", async () => {
+    const header = document.createElement('div');
+    header.style.position = 'sticky';
+    header.getBoundingClientRect = () =>
+      ({ top: 0, bottom: 48, height: 48, left: 0, width: 390 } as DOMRect);
+    const back = document.createElement('div');
+    back.setAttribute('role', 'button');
+    back.getBoundingClientRect = () =>
+      ({ top: 8, left: 12, width: 32, height: 32 } as DOMRect);
+    const chevron = document.createElement('span');
+    back.appendChild(chevron);
+    header.appendChild(back);
+    document.body.appendChild(header);
+
+    const original = (document as any).elementFromPoint;
+    (document as any).elementFromPoint = (x: number) =>
+      x < 60 ? chevron : header;
+    try {
+      history.pushState({}, '', '/?variant=following');
+      await waitFor(() => back.hasAttribute('data-focus-hide-back'));
+      expect(
+        document.getElementById('focus-guard-style')?.textContent,
+      ).toContain('[data-focus-hide-back]{visibility:hidden!important;');
+    } finally {
+      (document as any).elementFromPoint = original;
+      header.remove();
+      history.pushState({}, '', '/natgeo/');
+    }
+  });
+
   describe('pull to refresh', () => {
     const pull = (distance: number) => {
       Object.defineProperty(window, 'scrollY', {
