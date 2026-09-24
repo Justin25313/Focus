@@ -9,6 +9,7 @@ import {
   Pressable,
   StyleProp,
   StyleSheet,
+  Text,
   View,
   ViewStyle,
 } from 'react-native';
@@ -18,15 +19,24 @@ import {
   HomeIcon,
   MessageIcon,
   ProfileIcon,
+  ReelsIcon,
   SearchIcon,
 } from './icons';
 import { TAB_BAR_PILL_HEIGHT, tabBarBottom, useTheme } from './theme';
 
-export type TabId = 'feed' | 'search' | 'messages' | 'profile' | 'focus';
+export type TabId =
+  | 'feed'
+  | 'reels'
+  | 'search'
+  | 'messages'
+  | 'profile'
+  | 'focus';
 
 /** Buttons of the current app (Instagram); other services can bring their own. */
 const APP_TABS: { id: TabId; label: string; Icon: typeof HomeIcon }[] = [
   { id: 'feed', label: 'Instagram', Icon: HomeIcon },
+  // Only while a timed Reels window is running.
+  { id: 'reels', label: 'Reels', Icon: ReelsIcon },
   { id: 'messages', label: 'Nachrichten', Icon: MessageIcon },
   { id: 'search', label: 'Suche', Icon: SearchIcon },
   { id: 'profile', label: 'Profil', Icon: ProfileIcon },
@@ -81,11 +91,14 @@ export function TabBar({
   active,
   onPress,
   hiddenTabs = [],
+  reelsCountdown,
 }: {
   active: TabId;
   onPress: (tab: TabId) => void;
   /** Tabs that do not apply right now (e.g. no profile before login). */
   hiddenTabs?: TabId[];
+  /** Remaining Reels time, shown under the Reels icon. */
+  reelsCountdown?: string;
 }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -118,7 +131,19 @@ export function TabBar({
                       selected ? { backgroundColor: theme.barSelected } : null,
                     ]}
                   >
-                    <Icon color={theme.label} size={27} filled={selected} />
+                    {id === 'reels' && reelsCountdown ? (
+                      <>
+                        <Icon color={theme.label} size={22} filled={selected} />
+                        <Text
+                          style={[styles.countdown, { color: theme.label }]}
+                          accessibilityLabel={`Noch ${reelsCountdown}`}
+                        >
+                          {reelsCountdown}
+                        </Text>
+                      </>
+                    ) : (
+                      <Icon color={theme.label} size={27} filled={selected} />
+                    )}
                   </View>
                 </Pressable>
               );
@@ -186,6 +211,12 @@ const styles = StyleSheet.create({
     borderRadius: (TAB_BAR_PILL_HEIGHT - 10) / 2,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  countdown: {
+    fontSize: 10,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+    marginTop: 1,
   },
   circleInner: {
     flex: 1,

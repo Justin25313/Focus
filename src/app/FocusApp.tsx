@@ -1,6 +1,13 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   Alert,
+  AppState,
   Linking,
   Settings,
   StatusBar,
@@ -12,10 +19,19 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import {
+  blockReasonForPath,
   instagramPathFromUrl,
   isSafeRouteToPersist,
 } from '../filtering/engine/RouteGuard';
 import { Controls, homePathFor, policyFor } from '../controls/controls';
+import {
+  ReelsSession,
+  endReelsSession,
+  formatCountdown,
+  parseReelsSession,
+  reelsStatus,
+  startReelsSession,
+} from '../controls/reelsSession';
 import { SearchUser, WebMessage } from '../filtering/engine/messages';
 import {
   INSTAGRAM_INBOX_PATH,
@@ -76,7 +92,14 @@ type Loaded = {
   searchHistory: string[];
   ownProfilePath: string | null;
   usageLog: UsageLog;
+  reelsSession: ReelsSession | null;
 };
+
+const INSTAGRAM_REELS_PATH = '/reels/';
+
+function isReelsPath(path: string): boolean {
+  return /^\/reels?(\/|$)/i.test(path);
+}
 
 /** Whether `path` is the signed-in user's profile or one of its tabs. */
 function isOwnProfile(path: string, ownPath: string | null): boolean {
@@ -93,6 +116,7 @@ async function loadState(): Promise<Loaded> {
     rawHistory,
     rawProfile,
     rawUsage,
+    rawReels,
   ] = await Promise.all([
     readJson(STORAGE_KEYS.settings),
     readJson(STORAGE_KEYS.lastRoute),
@@ -100,6 +124,7 @@ async function loadState(): Promise<Loaded> {
     readJson(STORAGE_KEYS.searchHistory),
     readJson(STORAGE_KEYS.ownProfile),
     readJson(STORAGE_KEYS.usage),
+    readJson(STORAGE_KEYS.reelsSession),
   ]);
   const settings = parseSettings(rawSettings);
   const restore =
@@ -120,6 +145,7 @@ async function loadState(): Promise<Loaded> {
         ? rawProfile
         : null,
     usageLog: parseUsageLog(rawUsage),
+    reelsSession: parseReelsSession(rawReels, Date.now()),
   };
 }
 
@@ -164,6 +190,56 @@ function FocusShell({ initial }: { initial: Loaded }) {
   const [health, setHealth] = useState<FilterHealth>('starting');
   const [offline, setOffline] = useState(false);
   const [clearing, setClearing] = useState(false);
+
+  // ---- timed Reels ---------------------------------------------------
+  const [reelsSession, setReelsSession] = useState(initial.reelsSession);
+  const [now, setNow] = useState(() => Date.now());
+  const reels = reelsStatus(reelsSession, now);
+  const reelsOpen = reels.state === 'active' && settings.controls.blockReels;
+  const lockedUntil = reels.state === 'locked' ? reels.until : 0;
+  // The controls Instagram actually runs with: Reels unblocked only while
+  // a window is open. The stored controls never change.
+  const effectiveControls = useMemo(
+    () =>
+      reelsOpen
+        ? { ...settings.controls, blockReels: false }
+        : settings.controls,
+    [reelsOpen, settings.controls],
+  );
+
+  // Tick every second while a window runs (countdown + exact stop); wake up
+  // once when a lockout ends; re-check whenever the app comes back.
+  useEffect(() => {
+    if (reels.state === 'active') {
+      const timer = setInterval(() => setNow(Date.now()), 1000);
+      return () => clearInterval(timer);
+    }
+    if (lockedUntil) {
+      const timer = setTimeout(
+        () => setNow(Date.now()),
+        lockedUntil - Date.now() + 50,
+      );
+      return () => clearTimeout(timer);
+    }
+  }, [reels.state, lockedUntil]);
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') {
+        setNow(Date.now());
+      }
+    });
+    return () => subscription.remove();
+  }, []);
+
+  const saveReelsSession = useCallback((next: ReelsSession | null) => {
+    setReelsSession(next);
+    setNow(Date.now());
+    if (next) {
+      writeJson(STORAGE_KEYS.reelsSession, next);
+    } else {
+      removeKeys([STORAGE_KEYS.reelsSession]);
+    }
+  }, []);
   const [loading, setLoading] = useState<SkeletonVariant | null>(
     skeletonForRoute(routeKindForPath(initialPath)),
   );
@@ -476,6 +552,45 @@ function FocusShell({ initial }: { initial: Loaded }) {
   );
   openPathRef.current = openPath;
 
+  // Opening Reels waits for the render in which they are unblocked, so the
+  // WebView is reconfigured before it navigates there.
+  const openReelsWhenReady = useRef(false);
+  useEffect(() => {
+    if (reelsOpen && openReelsWhenReady.current) {
+      openReelsWhenReady.current = false;
+      openPath(INSTAGRAM_REELS_PATH);
+    }
+  }, [openPath, reelsOpen]);
+
+  const startReels = useCallback(
+    (minutes: number) => {
+      const next = startReelsSession(reelsSession, minutes, Date.now());
+      if (next) {
+        openReelsWhenReady.current = true;
+        saveReelsSession(next);
+      }
+    },
+    [reelsSession, saveReelsSession],
+  );
+
+  const endReels = useCallback(() => {
+    saveReelsSession(endReelsSession(reelsSession, Date.now()));
+  }, [reelsSession, saveReelsSession]);
+
+  // Time is up: stop at once, without waiting for the page to notice.
+  // The guard is reconfigured in the same render and pauses all media.
+  const wasReelsOpen = useRef(reelsOpen);
+  useEffect(() => {
+    if (wasReelsOpen.current && !reelsOpen) {
+      const path = currentPathRef.current;
+      const reason = blockReasonForPath(path, policyFor(settings.controls));
+      if (reason) {
+        handleBlocked({ reason, path, navigated: true });
+      }
+    }
+    wasReelsOpen.current = reelsOpen;
+  }, [handleBlocked, reelsOpen, settings.controls]);
+
   const openProfile = useCallback(
     (username: string) => {
       setSearchHistory(prev => {
@@ -538,6 +653,9 @@ function FocusShell({ initial }: { initial: Loaded }) {
           if (ownProfilePath) {
             goTo(ownProfilePath, isOwnProfile(currentPath, ownProfilePath));
           }
+          break;
+        case 'reels':
+          goTo(INSTAGRAM_REELS_PATH, isReelsPath(currentPath));
           break;
         case 'search':
           setScreen('search');
@@ -676,6 +794,8 @@ function FocusShell({ initial }: { initial: Loaded }) {
       ? 'focus'
       : block
       ? 'feed'
+      : isReelsPath(currentPath)
+      ? 'reels'
       : routeKindForPath(currentPath) === 'direct'
       ? 'messages'
       : isOwnProfile(currentPath, ownProfilePath)
@@ -697,7 +817,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
         <BrowserView
           ref={browser}
           initialUrl={startUrl}
-          controls={settings.controls}
+          controls={effectiveControls}
           grayscale={settings.grayscale}
           bottomInset={showTabBar ? tabBarSpace(insets.bottom) : 0}
           onRoute={handleRoute}
@@ -720,6 +840,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
         {block ? (
           <BlockedOverlay
             reason={block.reason}
+            lockedUntil={lockedUntil || undefined}
             onBack={leaveBlock}
             onSearch={() => {
               leaveBlock();
@@ -757,6 +878,9 @@ function FocusShell({ initial }: { initial: Loaded }) {
           onResetSettings={resetSettings}
           onResetDiagnostics={resetDiagnostics}
           usageLog={usage.log}
+          reels={reels}
+          onStartReels={startReels}
+          onEndReels={endReels}
           onResetUsage={() =>
             Alert.alert('Nutzungszeit zurücksetzen?', undefined, [
               { text: 'Abbrechen', style: 'cancel' },
@@ -774,7 +898,13 @@ function FocusShell({ initial }: { initial: Loaded }) {
         <TabBar
           active={activeTab}
           onPress={onTab}
+          reelsCountdown={
+            reels.state === 'active'
+              ? formatCountdown(reels.remainingMs)
+              : undefined
+          }
           hiddenTabs={[
+            ...(reelsOpen ? [] : (['reels'] as const)),
             ...(ownProfilePath === null ? (['profile'] as const) : []),
             ...(settings.controls.homeFeed === 'off'
               ? (['feed'] as const)

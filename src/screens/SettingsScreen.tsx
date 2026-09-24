@@ -13,6 +13,12 @@ import {
   PresetId,
   modeOf,
 } from '../controls/controls';
+import {
+  REELS_WINDOWS_MIN,
+  ReelsStatus,
+  formatCountdown,
+  lockoutMinutes,
+} from '../controls/reelsSession';
 import { Diagnostics } from '../storage/diagnostics';
 import { UsageLog } from '../usage/usage';
 import { AboutScreen } from './AboutScreen';
@@ -43,6 +49,9 @@ type Props = {
   onResetDiagnostics: () => void;
   usageLog: UsageLog;
   onResetUsage: () => void;
+  reels: ReelsStatus;
+  onStartReels: (minutes: number) => void;
+  onEndReels: () => void;
 };
 
 const REASON_LABEL: Record<BlockReason, string> = {
@@ -102,6 +111,9 @@ export function SettingsScreen({
   onResetDiagnostics,
   usageLog,
   onResetUsage,
+  reels,
+  onStartReels,
+  onEndReels,
 }: Props) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -133,6 +145,18 @@ export function SettingsScreen({
           style: 'destructive',
           onPress: () => setControls({ [key]: false }),
         },
+      ],
+    );
+  };
+
+  const confirmReels = (minutes: number) => {
+    const lockout = lockoutMinutes(minutes);
+    Alert.alert(
+      `Reels für ${minutes} Minuten?`,
+      `Danach stoppen Reels sofort und sind ${lockout} Minuten gesperrt. Verlängern geht nicht.`,
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        { text: 'Starten', onPress: () => onStartReels(minutes) },
       ],
     );
   };
@@ -243,6 +267,43 @@ export function SettingsScreen({
             onValueChange={value => setControls({ hideSuggested: value })}
           />
         </GroupedSection>
+
+        {controls.blockReels ? (
+          <GroupedSection
+            title="Reels-Zeitfenster"
+            footer="Einmal gestartet, nicht verlängerbar. Danach sind Reels mindestens 5 Minuten gesperrt – so lange wie das Zeitfenster."
+          >
+            {reels.state === 'active' ? (
+              <ValueRow
+                label="Reels offen"
+                value={`noch ${formatCountdown(reels.remainingMs)}`}
+                valueColor={theme.accent}
+              />
+            ) : null}
+            {reels.state === 'active' ? (
+              <ButtonRow
+                label="Jetzt beenden"
+                onPress={onEndReels}
+                destructive
+              />
+            ) : null}
+            {reels.state === 'locked' ? (
+              <ValueRow
+                label="Gesperrt bis"
+                value={formatTimestamp(reels.until)}
+              />
+            ) : null}
+            {reels.state === 'idle'
+              ? REELS_WINDOWS_MIN.map(minutes => (
+                  <ButtonRow
+                    key={minutes}
+                    label={`Reels für ${minutes} Minuten`}
+                    onPress={() => confirmReels(minutes)}
+                  />
+                ))
+              : null}
+          </GroupedSection>
+        ) : null}
 
         <GroupedSection title="Darstellung">
           <SwitchRow
@@ -377,7 +438,7 @@ export function SettingsScreen({
         </GroupedSection>
 
         <Text style={[styles.about, { color: theme.tertiaryLabel }]}>
-          Focus 0.5 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
+          Focus 0.6 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
           Deine Einstellungen bleiben auf diesem iPhone.
         </Text>
       </ScrollView>

@@ -12,6 +12,7 @@ normal; Reels-Feed, Explore und Vorschläge bleiben draußen.
 - **Modi:** Ausgewogen (Standard) · Stories + Nachrichten · Nur Nachrichten · Eigene
 - **Startseite:** „Folge ich“ (nur Accounts, denen du folgst) · nur Stories · „Für dich“ · aus
 - **Gesperrt:** Reels-Feed, einzelne Reels, Profil-Reels, Explore; optional Stories und Gespeichert
+- **Reels-Zeitfenster:** 5/10/15 Minuten, Countdown in der Leiste, harter Stopp, nicht verlängerbar, danach mindestens 5 Minuten gesperrt
 - **Ausgeblendet:** eindeutig markierte Werbung und Vorschläge, Reels-Einstiege, Instagrams eigene Leiste
 - **Suche:** eigene Profilsuche (Name, `@benutzername` oder Link) statt Explore
 - **Graustufen**, **Nutzungszeit** (nur lokal), **letzter Ort** nach Neustart

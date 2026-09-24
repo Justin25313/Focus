@@ -37,4 +37,5 @@ export const STORAGE_KEYS = {
   searchHistory: 'focus.searchHistory',
   ownProfile: 'focus.ownProfile',
   usage: 'focus.usage',
+  reelsSession: 'focus.reelsSession',
 } as const;

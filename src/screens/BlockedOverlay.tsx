@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { BlockReason } from '../filtering/instagram/routes';
+import { formatTimestamp } from '../ui/format';
 import { ShieldIcon } from '../ui/icons';
 import { PrimaryButton } from '../ui/PrimaryButton';
 import { useTheme } from '../ui/theme';
@@ -34,17 +35,30 @@ const COPY: Record<BlockReason, { title: string; body: string }> = {
 
 export function BlockedOverlay({
   reason,
+  lockedUntil,
   onBack,
   onSearch,
   onOpenNative,
 }: {
   reason: BlockReason;
+  /** Set right after a timed Reels window: Reels are locked until then. */
+  lockedUntil?: number;
   onBack: () => void;
   onSearch: () => void;
   onOpenNative: () => void;
 }) {
   const theme = useTheme();
-  const copy = COPY[reason];
+  const timeUp =
+    lockedUntil !== undefined &&
+    (reason === 'reels' || reason === 'sharedReel');
+  const copy = timeUp
+    ? {
+        title: 'Reels-Zeit ist um',
+        body: `Reels sind jetzt gesperrt – wieder möglich ab ${formatTimestamp(
+          lockedUntil,
+        )}. Ein guter Moment, das Handy wegzulegen.`,
+      }
+    : COPY[reason];
   return (
     <View
       style={[styles.container, { backgroundColor: theme.background }]}
@@ -68,7 +82,7 @@ export function BlockedOverlay({
           onPress={onBack}
           secondary={reason === 'explore'}
         />
-        {reason === 'sharedReel' ? (
+        {reason === 'sharedReel' && !timeUp ? (
           <PrimaryButton
             title="Einmal in der Instagram-App öffnen"
             onPress={onOpenNative}

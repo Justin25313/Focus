@@ -55,6 +55,20 @@ export function MessageIcon({ color, size = 26, filled }: IconProps) {
   );
 }
 
+/** Rounded square with a play triangle. */
+export function ReelsIcon({ color, size = 26, filled }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        d="M7 3.5h10A3.5 3.5 0 0 1 20.5 7v10a3.5 3.5 0 0 1-3.5 3.5H7A3.5 3.5 0 0 1 3.5 17V7A3.5 3.5 0 0 1 7 3.5z"
+        {...stroke(color)}
+        strokeWidth={filled ? 2.3 : 1.9}
+      />
+      <Path d="m10 8.6 5.4 3.4-5.4 3.4z" fill={color} />
+    </Svg>
+  );
+}
+
 /** Person in a circle, as in Instagram's tab bar. */
 export function ProfileIcon({ color, size = 26, filled }: IconProps) {
   const width = filled ? 2.3 : 1.9;

@@ -347,6 +347,38 @@ describe('injected guard script', () => {
       );
     });
 
+    it('timed Reels: allowed while open, blocked the moment the window ends', () => {
+      const video = document.createElement('video');
+      const pause = jest.fn();
+      Object.defineProperty(video, 'paused', { get: () => false });
+      video.pause = pause;
+      document.body.appendChild(video);
+
+      configure({ ...PRESETS.balanced, blockReels: false });
+      history.pushState({}, '', '/reels/C1/');
+      expect(lastOfType('ROUTE_CHANGED')).toEqual({
+        type: 'ROUTE_CHANGED',
+        path: '/reels/C1/',
+      });
+      expect(messagesOfType('BLOCKED_ROUTE')).toHaveLength(0);
+
+      // Window over: the running Reels page is blocked and silenced at once.
+      configure(PRESETS.balanced);
+      expect(lastOfType('BLOCKED_ROUTE')).toEqual({
+        type: 'BLOCKED_ROUTE',
+        path: '/reels/C1/',
+        reason: 'reels',
+        navigated: true,
+      });
+      expect(document.documentElement.hasAttribute('data-focus-blocked')).toBe(
+        true,
+      );
+      expect(pause).toHaveBeenCalled();
+
+      video.remove();
+      history.pushState({}, '', '/natgeo/');
+    });
+
     it('grayscale is a root filter that can be switched off again', () => {
       configure(PRESETS.balanced, true);
       const style = () =>
