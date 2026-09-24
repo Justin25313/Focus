@@ -83,17 +83,20 @@ Deine Instagram-Anmeldung und die Focus-Einstellungen bleiben dabei erhalten.
 
 ### Ohne 7-Tage-Kabel: SideStore
 
-SideStore erneuert die Signatur automatisch auf dem iPhone.
+SideStore erneuert die Signatur automatisch auf dem iPhone (einmalige Einrichtung
+siehe [docs.sidestore.io](https://docs.sidestore.io), inkl. LocalDevVPN).
 
-1. **iPhone:** *Entwicklermodus* an (siehe oben) und aus dem App Store **LocalDevVPN** installieren.
-2. **Mac:** Installer von [docs.sidestore.io](https://docs.sidestore.io) laden (iloader), iPhone per Kabel
-   anschließen, mit der Apple-ID anmelden, **SideStore installieren** lassen.
-3. **iPhone:** *Einstellungen → Allgemein → VPN & Geräteverwaltung* → Apple-ID → *Vertrauen*.
-   SideStore öffnen, mit derselben Apple-ID anmelden, LocalDevVPN verbinden.
-4. **Mac:** `npm run ipa` → erzeugt `dist/Focus.ipa`. Per AirDrop aufs iPhone → *Öffnen in SideStore*
-   (oder in SideStore: *My Apps → +*).
-5. Fertig. SideStore erneuert Focus im Hintergrund, solange LocalDevVPN bei der Aktualisierung aktiv ist.
-   Neue Focus-Version: `git pull && npm run ipa` und erneut in SideStore öffnen.
+**Builds kommen automatisch aus GitHub:** Bei jedem Push baut die GitHub-Action
+[`ios-build.yml`](.github/workflows/ios-build.yml) eine unsignierte `Focus.ipa` und
+veröffentlicht sie als Release – zusammen mit `source.json`, einer SideStore-Quelle.
+
+| Repo | Installieren / aktualisieren |
+| --- | --- |
+| **öffentlich** | Einmal in SideStore *Sources → +* die Quelle hinzufügen: `https://github.com/Justin25313/Focus/releases/latest/download/source.json`. Danach erscheinen Updates in *My Apps* → **Update**. |
+| **privat** | Auf dem iPhone in Safari (bei GitHub angemeldet) *Releases* öffnen → `Focus.ipa` laden → *Teilen* → **SideStore**. |
+
+Lokal auf dem Mac geht es weiterhin mit `npm run ipa` → `dist/Focus.ipa` per AirDrop an SideStore.
+Jeder Commit erhöht die Build-Nummer, daran erkennt SideStore neue Versionen.
 
 ### Empfohlenes Setup
 

@@ -1,0 +1,57 @@
+# Builds an unsigned Focus.ipa on every push and publishes it as a GitHub
+# release together with a SideStore source (source.json). Install/update
+# on the iPhone through SideStore; SideStore signs with your Apple ID.
+name: iOS build
+
+on:
+  push:
+    branches: [main, claude/vigilant-hypatia-1o44v9]
+    paths-ignore: ['**.md', 'assets/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ios-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ipa:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # build number = commit count
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck, lint, tests
+        run: npm run check
+
+      - name: Build unsigned ipa
+        run: ./scripts/build-ipa.sh
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(sed -n 1p dist/version.txt)
+          BUILD=$(sed -n 2p dist/version.txt)
+          TAG="v$VERSION-$BUILD"
+          NOTES=$(git log -1 --pretty=%B)
+          node scripts/make-source.mjs \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/download/$TAG" "$NOTES"
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "$TAG" dist/Focus.ipa dist/source.json dist/icon.png \
+            --target "$GITHUB_SHA" \
+            --title "Focus $VERSION ($BUILD)" \
+            --notes "$NOTES" \
+            --latest

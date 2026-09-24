@@ -32,7 +32,12 @@ if [ ! -f ios/Pods/Manifest.lock ] || [ ios/Podfile -nt ios/Pods/Manifest.lock ]
   fi
 fi
 
-echo "→ Release-Build (unsigniert) …"
+# Version from package.json, build number = commit count. Every new commit
+# is therefore a higher build, which is how SideStore recognises updates.
+VERSION="${FOCUS_VERSION:-$(node -p "require('./package.json').version")}"
+BUILD_NUMBER="${FOCUS_BUILD:-$(git rev-list --count HEAD 2>/dev/null || echo 1)}"
+
+echo "→ Release-Build $VERSION ($BUILD_NUMBER), unsigniert …"
 xcodebuild \
   -workspace ios/Focus.xcworkspace \
   -scheme Focus \
@@ -43,6 +48,8 @@ xcodebuild \
   CODE_SIGNING_ALLOWED=NO \
   CODE_SIGNING_REQUIRED=NO \
   CODE_SIGN_IDENTITY="" \
+  MARKETING_VERSION="$VERSION" \
+  CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
   build | { command -v xcbeautify >/dev/null && xcbeautify || grep -E "error:|warning: .*Focus|BUILD (SUCCEEDED|FAILED)"; }
 
 APP="$BUILD_DIR/Build/Products/Release-iphoneos/Focus.app"
@@ -56,4 +63,7 @@ rm -rf "$DIST_DIR" && mkdir -p "$DIST_DIR/Payload"
 cp -R "$APP" "$DIST_DIR/Payload/"
 (cd "$DIST_DIR" && zip -qry Focus.ipa Payload && rm -rf Payload)
 
-echo "✓ Fertig: $DIST_DIR/Focus.ipa"
+cp ios/Focus/Images.xcassets/AppIcon.appiconset/AppIcon-1024.png "$DIST_DIR/icon.png"
+printf '%s\n%s\n' "$VERSION" "$BUILD_NUMBER" > "$DIST_DIR/version.txt"
+
+echo "✓ Fertig: $DIST_DIR/Focus.ipa ($VERSION, Build $BUILD_NUMBER)"
