@@ -134,6 +134,8 @@ src/
     engine/messages.ts          Validierung der WebView-Bridge
   storage/                      Einstellungen, letzter Ort, Diagnose, Suchverlauf (AsyncStorage)
   ui/                           Theme, Icons, gruppierte Listen, Tab-Leiste
+  ui/skeleton/                  Lade-Skeletons: Bausteine (Pulse, Bone, Circle, Lines, AvatarRow)
+                                + Instagram-Varianten (Feed, Nachrichten, Profil, Beitrag)
 ios/Focus/AppDelegate.swift     + WebsiteDataJanitor (löscht WebKit-Daten auf Anfrage)
 ```
 
@@ -148,10 +150,17 @@ ios/Focus/AppDelegate.swift     + WebsiteDataJanitor (löscht WebKit-Daten auf A
    gesperrten Route, wird sie sofort unsichtbar geschaltet und alle Videos pausiert
    (fail closed); „Zurück“ geht per `history.back()` zurück – ohne Neuladen.
 
-**Bridge:** Die Seite kann nur sechs fest definierte Nachrichtentypen senden
-(`FILTER_READY`, `FILTER_ERROR`, `ROUTE_CHANGED`, `BLOCKED_ROUTE`, `OPEN_SEARCH`,
-`SEARCH_RESULTS`). Jede Nachricht wird zur Laufzeit validiert; Nachrichten von
+**Bridge:** Die Seite kann nur fest definierte Nachrichtentypen senden
+(`FILTER_READY`, `FILTER_ERROR`, `ROUTE_CHANGED`, `BLOCKED_ROUTE`, `PAGE_READY`,
+`OWN_PROFILE`, `OPEN_SEARCH`, `SEARCH_RESULTS`). Jede Nachricht wird zur Laufzeit validiert; Nachrichten von
 anderen Origins als `https://www.instagram.com` werden verworfen.
+
+**Laden ohne Springen:** Solange Instagram lädt, liegt ein Skeleton in der Form der
+Zielseite über der WebView. Der Guard meldet `PAGE_READY`, sobald echter Inhalt da ist
+und das DOM kurz ruhig war; dann blendet das Skeleton weich aus. Instagrams eigene
+untere Leiste wird per MutationObserver sofort beim Rendern ausgeblendet – Focus hat
+eine native Leiste mit Instagram, Suche, Nachrichten, Profil und Focus.
+Neue Ladezustände in der App bitte immer aus `ui/skeleton/Skeleton.tsx` bauen.
 
 **Websitedaten löschen:** Instagrams Session-Cookie ist `HttpOnly` und von JS aus
 unerreichbar. Statt eines eigenen Native-Moduls schreibt JS über React Natives

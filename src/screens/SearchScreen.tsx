@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -13,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SearchUser } from '../filtering/engine/messages';
 import { parseSearchInput } from '../filtering/instagram/search';
 import { ChevronIcon, SearchIcon, VerifiedIcon } from '../ui/icons';
+import { AvatarRow, Pulse } from '../ui/skeleton/Skeleton';
 import { TAB_BAR_HEIGHT, useTheme } from '../ui/theme';
 
 export type SearchResult = { ok: boolean; users: SearchUser[] };
@@ -169,9 +169,15 @@ export function SearchScreen({
         ) : null}
 
         {results.status === 'loading' ? (
-          <View style={styles.loading}>
-            <ActivityIndicator />
-          </View>
+          <Pulse style={styles.skeleton}>
+            {[0, 1, 2, 3].map(i => (
+              <AvatarRow
+                key={i}
+                size={42}
+                widths={[i % 2 ? '40%' : '52%', i % 2 ? '58%' : '34%']}
+              />
+            ))}
+          </Pulse>
         ) : null}
 
         {users.map(user => (
@@ -310,8 +316,10 @@ const styles = StyleSheet.create({
     fontSize: 17,
     paddingVertical: 0,
   },
-  loading: {
-    paddingVertical: 18,
+  skeleton: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    gap: 18,
   },
   note: {
     fontSize: 15,

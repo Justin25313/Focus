@@ -35,4 +35,5 @@ export const STORAGE_KEYS = {
   lastRoute: 'focus.lastRoute',
   diagnostics: 'focus.diagnostics',
   searchHistory: 'focus.searchHistory',
+  ownProfile: 'focus.ownProfile',
 } as const;

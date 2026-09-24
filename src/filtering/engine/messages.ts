@@ -1,4 +1,8 @@
-import { BlockReason, GUARDED_HOSTS } from '../instagram/routes';
+import {
+  BlockReason,
+  GUARDED_HOSTS,
+  routeKindForPath,
+} from '../instagram/routes';
 import { parseUrl } from './RouteGuard';
 
 export type SearchUser = {
@@ -23,6 +27,10 @@ export type WebMessage =
       navigated: boolean;
     }
   | { type: 'OPEN_SEARCH' }
+  /** The page finished rendering after a load or navigation. */
+  | { type: 'PAGE_READY'; path: string }
+  /** Profile link of the signed-in account, read from Instagram's own nav. */
+  | { type: 'OWN_PROFILE'; path: string }
   | {
       type: 'SEARCH_RESULTS';
       requestId: number;
@@ -132,6 +140,12 @@ export function parseWebMessage(
       return null;
     case 'OPEN_SEARCH':
       return { type: 'OPEN_SEARCH' };
+    case 'PAGE_READY':
+      return isPath(msg.path) ? { type: 'PAGE_READY', path: msg.path } : null;
+    case 'OWN_PROFILE':
+      return isPath(msg.path) && routeKindForPath(msg.path) === 'profile'
+        ? { type: 'OWN_PROFILE', path: msg.path }
+        : null;
     case 'SEARCH_RESULTS': {
       const users = parseUsers(msg.users);
       if (

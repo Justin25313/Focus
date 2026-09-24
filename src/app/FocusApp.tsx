@@ -11,7 +11,10 @@ import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
-import { isSafeRouteToPersist } from '../filtering/engine/RouteGuard';
+import {
+  instagramPathFromUrl,
+  isSafeRouteToPersist,
+} from '../filtering/engine/RouteGuard';
 import { SearchUser, WebMessage } from '../filtering/engine/messages';
 import {
   INSTAGRAM_HOME_PATH,
@@ -22,6 +25,7 @@ import {
 import { profilePath } from '../filtering/instagram/search';
 import { BlockedOverlay } from '../screens/BlockedOverlay';
 import { BlockState, BrowserHandle, BrowserView } from '../screens/BrowserView';
+import { LoadingOverlay } from '../screens/LoadingOverlay';
 import { OfflineOverlay } from '../screens/OfflineOverlay';
 import { OnboardingScreen } from '../screens/OnboardingScreen';
 import { SearchResult, SearchScreen } from '../screens/SearchScreen';
@@ -41,6 +45,10 @@ import {
   FocusSettings,
   parseSettings,
 } from '../storage/settings';
+import {
+  SkeletonVariant,
+  skeletonForRoute,
+} from '../ui/skeleton/InstagramSkeleton';
 import { TabBar, TabId } from '../ui/TabBar';
 import { TAB_BAR_HEIGHT, useTheme } from '../ui/theme';
 
@@ -50,6 +58,12 @@ const CLEAR_DONE_KEY = 'FocusClearWebsiteDataDoneAt';
 
 const FILTER_TIMEOUT_MS = 5000;
 const SEARCH_TIMEOUT_MS = 6000;
+/** Longest a loading skeleton may stay up, whatever happens. */
+const LOADING_MAX_MS = 8000;
+/** After the document itself loaded, the page gets this long to settle. */
+const LOADING_AFTER_LOAD_MS = 3000;
+/** PAGE_READY messages this soon after a new load began are leftovers. */
+const LOADING_STALE_MS = 400;
 
 type Screen = 'browser' | 'search' | 'settings';
 
@@ -58,17 +72,25 @@ type Loaded = {
   initialUrl: string;
   diagnostics: Diagnostics;
   searchHistory: string[];
+  ownProfilePath: string | null;
 };
 
+/** Whether `path` is the signed-in user's profile or one of its tabs. */
+function isOwnProfile(path: string, ownPath: string | null): boolean {
+  return (
+    ownPath !== null && path.toLowerCase().startsWith(ownPath.toLowerCase())
+  );
+}
+
 async function loadState(): Promise<Loaded> {
-  const [rawSettings, rawRoute, rawDiagnostics, rawHistory] = await Promise.all(
-    [
+  const [rawSettings, rawRoute, rawDiagnostics, rawHistory, rawProfile] =
+    await Promise.all([
       readJson(STORAGE_KEYS.settings),
       readJson(STORAGE_KEYS.lastRoute),
       readJson(STORAGE_KEYS.diagnostics),
       readJson(STORAGE_KEYS.searchHistory),
-    ],
-  );
+      readJson(STORAGE_KEYS.ownProfile),
+    ]);
   const settings = parseSettings(rawSettings);
   const restore =
     settings.keepLastLocation &&
@@ -79,6 +101,11 @@ async function loadState(): Promise<Loaded> {
     initialUrl: INSTAGRAM_ORIGIN + (restore ? rawRoute : INSTAGRAM_HOME_PATH),
     diagnostics: parseDiagnostics(rawDiagnostics),
     searchHistory: parseSearchHistory(rawHistory),
+    ownProfilePath:
+      typeof rawProfile === 'string' &&
+      routeKindForPath(rawProfile) === 'profile'
+        ? rawProfile
+        : null,
   };
 }
 
@@ -109,14 +136,21 @@ function FocusShell({ initial }: { initial: Loaded }) {
   const [settings, setSettings] = useState(initial.settings);
   const [diagnostics, setDiagnostics] = useState(initial.diagnostics);
   const [searchHistory, setSearchHistory] = useState(initial.searchHistory);
+  const [ownProfilePath, setOwnProfilePath] = useState(initial.ownProfilePath);
   const [screen, setScreen] = useState<Screen>(
     initial.settings.openInstagramOnLaunch ? 'browser' : 'settings',
   );
-  const [currentPath, setCurrentPath] = useState<string>('/');
+  const initialPath = instagramPathFromUrl(initial.initialUrl) ?? '/';
+  const [currentPath, setCurrentPath] = useState<string>(initialPath);
+  const currentPathRef = useRef(currentPath);
+  currentPathRef.current = currentPath;
   const [block, setBlock] = useState<BlockState | null>(null);
   const [health, setHealth] = useState<FilterHealth>('starting');
   const [offline, setOffline] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [loading, setLoading] = useState<SkeletonVariant | null>(
+    skeletonForRoute(routeKindForPath(initialPath)),
+  );
 
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
@@ -166,6 +200,42 @@ function FocusShell({ initial }: { initial: Loaded }) {
     );
   }, []);
 
+  // ---- loading skeleton ----------------------------------------------
+
+  const loadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadingSince = useRef(Date.now());
+
+  const hideLoading = useCallback(() => {
+    if (loadingTimer.current) {
+      clearTimeout(loadingTimer.current);
+      loadingTimer.current = null;
+    }
+    setLoading(null);
+  }, []);
+
+  const hideLoadingIn = useCallback(
+    (ms: number) => {
+      if (loadingTimer.current) {
+        clearTimeout(loadingTimer.current);
+      }
+      loadingTimer.current = setTimeout(hideLoading, ms);
+    },
+    [hideLoading],
+  );
+
+  const showLoading = useCallback(
+    (variant: SkeletonVariant) => {
+      loadingSince.current = Date.now();
+      setLoading(variant);
+      hideLoadingIn(LOADING_MAX_MS);
+    },
+    [hideLoadingIn],
+  );
+
+  useEffect(() => {
+    hideLoadingIn(LOADING_MAX_MS);
+  }, [hideLoadingIn]);
+
   // ---- browser events ------------------------------------------------
 
   const handleRoute = useCallback(
@@ -201,6 +271,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
         duplicate && (prev.navigated || !state.navigated) ? prev : state;
       blockRef.current = next;
       setBlock(next);
+      hideLoading();
       setScreen('browser');
       if (!duplicate) {
         updateDiagnostics(d => ({
@@ -214,7 +285,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
         }));
       }
     },
-    [updateDiagnostics],
+    [hideLoading, updateDiagnostics],
   );
 
   const pendingSearches = useRef(
@@ -248,6 +319,21 @@ function FocusShell({ initial }: { initial: Loaded }) {
             navigated: message.navigated,
           });
           break;
+        case 'PAGE_READY':
+          if (Date.now() - loadingSince.current >= LOADING_STALE_MS) {
+            hideLoading();
+          } else {
+            hideLoadingIn(LOADING_STALE_MS);
+          }
+          break;
+        case 'OWN_PROFILE':
+          setOwnProfilePath(prev => {
+            if (prev !== message.path) {
+              writeJson(STORAGE_KEYS.ownProfile, message.path);
+            }
+            return message.path;
+          });
+          break;
         case 'OPEN_SEARCH':
           setScreen('search');
           break;
@@ -261,40 +347,55 @@ function FocusShell({ initial }: { initial: Loaded }) {
         }
       }
     },
-    [handleBlocked, handleRoute, updateDiagnostics],
+    [handleBlocked, handleRoute, hideLoading, hideLoadingIn, updateDiagnostics],
   );
 
   const filterTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handleLoadStart = useCallback(() => {
-    setHealth(prev => (prev === 'active' ? prev : 'starting'));
-  }, []);
-  const handleLoadEnd = useCallback(() => {
-    if (filterTimer.current) {
-      clearTimeout(filterTimer.current);
-    }
-    filterTimer.current = setTimeout(() => {
-      setHealth(prev => {
-        if (prev === 'starting') {
-          updateDiagnostics(d => ({
-            ...d,
-            lastError: { code: 'FILTER_TIMEOUT', at: Date.now() },
-          }));
-          return 'noResponse';
-        }
-        return prev;
-      });
-    }, FILTER_TIMEOUT_MS);
-  }, [updateDiagnostics]);
+  const handleLoadStart = useCallback(
+    (url: string) => {
+      setHealth(prev => (prev === 'active' ? prev : 'starting'));
+      const path = instagramPathFromUrl(url);
+      showLoading(path ? skeletonForRoute(routeKindForPath(path)) : 'generic');
+    },
+    [showLoading],
+  );
+  const handleLoadEnd = useCallback(
+    (url: string) => {
+      // Only Instagram pages report PAGE_READY; others are done when loaded.
+      if (instagramPathFromUrl(url)) {
+        hideLoadingIn(LOADING_AFTER_LOAD_MS);
+      } else {
+        hideLoading();
+      }
+      if (filterTimer.current) {
+        clearTimeout(filterTimer.current);
+      }
+      filterTimer.current = setTimeout(() => {
+        setHealth(prev => {
+          if (prev === 'starting') {
+            updateDiagnostics(d => ({
+              ...d,
+              lastError: { code: 'FILTER_TIMEOUT', at: Date.now() },
+            }));
+            return 'noResponse';
+          }
+          return prev;
+        });
+      }, FILTER_TIMEOUT_MS);
+    },
+    [hideLoading, hideLoadingIn, updateDiagnostics],
+  );
 
   const handleLoadError = useCallback(
     (code: number) => {
       setOffline(true);
+      hideLoading();
       updateDiagnostics(prev => ({
         ...prev,
         lastError: { code: `LOAD_ERROR_${Math.abs(code)}`, at: Date.now() },
       }));
     },
-    [updateDiagnostics],
+    [hideLoading, updateDiagnostics],
   );
 
   const handleProcessTerminated = useCallback(() => {
@@ -307,11 +408,17 @@ function FocusShell({ initial }: { initial: Loaded }) {
 
   // ---- actions -------------------------------------------------------
 
-  const openPath = useCallback((path: string) => {
-    setBlock(null);
-    setScreen('browser');
-    browser.current?.navigate(path);
-  }, []);
+  const openPath = useCallback(
+    (path: string) => {
+      setBlock(null);
+      setScreen('browser');
+      if (path.toLowerCase() !== currentPathRef.current.toLowerCase()) {
+        showLoading(skeletonForRoute(routeKindForPath(path)));
+      }
+      browser.current?.navigate(path);
+    },
+    [showLoading],
+  );
 
   const openProfile = useCallback(
     (username: string) => {
@@ -348,22 +455,32 @@ function FocusShell({ initial }: { initial: Loaded }) {
 
   const onTab = useCallback(
     (tab: TabId) => {
-      const inDirect = routeKindForPath(currentPath) === 'direct';
+      const kind = routeKindForPath(currentPath);
+      const onBrowser = screen === 'browser' && !block;
+      // Tapping the tab you are already on scrolls to the top (iOS
+      // convention); otherwise go to the tab's root page.
+      const goTo = (root: string, belongs: boolean) => {
+        if (screen !== 'browser' && belongs && !block) {
+          setScreen('browser');
+        } else if (onBrowser && currentPath === root) {
+          browser.current?.scrollToTop();
+        } else {
+          openPath(root);
+        }
+      };
       switch (tab) {
         case 'feed':
-          if (screen === 'browser' && !block) {
-            if (inDirect) {
-              openPath(INSTAGRAM_HOME_PATH);
-            } else {
-              browser.current?.scrollToTop();
-            }
-          }
-          setScreen('browser');
+          goTo(
+            INSTAGRAM_HOME_PATH,
+            kind !== 'direct' && !isOwnProfile(currentPath, ownProfilePath),
+          );
           break;
         case 'messages':
-          setScreen('browser');
-          if (!inDirect || screen === 'browser') {
-            openPath(INSTAGRAM_INBOX_PATH);
+          goTo(INSTAGRAM_INBOX_PATH, kind === 'direct');
+          break;
+        case 'profile':
+          if (ownProfilePath) {
+            goTo(ownProfilePath, isOwnProfile(currentPath, ownProfilePath));
           }
           break;
         case 'search':
@@ -374,7 +491,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
           break;
       }
     },
-    [block, currentPath, openPath, screen],
+    [block, currentPath, openPath, ownProfilePath, screen],
   );
 
   const leaveBlock = useCallback(() => {
@@ -410,7 +527,8 @@ function FocusShell({ initial }: { initial: Loaded }) {
           onPress: () => {
             setClearing(true);
             browser.current?.clearCaches();
-            removeKeys([STORAGE_KEYS.lastRoute]);
+            removeKeys([STORAGE_KEYS.lastRoute, STORAGE_KEYS.ownProfile]);
+            setOwnProfilePath(null);
 
             let finished = false;
             const finish = (complete: boolean) => {
@@ -491,8 +609,12 @@ function FocusShell({ initial }: { initial: Loaded }) {
       ? 'search'
       : screen === 'settings'
       ? 'focus'
-      : routeKindForPath(currentPath) === 'direct' && !block
+      : block
+      ? 'feed'
+      : routeKindForPath(currentPath) === 'direct'
       ? 'messages'
+      : isOwnProfile(currentPath, ownProfilePath)
+      ? 'profile'
       : 'feed';
 
   return (
@@ -517,6 +639,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
           onLoadError={handleLoadError}
           onProcessTerminated={handleProcessTerminated}
         />
+        <LoadingOverlay variant={offline || block ? null : loading} />
         {offline && !block ? (
           <OfflineOverlay
             onRetry={() => {
@@ -568,7 +691,11 @@ function FocusShell({ initial }: { initial: Loaded }) {
       ) : null}
 
       <View style={styles.tabBar}>
-        <TabBar active={activeTab} onPress={onTab} />
+        <TabBar
+          active={activeTab}
+          onPress={onTab}
+          showProfile={ownProfilePath !== null}
+        />
       </View>
     </View>
   );

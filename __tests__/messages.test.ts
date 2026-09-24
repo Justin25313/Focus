@@ -30,6 +30,23 @@ describe('parseWebMessage', () => {
     expect(send({ type: 'OPEN_SEARCH' })).toEqual({ type: 'OPEN_SEARCH' });
   });
 
+  it('accepts PAGE_READY with a path', () => {
+    expect(send({ type: 'PAGE_READY', path: '/' })).toEqual({
+      type: 'PAGE_READY',
+      path: '/',
+    });
+    expect(send({ type: 'PAGE_READY' })).toBeNull();
+  });
+
+  it('accepts only profile paths as own profile', () => {
+    expect(send({ type: 'OWN_PROFILE', path: '/me.myself/' })).toEqual({
+      type: 'OWN_PROFILE',
+      path: '/me.myself/',
+    });
+    expect(send({ type: 'OWN_PROFILE', path: '/reels/' })).toBeNull();
+    expect(send({ type: 'OWN_PROFILE', path: '/direct/inbox/' })).toBeNull();
+  });
+
   it('rejects messages from other origins', () => {
     expect(send({ type: 'OPEN_SEARCH' }, 'https://evil.example/')).toBeNull();
     expect(

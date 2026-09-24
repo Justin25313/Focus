@@ -1,24 +1,34 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { FocusIcon, HomeIcon, MessageIcon, SearchIcon } from './icons';
+import {
+  FocusIcon,
+  HomeIcon,
+  MessageIcon,
+  ProfileIcon,
+  SearchIcon,
+} from './icons';
 import { TAB_BAR_HEIGHT, useTheme } from './theme';
 
-export type TabId = 'feed' | 'search' | 'messages' | 'focus';
+export type TabId = 'feed' | 'search' | 'messages' | 'profile' | 'focus';
 
 const TABS: { id: TabId; label: string; Icon: typeof HomeIcon }[] = [
   { id: 'feed', label: 'Instagram', Icon: HomeIcon },
   { id: 'search', label: 'Suche', Icon: SearchIcon },
   { id: 'messages', label: 'Nachrichten', Icon: MessageIcon },
+  { id: 'profile', label: 'Profil', Icon: ProfileIcon },
   { id: 'focus', label: 'Focus', Icon: FocusIcon },
 ];
 
 export function TabBar({
   active,
   onPress,
+  showProfile,
 }: {
   active: TabId;
   onPress: (tab: TabId) => void;
+  /** The profile tab appears once the signed-in account is known. */
+  showProfile: boolean;
 }) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -35,26 +45,28 @@ export function TabBar({
         },
       ]}
     >
-      {TABS.map(({ id, label, Icon }) => {
-        const selected = id === active;
-        const color = selected ? theme.label : theme.secondaryLabel;
-        return (
-          <Pressable
-            key={id}
-            accessibilityRole="tab"
-            accessibilityLabel={label}
-            accessibilityState={{ selected }}
-            onPress={() => onPress(id)}
-            style={styles.item}
-            hitSlop={4}
-          >
-            <Icon color={color} size={25} filled={selected} />
-            <Text style={[styles.label, { color }]} numberOfLines={1}>
-              {label}
-            </Text>
-          </Pressable>
-        );
-      })}
+      {TABS.filter(tab => showProfile || tab.id !== 'profile').map(
+        ({ id, label, Icon }) => {
+          const selected = id === active;
+          const color = selected ? theme.label : theme.secondaryLabel;
+          return (
+            <Pressable
+              key={id}
+              accessibilityRole="tab"
+              accessibilityLabel={label}
+              accessibilityState={{ selected }}
+              onPress={() => onPress(id)}
+              style={styles.item}
+              hitSlop={4}
+            >
+              <Icon color={color} size={25} filled={selected} />
+              <Text style={[styles.label, { color }]} numberOfLines={1}>
+                {label}
+              </Text>
+            </Pressable>
+          );
+        },
+      )}
     </View>
   );
 }

@@ -55,6 +55,25 @@ export function MessageIcon({ color, size = 26, filled }: IconProps) {
   );
 }
 
+export function ProfileIcon({ color, size = 26, filled }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Circle
+        cx={12}
+        cy={8.2}
+        r={3.9}
+        {...stroke(color)}
+        fill={filled ? color : 'none'}
+      />
+      <Path
+        d="M4.5 20.2c.8-3.8 3.9-5.9 7.5-5.9s6.7 2.1 7.5 5.9z"
+        {...stroke(color)}
+        fill={filled ? color : 'none'}
+      />
+    </Svg>
+  );
+}
+
 /** The Focus mark: a ring with a centred point. */
 export function FocusIcon({ color, size = 26, filled }: IconProps) {
   return (

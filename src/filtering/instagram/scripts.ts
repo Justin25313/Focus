@@ -20,6 +20,8 @@ export type GuardConfig = {
   searchPaths: string[];
   /** Entry points hidden via early CSS (matched on href only, never on text). */
   hiddenLinkSelectors: string[];
+  /** Hide Instagram's bottom tab bar; Focus shows its own. */
+  hideInstagramNav: boolean;
   webAppId: string;
 };
 
@@ -43,6 +45,7 @@ export function buildGuardConfig(
     policy,
     searchPaths: policy.explore ? ['/explore/'] : [],
     hiddenLinkSelectors: hidden,
+    hideInstagramNav: true,
     webAppId: INSTAGRAM_WEB_APP_ID,
   };
 }
@@ -56,6 +59,12 @@ export function buildGuardConfig(
  *  - hide and pause the page while it sits on a blocked route (fail closed)
  *  - stop clicks on blocked links before Instagram's router sees them
  *  - hide Reels entry points via href-based CSS
+ *  - hide Instagram's own bottom tab bar (Focus has a native one) and
+ *    report the signed-in user's profile path found in it
+ *  - tell the app when a page has settled, so its loading skeleton can go
+ *
+ * DOM work is driven by one batched MutationObserver, so changes apply
+ * before the next paint instead of popping in later.
  *
  * Kept as plain ES5-style JavaScript; it is evaluated inside WKWebView.
  */
@@ -70,6 +79,19 @@ const GUARD_SOURCE = String.raw`
 
   var STYLE_ID = 'focus-guard-style';
   var BLOCKED_ATTR = 'data-focus-blocked';
+  var NAV_ATTR = 'data-focus-ig-nav';
+  var NAV_PROBES = 'a[href="/"], a[href="/explore/"], a[href="/direct/inbox/"]';
+  var PROFILE_PATH = /^\/([A-Za-z0-9._]{1,30})\/$/;
+  var NOT_PROFILES = ['explore', 'reels', 'reel', 'direct', 'accounts', 'p', 'stories', 'tv'];
+  var ownProfilePath = null;
+  var SETTLE_QUIET_MS = 250;
+  var SETTLE_MAX_MS = 4000;
+  var settlePath = null;
+  var settleDeadline = 0;
+  var settleTimer = null;
+  var domWorkScheduled = false;
+  var lastDomWork = 0;
+  var DOM_WORK_MIN_GAP_MS = 120;
   var SAFE_PATH = /^\/[A-Za-z0-9._\-\/]*$/;
   var rules = [];
   var lastRoutePath = null;
@@ -106,6 +128,9 @@ const GUARD_SOURCE = String.raw`
     var css = 'html[' + BLOCKED_ATTR + '] body{visibility:hidden!important;}';
     if (config.hiddenLinkSelectors.length) {
       css += config.hiddenLinkSelectors.join(',') + '{display:none!important;}';
+    }
+    if (config.hideInstagramNav) {
+      css += '[' + NAV_ATTR + ']{display:none!important;}';
     }
     return css;
   }
@@ -159,11 +184,117 @@ const GUARD_SOURCE = String.raw`
     }
   }
 
+  // Instagram's bottom bar: a fixed element in the lower half of the
+  // viewport that contains the home, search or inbox link. Found by
+  // structure and href, never by (localised) text.
+  function bottomBarFor(anchor) {
+    var el = anchor.parentElement;
+    for (var depth = 0; el && el !== document.body && depth < 10; depth++) {
+      var position = w.getComputedStyle(el).position;
+      if (position === 'fixed' || position === 'sticky') {
+        var rect = el.getBoundingClientRect();
+        var viewport = w.innerHeight || document.documentElement.clientHeight;
+        if (rect.height > 0 && rect.height < 140 && rect.top > viewport / 2) {
+          return el;
+        }
+        return null;
+      }
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  function reportOwnProfile(bar) {
+    var links = bar.querySelectorAll('a[href]');
+    for (var i = 0; i < links.length; i++) {
+      var match = PROFILE_PATH.exec(links[i].getAttribute('href') || '');
+      if (
+        match &&
+        NOT_PROFILES.indexOf(match[1].toLowerCase()) === -1 &&
+        links[i].querySelector('img')
+      ) {
+        if (match[0] !== ownProfilePath) {
+          ownProfilePath = match[0];
+          post({ type: 'OWN_PROFILE', path: ownProfilePath });
+        }
+        return;
+      }
+    }
+  }
+
+  function tidyInstagramNav() {
+    var probes = document.querySelectorAll(NAV_PROBES);
+    for (var i = 0; i < probes.length; i++) {
+      if (probes[i].closest('[' + NAV_ATTR + ']')) {
+        continue;
+      }
+      var bar = bottomBarFor(probes[i]);
+      if (bar) {
+        reportOwnProfile(bar);
+        if (config.hideInstagramNav) {
+          bar.setAttribute(NAV_ATTR, '');
+        }
+      }
+    }
+  }
+
+  function hasContent() {
+    return document.querySelector('main, [role="main"], article, form, nav') !== null;
+  }
+
+  function fireSettled() {
+    settleTimer = null;
+    if (settlePath === null) {
+      return;
+    }
+    if (!hasContent() && Date.now() < settleDeadline) {
+      settleTimer = setTimeout(fireSettled, 150);
+      return;
+    }
+    settlePath = null;
+    post({ type: 'PAGE_READY', path: location.pathname || '/' });
+  }
+
+  function armSettle() {
+    if (settleTimer) {
+      clearTimeout(settleTimer);
+    }
+    var wait = Math.max(0, Math.min(SETTLE_QUIET_MS, settleDeadline - Date.now()));
+    settleTimer = setTimeout(fireSettled, wait);
+  }
+
+  // A page counts as settled once the DOM has been quiet for a moment
+  // and real content exists (or after SETTLE_MAX_MS at the latest).
+  function markSettling() {
+    settlePath = location.pathname || '/';
+    settleDeadline = Date.now() + SETTLE_MAX_MS;
+    armSettle();
+  }
+
+  // Batched: at most one DOM pass per frame, and no more than every
+  // DOM_WORK_MIN_GAP_MS while Instagram keeps mutating (e.g. scrolling).
+  function onDomChanged() {
+    if (domWorkScheduled) {
+      return;
+    }
+    domWorkScheduled = true;
+    var gap = Date.now() - lastDomWork;
+    setTimeout(function () {
+      domWorkScheduled = false;
+      lastDomWork = Date.now();
+      safeCheck();
+      if (settlePath !== null) {
+        armSettle();
+      }
+    }, Math.max(16, DOM_WORK_MIN_GAP_MS - gap));
+  }
+
   function check() {
     if (!isGuardedHost()) {
       return;
     }
     ensureStyle(false);
+    tidyInstagramNav();
     var path = location.pathname || '/';
     var reason = reasonFor(path);
     if (reason) {
@@ -178,6 +309,7 @@ const GUARD_SOURCE = String.raw`
       lastAllowedPath = path;
       if (lastRoutePath !== path) {
         post({ type: 'ROUTE_CHANGED', path: path });
+        markSettling();
       }
     }
     lastRoutePath = path;
@@ -283,6 +415,7 @@ const GUARD_SOURCE = String.raw`
     var anchor = document.querySelector('a[href="' + path + '"]');
     if (anchor) {
       anchor.click();
+      markSettling();
     } else {
       location.assign(path);
     }
@@ -371,6 +504,15 @@ const GUARD_SOURCE = String.raw`
     },
     true
   );
+
+  try {
+    new MutationObserver(onDomChanged).observe(document.documentElement || document, {
+      childList: true,
+      subtree: true
+    });
+  } catch (e) {
+    post({ type: 'FILTER_ERROR', code: 'NO_OBSERVER' });
+  }
 
   configure(config);
   post({ type: 'FILTER_READY', version: config.version });

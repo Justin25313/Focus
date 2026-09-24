@@ -12,6 +12,7 @@ import type {
   WebViewErrorEvent,
   WebViewMessageEvent,
   WebViewNavigation,
+  WebViewNavigationEvent,
 } from 'react-native-webview/lib/WebViewTypes';
 import {
   blockReasonForPath,
@@ -65,8 +66,8 @@ export type BrowserEvents = {
   onRoute: (path: string) => void;
   onBlocked: (state: BlockState) => void;
   onMessage: (message: WebMessage) => void;
-  onLoadStart: () => void;
-  onLoadEnd: () => void;
+  onLoadStart: (url: string) => void;
+  onLoadEnd: (url: string) => void;
   onLoadError: (code: number) => void;
   onProcessTerminated: () => void;
 };
@@ -184,6 +185,17 @@ function BrowserViewImpl(
     [onMessage],
   );
 
+  const handleLoadStart = useCallback(
+    (event: WebViewNavigationEvent) => onLoadStart(event.nativeEvent.url),
+    [onLoadStart],
+  );
+
+  const handleLoadEnd = useCallback(
+    (event: WebViewNavigationEvent | WebViewErrorEvent) =>
+      onLoadEnd(event.nativeEvent.url),
+    [onLoadEnd],
+  );
+
   const handleError = useCallback(
     (event: WebViewErrorEvent) => {
       const { code } = event.nativeEvent;
@@ -208,8 +220,8 @@ function BrowserViewImpl(
       onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
       onNavigationStateChange={handleNavigationStateChange}
       onMessage={handleMessage}
-      onLoadStart={onLoadStart}
-      onLoadEnd={onLoadEnd}
+      onLoadStart={handleLoadStart}
+      onLoadEnd={handleLoadEnd}
       onError={handleError}
       onContentProcessDidTerminate={handleProcessTerminated}
       injectedJavaScriptBeforeContentLoaded={GUARD_SCRIPT}

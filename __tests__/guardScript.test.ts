@@ -18,6 +18,9 @@ const posted: Posted[] = [];
 const flush = () => new Promise<void>(resolve => setTimeout(resolve, 30));
 const lastMessage = () => posted[posted.length - 1];
 const messagesOfType = (type: string) => posted.filter(m => m.type === type);
+const lastOfType = (type: string) => messagesOfType(type).pop();
+// Settle timers from earlier steps may post PAGE_READY at any time.
+const withoutReady = () => posted.filter(m => m.type !== 'PAGE_READY');
 
 function install() {
   // eslint-disable-next-line no-eval
@@ -96,7 +99,10 @@ describe('injected guard script', () => {
     (window as any).__focusGuard.leaveBlocked();
     await flush();
     expect(location.pathname).toBe('/natgeo/');
-    expect(lastMessage()).toEqual({ type: 'ROUTE_CHANGED', path: '/natgeo/' });
+    expect(lastOfType('ROUTE_CHANGED')).toEqual({
+      type: 'ROUTE_CHANGED',
+      path: '/natgeo/',
+    });
     expect(document.documentElement.hasAttribute('data-focus-blocked')).toBe(
       false,
     );
@@ -135,7 +141,7 @@ describe('injected guard script', () => {
     click('/p/C1a2b3/');
     click('https://example.com/');
     expect(seenByPage).toHaveBeenCalledTimes(2);
-    expect(posted).toHaveLength(0);
+    expect(withoutReady()).toHaveLength(0);
     document.body.removeEventListener('click', seenByPage);
   });
 
@@ -175,6 +181,80 @@ describe('injected guard script', () => {
     anchor.remove();
   });
 
+  it("hides Instagram's bottom bar and reports the own profile", () => {
+    const fixedBox = (top: number, height: number) => {
+      const el = document.createElement('div');
+      el.style.position = 'fixed';
+      el.getBoundingClientRect = () =>
+        ({ top, height, bottom: top + height } as DOMRect);
+      return el;
+    };
+    const link = (href: string, withImage = false) => {
+      const a = document.createElement('a');
+      a.setAttribute('href', href);
+      if (withImage) {
+        a.appendChild(document.createElement('img'));
+      }
+      return a;
+    };
+
+    const header = fixedBox(0, 44);
+    header.appendChild(link('/direct/inbox/'));
+    const bar = fixedBox(window.innerHeight - 50, 50);
+    const row = document.createElement('div');
+    row.append(
+      link('/'),
+      link('/explore/'),
+      link('/direct/inbox/'),
+      link('/me.myself/', true),
+    );
+    bar.appendChild(row);
+    document.body.append(header, bar);
+
+    history.pushState({}, '', '/p/abc/');
+
+    expect(bar.hasAttribute('data-focus-ig-nav')).toBe(true);
+    expect(header.hasAttribute('data-focus-ig-nav')).toBe(false);
+    expect(messagesOfType('OWN_PROFILE')).toEqual([
+      { type: 'OWN_PROFILE', path: '/me.myself/' },
+    ]);
+    expect(document.getElementById('focus-guard-style')?.textContent).toContain(
+      '[data-focus-ig-nav]{display:none!important;}',
+    );
+
+    history.pushState({}, '', '/p/def/');
+    expect(messagesOfType('OWN_PROFILE')).toHaveLength(1);
+
+    header.remove();
+    bar.remove();
+  });
+
+  it('reports PAGE_READY once a new page has content and the DOM is quiet', async () => {
+    history.pushState({}, '', '/direct/inbox/');
+    const main = document.createElement('main');
+    document.body.appendChild(main);
+    await new Promise<void>(resolve => setTimeout(resolve, 400));
+    expect(lastOfType('PAGE_READY')).toEqual({
+      type: 'PAGE_READY',
+      path: '/direct/inbox/',
+    });
+    main.remove();
+  });
+
+  it('hides a late-rendered Instagram bar without waiting for the poll', async () => {
+    const bar = document.createElement('div');
+    bar.style.position = 'fixed';
+    bar.getBoundingClientRect = () =>
+      ({ top: window.innerHeight - 50, height: 50 } as DOMRect);
+    const home = document.createElement('a');
+    home.setAttribute('href', '/');
+    bar.appendChild(home);
+    document.body.appendChild(bar);
+    await new Promise<void>(resolve => setTimeout(resolve, 60));
+    expect(bar.hasAttribute('data-focus-ig-nav')).toBe(true);
+    bar.remove();
+  });
+
   it('can be injected twice without side effects', () => {
     install();
     expect(document.querySelectorAll('#focus-guard-style')).toHaveLength(1);
@@ -205,7 +285,7 @@ describe('injected guard script', () => {
     expect(fetchMock.mock.calls[0][0]).toBe(
       '/api/v1/web/search/topsearch/?context=user&query=nat%20geo',
     );
-    expect(lastMessage()).toEqual({
+    expect(lastOfType('SEARCH_RESULTS')).toEqual({
       type: 'SEARCH_RESULTS',
       requestId: 7,
       ok: true,
@@ -221,7 +301,7 @@ describe('injected guard script', () => {
     (0, eval)(searchScript('x', 8));
     await flush();
     expect((window as any).fetch).toHaveBeenCalledTimes(2);
-    expect(lastMessage()).toEqual({
+    expect(lastOfType('SEARCH_RESULTS')).toEqual({
       type: 'SEARCH_RESULTS',
       requestId: 8,
       ok: false,

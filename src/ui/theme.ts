@@ -16,6 +16,7 @@ const light = {
   accentSoft: 'rgba(30,107,87,0.12)',
   barBackground: 'rgba(249,249,249,0.97)',
   webBackground: '#FFFFFF',
+  skeleton: '#EDEDF0',
 };
 
 const dark: typeof light = {
@@ -33,6 +34,7 @@ const dark: typeof light = {
   accentSoft: 'rgba(111,209,178,0.16)',
   barBackground: 'rgba(22,22,24,0.97)',
   webBackground: '#000000',
+  skeleton: '#1F1F22',
 };
 
 export type Theme = typeof light & { dark: boolean };
