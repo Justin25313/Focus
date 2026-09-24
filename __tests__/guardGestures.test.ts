@@ -8,6 +8,7 @@
 import {
   buildGuardConfig,
   buildGuardScript,
+  navigateScript,
 } from '../src/filtering/instagram/scripts';
 import { parseWebMessage } from '../src/filtering/engine/messages';
 
@@ -35,6 +36,9 @@ beforeAll(() => {
     postMessage: (data: string) => posted.push(JSON.parse(data)),
   };
   Object.defineProperty(window, 'innerWidth', { value: 393 });
+  // jsdom cannot load pages; full-page fallbacks land here instead.
+  (window as unknown as Record<string, unknown>).__focusReplaceForTests =
+    () => {};
   // eslint-disable-next-line no-eval
   (0, eval)(buildGuardScript(buildGuardConfig()));
 });
@@ -116,5 +120,39 @@ describe('bridge validation', () => {
         from,
       ),
     ).toEqual({ type: 'SCROLL_STATE', compact: true });
+  });
+});
+
+describe('navigation inside Instagram', () => {
+  const run = (script: string) => {
+    // eslint-disable-next-line no-eval
+    (0, eval)(script);
+  };
+  afterEach(() => {
+    (window as unknown as Record<string, unknown>).__focusReplaceForTests =
+      () => {};
+  });
+
+  it('stays in the app when the new page renders', async () => {
+    const replace = jest.fn();
+    (window as unknown as Record<string, unknown>).__focusReplaceForTests =
+      replace;
+    run(navigateScript('/natgeo/')!);
+    expect(location.pathname).toBe('/natgeo/');
+    const main = document.createElement('main');
+    main.innerHTML = '<img src="x.jpg">';
+    document.body.appendChild(main);
+    await new Promise(resolve => setTimeout(resolve, 1800));
+    expect(replace).not.toHaveBeenCalled();
+    main.remove();
+  });
+
+  it('loads the page normally if the router ignores the change', async () => {
+    const replace = jest.fn();
+    (window as unknown as Record<string, unknown>).__focusReplaceForTests =
+      replace;
+    run(navigateScript('/nasa/')!);
+    await new Promise(resolve => setTimeout(resolve, 1800));
+    expect(replace).toHaveBeenCalledWith('/nasa/');
   });
 });

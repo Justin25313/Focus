@@ -43,11 +43,14 @@ export type WebMessage =
   /** Scrolled down (compact tab bar) or up/to the top (full tab bar). */
   | { type: 'SCROLL_STATE'; compact: boolean }
   /** A deliberate horizontal swipe outside carousels and scrollers. */
-  | { type: 'SWIPE'; direction: 'left' | 'right' };
+  | { type: 'SWIPE'; direction: 'left' | 'right' }
+  /** Reddit: the communities the signed-in user has joined. */
+  | { type: 'SUBSCRIPTIONS'; names: string[] };
 
 const KNOWN_REASONS: ReadonlySet<string> = new Set(BLOCK_REASONS);
 const MAX_PATH = 512;
 const MAX_USERS = 25;
+const MAX_SUBSCRIPTIONS = 100;
 
 function isPath(value: unknown): value is string {
   return (
@@ -175,6 +178,18 @@ export function parseWebMessage(
       return typeof msg.compact === 'boolean'
         ? { type: 'SCROLL_STATE', compact: msg.compact }
         : null;
+    case 'SUBSCRIPTIONS': {
+      if (!Array.isArray(msg.names)) {
+        return null;
+      }
+      const names = msg.names
+        .filter(
+          (name): name is string =>
+            typeof name === 'string' && /^[A-Za-z0-9_]{2,21}$/.test(name),
+        )
+        .slice(0, MAX_SUBSCRIPTIONS);
+      return { type: 'SUBSCRIPTIONS', names };
+    }
     case 'SWIPE':
       return msg.direction === 'left' || msg.direction === 'right'
         ? { type: 'SWIPE', direction: msg.direction }

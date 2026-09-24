@@ -89,6 +89,13 @@ export type GuardConfig = {
   topBarProbes: string;
   /** Report horizontal swipes (Instagram: feed ↔ messages). */
   swipeNav: boolean;
+  /**
+   * Navigate inside the single-page app (history + popstate) instead of
+   * reloading the whole page, verified by fresh content; reload if not.
+   */
+  spaNavigate: boolean;
+  /** Reddit: read the signed-in user's subscribed communities. */
+  fetchSubscriptions: boolean;
   pinTab: PinTab | null;
   homeFeed: HomeFeed | 'none';
   followingPath: string;
@@ -125,7 +132,9 @@ export function buildGuardConfig(
     policy,
     redirects: { feed: INSTAGRAM_INBOX_PATH },
     hiddenSelectors: [],
-    contentSelector: 'main, [role="main"], article, form, nav',
+    // Real content, not Instagram's loading shell.
+    contentSelector:
+      'main article, main img, main a[href], form, [role="dialog"]',
     pullToRefresh: true,
     searchPaths: policy.explore ? ['/explore/'] : [],
     hiddenLinkSelectors: hidden,
@@ -133,6 +142,8 @@ export function buildGuardConfig(
     navProbes: 'a[href="/"], a[href="/explore/"], a[href="/direct/inbox/"]',
     topBarProbes: '',
     swipeNav: true,
+    spaNavigate: true,
+    fetchSubscriptions: false,
     pinTab: null,
     homeFeed: controls.homeFeed,
     followingPath: INSTAGRAM_FOLLOWING_PATH,
@@ -169,6 +180,8 @@ function basicConfig(
     navProbes: '',
     topBarProbes: '',
     swipeNav: false,
+    spaNavigate: false,
+    fetchSubscriptions: false,
     pinTab: null,
     homeFeed: 'none',
     followingPath: '/',
@@ -292,7 +305,11 @@ export function buildXGuardConfig(
  * Reddit (www.reddit.com, "shreddit"). Home, Popular and All are blocked
  * by route; promoted posts are Reddit's own custom elements.
  */
-export function buildRedditGuardConfig(grayscale = false): GuardConfig {
+export function buildRedditGuardConfig(
+  grayscale = false,
+  /** Your communities' combined feed; "/" goes there instead. */
+  homePath: string | null = null,
+): GuardConfig {
   const config = basicConfig(
     'reddit',
     REDDIT_ORIGIN,
@@ -309,6 +326,8 @@ export function buildRedditGuardConfig(grayscale = false): GuardConfig {
       'a[href^="https://www.reddit.com/r/popular"]',
       'a[href^="https://www.reddit.com/r/all"]',
     ],
+    redirects: homePath ? { rHome: homePath } : {},
+    fetchSubscriptions: true,
     // Focus shows an app-style header instead of the web one.
     hideAppNav: true,
     topBarProbes:
@@ -379,14 +398,20 @@ const GUARD_SOURCE = String.raw`
   var ptrPull = 0;
   var touching = false;
   var SETTLE_QUIET_MS = 250;
-  var SETTLE_MAX_MS = 4000;
+  var SETTLE_MAX_MS = 2500;
+  // Once real content is there, the page counts as ready shortly after,
+  // even if the site keeps changing the DOM (Instagram always does).
+  var CONTENT_GRACE_MS = 300;
+  var contentSeenAt = 0;
+  var OLD_ATTR = 'data-focus-old';
+  var SPA_VERIFY_MS = 1500;
   var settlePath = null;
   var settleDeadline = 0;
   var settleTimer = null;
   var domWorkScheduled = false;
   var lastDomWork = 0;
   var DOM_WORK_MIN_GAP_MS = 120;
-  var SAFE_PATH = /^\/[A-Za-z0-9._\-\/@]*(\?[A-Za-z0-9_=&%.+\-]*)?$/;
+  var SAFE_PATH = /^\/[A-Za-z0-9._\-\/@+]*(\?[A-Za-z0-9_=&%.+\-]*)?$/;
   var rules = [];
   var lastRoutePath = null;
   var lastAllowedPath = null;
@@ -954,8 +979,15 @@ const GUARD_SOURCE = String.raw`
     if (settleTimer) {
       clearTimeout(settleTimer);
     }
-    var wait = Math.max(0, Math.min(SETTLE_QUIET_MS, settleDeadline - Date.now()));
-    settleTimer = setTimeout(fireSettled, wait);
+    var now = Date.now();
+    var wait = Math.min(SETTLE_QUIET_MS, settleDeadline - now);
+    if (hasContent()) {
+      if (!contentSeenAt) {
+        contentSeenAt = now;
+      }
+      wait = Math.min(wait, contentSeenAt + CONTENT_GRACE_MS - now);
+    }
+    settleTimer = setTimeout(fireSettled, Math.max(0, wait));
   }
 
   // A page counts as settled once the DOM has been quiet for a moment
@@ -963,6 +995,7 @@ const GUARD_SOURCE = String.raw`
   function markSettling() {
     settlePath = location.pathname || '/';
     settleDeadline = Date.now() + SETTLE_MAX_MS;
+    contentSeenAt = 0;
     armSettle();
   }
 
@@ -1043,7 +1076,9 @@ const GUARD_SOURCE = String.raw`
       return;
     }
     lastRedirectAt = Date.now();
-    if (replace) {
+    if (replace && config.spaNavigate) {
+      spaGo(target, true);
+    } else if (replace) {
       // Indirection only so tests can observe full-page redirects.
       (w.__focusReplaceForTests || location.replace.bind(location))(target);
     } else {
@@ -1204,6 +1239,77 @@ const GUARD_SOURCE = String.raw`
     }
   }
 
+  function hasFreshContent() {
+    var nodes = document.querySelectorAll(config.contentSelector);
+    for (var i = 0; i < nodes.length; i++) {
+      if (!nodes[i].hasAttribute(OLD_ATTR)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Client-side navigation like the site's own back/forward: change the
+  // URL, let its router render. If nothing new shows up, load normally.
+  function spaGo(path, replace) {
+    var old = document.querySelectorAll(config.contentSelector);
+    for (var i = 0; i < old.length; i++) {
+      old[i].setAttribute(OLD_ATTR, '');
+    }
+    var full = function () {
+      (w.__focusReplaceForTests || location.replace.bind(location))(path);
+    };
+    try {
+      history[replace ? 'replaceState' : 'pushState'](null, '', path);
+      w.dispatchEvent(new PopStateEvent('popstate', { state: null }));
+    } catch (e) {
+      full();
+      return;
+    }
+    markSettling();
+    var started = Date.now();
+    var verify = function () {
+      if (location.pathname + location.search !== path) {
+        return; // The user went on already.
+      }
+      if (hasFreshContent()) {
+        return;
+      }
+      if (Date.now() - started >= SPA_VERIFY_MS) {
+        full();
+        return;
+      }
+      setTimeout(verify, 100);
+    };
+    setTimeout(verify, 100);
+  }
+
+  // Reddit: the joined communities, read with the user's own session.
+  function fetchSubscriptions() {
+    fetch('/subreddits/mine/subscriber.json?limit=100&raw_json=1', {
+      credentials: 'include',
+      headers: { Accept: 'application/json' }
+    })
+      .then(function (response) {
+        return response.ok ? response.json() : null;
+      })
+      .then(function (data) {
+        var children = data && data.data && data.data.children;
+        if (!children || !children.length) {
+          return;
+        }
+        var names = [];
+        for (var i = 0; i < children.length && names.length < 100; i++) {
+          var name = children[i] && children[i].data && children[i].data.display_name;
+          if (typeof name === 'string' && /^[A-Za-z0-9_]{2,21}$/.test(name) && !/^u_/.test(name)) {
+            names.push(name);
+          }
+        }
+        post({ type: 'SUBSCRIPTIONS', names: names });
+      })
+      .catch(function () {});
+  }
+
   function navigate(path) {
     if (typeof path !== 'string' || !SAFE_PATH.test(path)) {
       return;
@@ -1219,6 +1325,8 @@ const GUARD_SOURCE = String.raw`
     if (anchor) {
       anchor.click();
       markSettling();
+    } else if (config.spaNavigate) {
+      spaGo(path, false);
     } else {
       location.assign(path);
     }
@@ -1309,6 +1417,10 @@ const GUARD_SOURCE = String.raw`
   w.addEventListener('touchcancel', onTouchEnd, touchOptions);
   w.addEventListener('scroll', onScrollForPtr, { passive: true });
 
+  if (config.fetchSubscriptions && isGuardedHost()) {
+    setTimeout(fetchSubscriptions, 1500);
+  }
+
   wrapHistory('pushState');
   wrapHistory('replaceState');
   w.addEventListener('popstate', safeCheck);
@@ -1357,7 +1469,7 @@ export function buildGuardScript(
   return `${GUARD_SOURCE}(${JSON.stringify(config)});\ntrue;`;
 }
 
-const CALLABLE_PATH = /^\/[A-Za-z0-9._\-/@]*(\?[A-Za-z0-9_=&%.+-]*)?$/;
+const CALLABLE_PATH = /^\/[A-Za-z0-9._\-/@+]*(\?[A-Za-z0-9_=&%.+-]*)?$/;
 
 /** Script that navigates inside Instagram, preferring SPA navigation. */
 export function navigateScript(path: string): string | null {

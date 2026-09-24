@@ -22,7 +22,8 @@ export const REDDIT_ROUTE_RULES: readonly RouteRule[] = [
   },
   {
     id: 'reddit-popular',
-    pattern: '^/r/(?:popular|all)(?:/|$)',
+    // Also inside combined feeds such as /r/pics+all/.
+    pattern: '^/r/(?:[^/]*\\+)?(?:popular|all)(?:\\+[^/]*)?(?:/|$)',
     effect: 'block',
     reason: 'rPopular',
   },
@@ -78,4 +79,26 @@ export function redditUserFromInput(text: string): string | null {
 
 export function redditSearchPath(query: string): string {
   return `/search/?q=${encodeSearchQuery(query)}`;
+}
+
+/** Most communities in one combined feed (keeps the URL reasonable). */
+const MAX_FEED_COMMUNITIES = 100;
+
+/**
+ * Your own home feed: Reddit's combined view of the given communities,
+ * e.g. /r/de+python/ – posts from those communities only, no suggestions.
+ */
+export function redditFeedPath(names: string[]): string | null {
+  const seen = new Set<string>();
+  const valid = names.filter(name => {
+    const key = name.toLowerCase();
+    if (!NAME.test(name) || /^(?:popular|all)$/i.test(name) || seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+  return valid.length
+    ? `/r/${valid.slice(0, MAX_FEED_COMMUNITIES).join('+')}/`
+    : null;
 }

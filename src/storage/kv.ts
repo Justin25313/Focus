@@ -44,5 +44,7 @@ export const STORAGE_KEYS = {
   usageReddit: 'focus.usage.reddit',
   /** Reddit communities you opened, for Focus's Reddit start. */
   redditCommunities: 'focus.redditCommunities',
+  /** Reddit communities you joined (read from Reddit when signed in). */
+  redditSubscriptions: 'focus.redditSubscriptions',
   reelsSession: 'focus.reelsSession',
 } as const;

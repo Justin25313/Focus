@@ -68,6 +68,7 @@ import {
   REDDIT_NOTIFICATIONS_PATH,
   REDDIT_ORIGIN,
   REDDIT_SERVICE_RULES,
+  redditFeedPath,
   redditSearchPath,
   subredditFromPath,
 } from '../filtering/reddit/routes';
@@ -132,7 +133,7 @@ const SEARCH_TIMEOUT_MS = 6000;
 /** Longest a loading skeleton may stay up, whatever happens. */
 const LOADING_MAX_MS = 8000;
 /** After the document itself loaded, the page gets this long to settle. */
-const LOADING_AFTER_LOAD_MS = 3000;
+const LOADING_AFTER_LOAD_MS = 1500;
 /** PAGE_READY messages this soon after a new load began are leftovers. */
 const LOADING_STALE_MS = 400;
 
@@ -187,6 +188,7 @@ type Loaded = {
   usageLog: UsageLog;
   appUsage: Record<ServiceId, UsageLog>;
   communities: string[];
+  subscriptions: string[];
   reelsSession: ReelsSession | null;
 };
 
@@ -217,6 +219,7 @@ async function loadState(): Promise<Loaded> {
     rawUsageX,
     rawUsageReddit,
     rawCommunities,
+    rawSubscriptions,
   ] = await Promise.all([
     readJson(STORAGE_KEYS.settings),
     readJson(STORAGE_KEYS.lastRoute),
@@ -230,6 +233,7 @@ async function loadState(): Promise<Loaded> {
     readJson(STORAGE_KEYS.usageX),
     readJson(STORAGE_KEYS.usageReddit),
     readJson(STORAGE_KEYS.redditCommunities),
+    readJson(STORAGE_KEYS.redditSubscriptions),
   ]);
   const parsedSettings = parseSettings(rawSettings);
   const now = Date.now();
@@ -267,6 +271,7 @@ async function loadState(): Promise<Loaded> {
       reddit: parseUsageLog(rawUsageReddit),
     },
     communities: parseCommunities(rawCommunities),
+    subscriptions: parseCommunities(rawSubscriptions),
     reelsSession: parseReelsSession(rawReels, Date.now()),
   };
 }
@@ -365,20 +370,44 @@ function FocusShell({ initial }: { initial: Loaded }) {
   const [webInitialUrls] = useState<Record<WebAppId, string>>(() => ({
     youtube: YOUTUBE_ORIGIN + youtubeHomePathFor(initial.settings.youtube),
     x: X_ORIGIN + X_HOME_PATH,
-    reddit: REDDIT_ORIGIN + REDDIT_NOTIFICATIONS_PATH,
+    reddit:
+      REDDIT_ORIGIN +
+      (redditFeedPath(
+        initial.subscriptions.length
+          ? initial.subscriptions
+          : initial.communities,
+      ) ?? REDDIT_NOTIFICATIONS_PATH),
   }));
+  const [communities, setCommunities] = useState(initial.communities);
+  const [subscriptions, setSubscriptions] = useState(initial.subscriptions);
+  // Reddit's home in Focus: the combined feed of the communities you
+  // joined (or, until Reddit told us, the ones you opened) – no suggestions.
+  const redditHomePath = redditFeedPath(
+    subscriptions.length ? subscriptions : communities,
+  );
+  const onRedditMessage = useCallback((message: WebMessage) => {
+    if (message.type !== 'SUBSCRIPTIONS') {
+      return;
+    }
+    setSubscriptions(prev => {
+      if (prev.join('+') === message.names.join('+')) {
+        return prev;
+      }
+      writeJson(STORAGE_KEYS.redditSubscriptions, message.names);
+      return message.names;
+    });
+  }, []);
   const webGuardConfigs = useMemo<Record<WebAppId, GuardConfig>>(
     () => ({
       youtube: buildYouTubeGuardConfig(settings.youtube, settings.grayscale),
       x: buildXGuardConfig(settings.x, settings.grayscale),
-      reddit: buildRedditGuardConfig(settings.grayscale),
+      reddit: buildRedditGuardConfig(settings.grayscale, redditHomePath),
     }),
-    [settings.youtube, settings.x, settings.grayscale],
+    [settings.youtube, settings.x, settings.grayscale, redditHomePath],
   );
   const [recentQueries, setRecentQueries] = useState<
     Record<WebAppId, string[]>
   >({ youtube: [], x: [], reddit: [] });
-  const [communities, setCommunities] = useState(initial.communities);
   const onWebRoute = useMemo(() => {
     const make = (id: WebAppId) => (path: string) => {
       setCompactBar(false);
@@ -959,10 +988,12 @@ function FocusShell({ initial }: { initial: Loaded }) {
       // Reddit starts on Focus's own start (your communities) until you
       // have opened something there.
       setScreen(
-        id === 'reddit' && !opened.includes('reddit') ? 'search' : 'browser',
+        id === 'reddit' && !opened.includes('reddit') && !redditHomePath
+          ? 'search'
+          : 'browser',
       );
     },
-    [activeService, opened, pauseMediaOf, updateSettings],
+    [activeService, opened, pauseMediaOf, redditHomePath, updateSettings],
   );
 
   /** Opening an app from the Focus home: daily limit first, then the pause. */
@@ -1079,9 +1110,15 @@ function FocusShell({ initial }: { initial: Loaded }) {
         case 'rNotifications':
           goWeb('reddit', REDDIT_NOTIFICATIONS_PATH);
           break;
+        case 'rHome':
+          if (redditHomePath) {
+            goWeb('reddit', redditHomePath);
+          } else {
+            setScreen('search');
+          }
+          break;
         case 'ytSearch':
         case 'xSearch':
-        case 'rHome':
           setScreen('search');
           break;
         case 'focus':
@@ -1089,7 +1126,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
           break;
       }
     },
-    [goWeb, settings.youtube],
+    [goWeb, redditHomePath, settings.youtube],
   );
 
   const leaveBlock = useCallback(() => {
@@ -1244,17 +1281,19 @@ function FocusShell({ initial }: { initial: Loaded }) {
         };
       case 'reddit':
         return {
-          title: 'Reddit',
+          title: 'Communities',
           placeholder: 'Community, u/name oder Suchbegriff',
           searchPath: redditSearchPath,
           shortcuts: redditShortcuts,
           saved: {
-            title: 'Deine Communities',
-            items: communities.map(name => ({
-              key: name,
-              title: `r/${name}`,
-              path: `/r/${name}/`,
-            })),
+            title: subscriptions.length ? 'Beigetreten' : 'Zuletzt geöffnet',
+            items: (subscriptions.length ? subscriptions : communities).map(
+              name => ({
+                key: name,
+                title: `r/${name}`,
+                path: `/r/${name}/`,
+              }),
+            ),
           },
         };
     }
@@ -1396,6 +1435,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
               onRoute={onWebRoute[id]}
               onSearch={() => setScreen('search')}
               onScrollState={setCompactBar}
+              onAppMessage={id === 'reddit' ? onRedditMessage : undefined}
             />
           </View>
         ) : null,

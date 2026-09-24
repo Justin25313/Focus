@@ -28,9 +28,10 @@ verschwinden; solange das nicht sicher ist, bleibt die Timeline verborgen) · ke
 Suche mit `@name` · Leiste: Start, Suche, Mitteilungen, Nachrichten.
 
 **Reddit:** wie die App – eigene Kopfzeile (Communities/Zurück, Suchfeld, +), Leiste Home,
-Posteingang, Du · Startseite, Popular, All und Erkunden gesperrt · Werbung ausgeblendet ·
-Home = *Deine Communities* (jede geöffnete Community landet dort) · Suche nach `r/name`,
-`u/name` oder Beiträgen.
+Posteingang, Du · **Home = dein eigener Feed**: nur Beiträge aus den Communities, denen du
+beigetreten bist (Focus liest die Liste mit deinem Login bei Reddit; vorher: die zuletzt
+geöffneten) – ohne Vorschläge · Reddits Startseite, Popular, All und Erkunden gesperrt ·
+Werbung ausgeblendet · Suche nach `r/name`, `u/name` oder Beiträgen.
 
 **Instagram:**
 
@@ -43,6 +44,7 @@ Home = *Deine Communities* (jede geöffnete Community landet dort) · Suche nach
 - **Graustufen**, **Nutzungszeit** (nur lokal), **letzter Ort** nach Neustart
 - **Wischen** vom Feed zu den Nachrichten und zurück, wie in der App
 - **Leiste wird beim Runterscrollen etwas kleiner**, beim Hochscrollen wieder normal (alle Apps)
+- **Schnell:** Seitenwechsel ohne Neuladen, die Ladefläche geht, sobald Inhalte da sind
 - **Kein Neuladen** bei App-Wechsel, Sperren oder Kontrollzentrum; Lade-Skeletons statt Springen
 - Login direkt bei Instagram – Focus sieht und speichert kein Passwort
 

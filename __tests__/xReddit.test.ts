@@ -4,6 +4,7 @@ import {
 } from '../src/filtering/engine/RouteGuard';
 import {
   REDDIT_SERVICE_RULES,
+  redditFeedPath,
   subredditFromPath,
 } from '../src/filtering/reddit/routes';
 import { X_SERVICE_RULES, xSearchPath } from '../src/filtering/x/routes';
@@ -96,6 +97,18 @@ describe('Reddit rules', () => {
     expect(redditShortcuts('u/spez')[0].path).toBe('/user/spez/');
     expect(redditShortcuts('all')).toEqual([]);
     expect(redditShortcuts('two words')).toEqual([]);
+  });
+
+  it('builds your own feed from your communities only', () => {
+    expect(redditFeedPath(['de', 'Python', 'python', 'all', '../x'])).toBe(
+      '/r/de+Python/',
+    );
+    expect(redditFeedPath([])).toBeNull();
+    // Combined feeds are allowed, unless they sneak in Popular or All.
+    expect(reason('/r/de+Python/')).toBeNull();
+    expect(reason('/r/de+all/')).toBe('rPopular');
+    expect(reason('/r/popular+de/')).toBe('rPopular');
+    expect(reason('/r/de+allergies/')).toBeNull();
   });
 
   it('remembers communities, most recent first', () => {

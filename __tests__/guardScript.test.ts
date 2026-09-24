@@ -245,9 +245,10 @@ describe('injected guard script', () => {
     bar.remove();
   });
 
-  it('reports PAGE_READY once a new page has content and the DOM is quiet', async () => {
+  it('reports PAGE_READY once a new page has real content', async () => {
     history.pushState({}, '', '/direct/inbox/');
     const main = document.createElement('main');
+    main.innerHTML = '<a href="/direct/t/1/">Chat</a>';
     document.body.appendChild(main);
     await waitFor(() => lastOfType('PAGE_READY')?.path === '/direct/inbox/');
     expect(lastOfType('PAGE_READY')).toEqual({
@@ -287,11 +288,17 @@ describe('injected guard script', () => {
       configure();
     });
 
-    it('sends home to the Following feed', () => {
+    it('sends home to the Following feed without reloading', () => {
       const replace = jest.fn();
       (window as any).__focusReplaceForTests = replace;
+      const popstate = jest.fn();
+      window.addEventListener('popstate', popstate);
       history.pushState({}, '', '/');
-      expect(replace).toHaveBeenCalledWith('/?variant=following');
+      // Inside the app, like Instagram's own back/forward.
+      expect(location.pathname + location.search).toBe('/?variant=following');
+      expect(popstate).toHaveBeenCalled();
+      expect(replace).not.toHaveBeenCalled();
+      window.removeEventListener('popstate', popstate);
       history.pushState({}, '', '/natgeo/');
       delete (window as any).__focusReplaceForTests;
     });

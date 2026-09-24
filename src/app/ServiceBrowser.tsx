@@ -40,6 +40,8 @@ type Props = {
   onSearch: () => void;
   /** Scrolling down (compact tab bar) or back up. */
   onScrollState: (compact: boolean) => void;
+  /** App-specific messages (e.g. Reddit's joined communities). */
+  onAppMessage?: (message: WebMessage) => void;
 };
 
 const LOADING_MAX_MS = 8000;
@@ -60,6 +62,7 @@ function ServiceBrowserImpl(
     onRoute,
     onSearch,
     onScrollState,
+    onAppMessage,
   }: Props,
   ref: React.Ref<ServiceBrowserHandle>,
 ) {
@@ -139,10 +142,11 @@ function ServiceBrowserImpl(
           onScrollState(message.compact);
           break;
         default:
+          onAppMessage?.(message);
           break;
       }
     },
-    [handleBlocked, handleRoute, onScrollState, onSearch],
+    [handleBlocked, handleRoute, onAppMessage, onScrollState, onSearch],
   );
 
   return (
