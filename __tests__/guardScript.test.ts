@@ -19,6 +19,16 @@ type Posted = Record<string, unknown>;
 
 const posted: Posted[] = [];
 const flush = () => new Promise<void>(resolve => setTimeout(resolve, 30));
+/** Polls until `condition` holds; the guard batches DOM work (≤ 120 ms). */
+async function waitFor(condition: () => boolean, timeoutMs = 1500) {
+  const start = Date.now();
+  while (!condition()) {
+    if (Date.now() - start > timeoutMs) {
+      throw new Error('waitFor: condition not met in time');
+    }
+    await new Promise<void>(resolve => setTimeout(resolve, 20));
+  }
+}
 const lastMessage = () => posted[posted.length - 1];
 const messagesOfType = (type: string) => posted.filter(m => m.type === type);
 const lastOfType = (type: string) => messagesOfType(type).pop();
@@ -236,7 +246,7 @@ describe('injected guard script', () => {
     history.pushState({}, '', '/direct/inbox/');
     const main = document.createElement('main');
     document.body.appendChild(main);
-    await new Promise<void>(resolve => setTimeout(resolve, 400));
+    await waitFor(() => lastOfType('PAGE_READY')?.path === '/direct/inbox/');
     expect(lastOfType('PAGE_READY')).toEqual({
       type: 'PAGE_READY',
       path: '/direct/inbox/',
@@ -253,7 +263,8 @@ describe('injected guard script', () => {
     home.setAttribute('href', '/');
     bar.appendChild(home);
     document.body.appendChild(bar);
-    await new Promise<void>(resolve => setTimeout(resolve, 60));
+    // Well under the 1 s poll: the MutationObserver must be what fires.
+    await waitFor(() => bar.hasAttribute('data-focus-ig-nav'), 600);
     expect(bar.hasAttribute('data-focus-ig-nav')).toBe(true);
     bar.remove();
   });
@@ -364,7 +375,11 @@ describe('injected guard script', () => {
       const friend2 = article('anzeigenhauptmeister', 'Berlin');
       main.append(ad, suggested, friend, friend2);
       document.body.appendChild(main);
-      await new Promise<void>(resolve => setTimeout(resolve, 60));
+      await waitFor(
+        () =>
+          ad.hasAttribute('data-focus-hidden') &&
+          suggested.hasAttribute('data-focus-hidden'),
+      );
 
       expect(ad.getAttribute('data-focus-hidden')).toBe('sponsored');
       expect(suggested.getAttribute('data-focus-hidden')).toBe('suggested');
