@@ -1,12 +1,23 @@
 import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActionSheetIOS,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ReelsStatus, formatCountdown } from '../controls/reelsSession';
 import { SERVICE_IDS, SERVICE_INFO, ServiceId } from '../services/services';
 import { Diagnostics } from '../storage/diagnostics';
-import { FocusSettings } from '../storage/settings';
+import {
+  FocusSettings,
+  PAUSE_OPTIONS_S,
+  PauseSeconds,
+} from '../storage/settings';
 import { AppIcon } from '../ui/AppIcon';
-import { ButtonRow, GroupedSection, SwitchRow } from '../ui/Grouped';
+import { ButtonRow, GroupedSection, SwitchRow, ValueRow } from '../ui/Grouped';
 import { PencilIcon } from '../ui/icons';
 import { tabBarSpace, useTheme } from '../ui/theme';
 import { UsageLog } from '../usage/usage';
@@ -21,6 +32,8 @@ type Props = {
   settings: FocusSettings;
   onChange: (patch: Partial<FocusSettings>) => void;
   onOpenApp: (id: ServiceId) => void;
+  /** Short status under an app icon, e.g. the time left today. */
+  appBadges: Partial<Record<ServiceId, string>>;
   health: FilterHealth;
   diagnostics: Diagnostics;
   clearingWebsiteData: boolean;
@@ -45,6 +58,7 @@ export function SettingsScreen({
   settings,
   onChange,
   onOpenApp,
+  appBadges,
   health,
   diagnostics,
   clearingWebsiteData,
@@ -108,7 +122,7 @@ export function SettingsScreen({
               badge={
                 id === 'instagram' && reels.state === 'active'
                   ? `Reels ${formatCountdown(reels.remainingMs)}`
-                  : undefined
+                  : appBadges[id]
               }
               onPress={() => (editMode ? setEditingApp(id) : onOpenApp(id))}
               onLongPress={() => setEditingApp(id)}
@@ -121,6 +135,12 @@ export function SettingsScreen({
         ) : null}
 
         <GroupedSection title="Alle Apps">
+          <ValueRow
+            label="Pause vor dem Öffnen"
+            detail="Ein paar Sekunden Durchatmen, bevor eine App aufgeht – auch wenn du nach 5 Minuten zurückkommst."
+            value={pauseLabel(settings.pauseSeconds)}
+            onPress={() => pickPause(settings.pauseSeconds, onChange)}
+          />
           <SwitchRow
             label="Graustufen"
             detail="Ohne Farbe sind Feeds spürbar weniger fesselnd."
@@ -174,7 +194,7 @@ export function SettingsScreen({
         </GroupedSection>
 
         <Text style={[styles.about, { color: theme.tertiaryLabel }]}>
-          Focus 0.8 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
+          Focus 0.9 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
           Deine Einstellungen bleiben auf diesem iPhone.
         </Text>
       </ScrollView>
@@ -203,6 +223,33 @@ export function SettingsScreen({
         clearingWebsiteData={clearingWebsiteData}
       />
     </View>
+  );
+}
+
+function pauseLabel(seconds: PauseSeconds): string {
+  return seconds === 0 ? 'Aus' : `${seconds} s`;
+}
+
+function pickPause(
+  current: PauseSeconds,
+  onChange: (patch: Partial<FocusSettings>) => void,
+) {
+  const options = PAUSE_OPTIONS_S.map(seconds =>
+    seconds === 0 ? 'Aus' : `${seconds} Sekunden`,
+  );
+  ActionSheetIOS.showActionSheetWithOptions(
+    {
+      title: 'Pause vor dem Öffnen',
+      options: [...options, 'Abbrechen'],
+      cancelButtonIndex: options.length,
+      destructiveButtonIndex: PAUSE_OPTIONS_S.indexOf(0),
+    },
+    index => {
+      const seconds = PAUSE_OPTIONS_S[index];
+      if (seconds !== undefined && seconds !== current) {
+        onChange({ pauseSeconds: seconds });
+      }
+    },
   );
 }
 

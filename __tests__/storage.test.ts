@@ -40,7 +40,9 @@ describe('parseSettings', () => {
       openInstagramOnLaunch: true,
       keepLastLocation: false,
     });
-    expect(migrated.schemaVersion).toBe(5);
+    expect(migrated.schemaVersion).toBe(6);
+    expect(migrated.pauseSeconds).toBe(5);
+    expect(migrated.limits.instagram.minutes).toBeNull();
     expect(migrated.lastService).toBe('instagram');
     expect(migrated.youtube.blockShorts).toBe(true);
     expect(migrated.trackUsage).toBe(true);

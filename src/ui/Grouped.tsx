@@ -114,24 +114,53 @@ export function CheckRow({
   );
 }
 
+/** Label and value; with `onPress` it becomes a picker row with a chevron. */
 export function ValueRow({
   label,
+  detail,
   value,
   valueColor,
-}: RowBaseProps & { value: string; valueColor?: string }) {
+  onPress,
+}: RowBaseProps & {
+  value: string;
+  valueColor?: string;
+  onPress?: () => void;
+}) {
   const theme = useTheme();
-  return (
-    <View style={styles.row}>
-      <Text style={[styles.label, styles.flex, { color: theme.label }]}>
-        {label}
-      </Text>
+  const content = (
+    <>
+      <View style={styles.rowText}>
+        <Text style={[styles.label, { color: theme.label }]}>{label}</Text>
+        {detail ? (
+          <Text style={[styles.detail, { color: theme.secondaryLabel }]}>
+            {detail}
+          </Text>
+        ) : null}
+      </View>
       <Text
         style={[styles.value, { color: valueColor ?? theme.secondaryLabel }]}
         numberOfLines={1}
       >
         {value}
       </Text>
-    </View>
+      {onPress ? <ChevronIcon color={theme.tertiaryLabel} /> : null}
+    </>
+  );
+  if (!onPress) {
+    return <View style={styles.row}>{content}</View>;
+  }
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${label}: ${value}`}
+      style={({ pressed }) => [
+        styles.row,
+        pressed ? { backgroundColor: theme.fill } : null,
+      ]}
+    >
+      {content}
+    </Pressable>
   );
 }
 

@@ -37,5 +37,8 @@ export const STORAGE_KEYS = {
   searchHistory: 'focus.searchHistory',
   ownProfile: 'focus.ownProfile',
   usage: 'focus.usage',
+  /** Per-app usage (for daily limits); `usage` stays the total. */
+  usageInstagram: 'focus.usage.instagram',
+  usageYouTube: 'focus.usage.youtube',
   reelsSession: 'focus.reelsSession',
 } as const;

@@ -1,17 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { STORAGE_KEYS, removeKeys, writeJson } from '../storage/kv';
-import { UsageLog, addInterval, pruneLog } from './usage';
+import { UsageLog, addInterval, dayKey, pruneLog } from './usage';
 
 const FLUSH_MS = 30 * 1000;
 
 /**
- * Counts foreground time while `counting` is true (Instagram visible).
+ * Counts foreground time while `counting` is true (an app visible).
  * Brief system overlays (Control Center, notifications) make the app
  * "inactive", not "background", so they don't interrupt a session;
  * locking the phone or switching apps does.
  */
-export function useUsageTracker(initial: UsageLog, counting: boolean) {
+export function useUsageTracker(
+  initial: UsageLog,
+  counting: boolean,
+  storageKey: string = STORAGE_KEYS.usage,
+) {
   const [log, setLog] = useState(initial);
   const startedAt = useRef<number | null>(null);
   const foreground = useRef(AppState.currentState !== 'background');
@@ -24,10 +28,10 @@ export function useUsageTracker(initial: UsageLog, counting: boolean) {
     }
     setLog(prev => {
       const next = pruneLog(addInterval(prev, start, until), until);
-      writeJson(STORAGE_KEYS.usage, next);
+      writeJson(storageKey, next);
       return next;
     });
-  }, []);
+  }, [storageKey]);
 
   const sync = useCallback(() => {
     const shouldCount = counting && foreground.current;
@@ -63,8 +67,19 @@ export function useUsageTracker(initial: UsageLog, counting: boolean) {
   const reset = useCallback(() => {
     startedAt.current = startedAt.current === null ? null : Date.now();
     setLog({});
-    removeKeys([STORAGE_KEYS.usage]);
-  }, []);
+    removeKeys([storageKey]);
+  }, [storageKey]);
 
-  return { log, reset };
+  /** Seconds today including the running interval (not yet in `log`). */
+  const todaySeconds = useCallback(
+    (now: number) => {
+      const start = startedAt.current;
+      const running = start !== null ? addInterval({}, start, now) : {};
+      const key = dayKey(now);
+      return (log[key] ?? 0) + (running[key] ?? 0);
+    },
+    [log],
+  );
+
+  return { log, reset, todaySeconds };
 }

@@ -32,6 +32,7 @@ import {
   reelsStatus,
   startReelsSession,
 } from '../controls/reelsSession';
+import { LimitStatus, limitStatus, settleLimit } from '../controls/limits';
 import { SearchUser, WebMessage } from '../filtering/engine/messages';
 import {
   buildGuardConfig,
@@ -44,7 +45,8 @@ import {
   YOUTUBE_YOU_PATH,
 } from '../filtering/youtube/routes';
 import { YouTubeSearchScreen } from '../screens/YouTubeSearchScreen';
-import { ServiceId } from '../services/services';
+import { SERVICE_IDS, ServiceId } from '../services/services';
+import { GateScreen } from '../screens/GateScreen';
 import { ServiceBrowser, ServiceBrowserHandle } from './ServiceBrowser';
 import {
   INSTAGRAM_INBOX_PATH,
@@ -80,7 +82,12 @@ import {
   skeletonForRoute,
 } from '../ui/skeleton/InstagramSkeleton';
 import { INSTAGRAM_TABS, TabBar, TabId, YOUTUBE_TABS } from '../ui/TabBar';
-import { UsageLog, parseUsageLog } from '../usage/usage';
+import {
+  UsageLog,
+  dayKey,
+  formatDuration,
+  parseUsageLog,
+} from '../usage/usage';
 import { useUsageTracker } from '../usage/useUsageTracker';
 import { tabBarSpace, useTheme } from '../ui/theme';
 
@@ -97,7 +104,14 @@ const LOADING_AFTER_LOAD_MS = 3000;
 /** PAGE_READY messages this soon after a new load began are leftovers. */
 const LOADING_STALE_MS = 400;
 
+/** Coming back after this long counts as opening the app again. */
+const RESUME_PAUSE_AFTER_MS = 5 * 60 * 1000;
+/** How often the daily limit is checked while an app is open. */
+const LIMIT_CHECK_MS = 5000;
+
 type Screen = 'browser' | 'search' | 'settings';
+
+type Gate = { app: ServiceId; mode: 'pause' | 'limit' };
 
 type Loaded = {
   settings: FocusSettings;
@@ -106,6 +120,7 @@ type Loaded = {
   searchHistory: string[];
   ownProfilePath: string | null;
   usageLog: UsageLog;
+  appUsage: Record<ServiceId, UsageLog>;
   reelsSession: ReelsSession | null;
 };
 
@@ -131,6 +146,8 @@ async function loadState(): Promise<Loaded> {
     rawProfile,
     rawUsage,
     rawReels,
+    rawUsageInstagram,
+    rawUsageYouTube,
   ] = await Promise.all([
     readJson(STORAGE_KEYS.settings),
     readJson(STORAGE_KEYS.lastRoute),
@@ -139,8 +156,18 @@ async function loadState(): Promise<Loaded> {
     readJson(STORAGE_KEYS.ownProfile),
     readJson(STORAGE_KEYS.usage),
     readJson(STORAGE_KEYS.reelsSession),
+    readJson(STORAGE_KEYS.usageInstagram),
+    readJson(STORAGE_KEYS.usageYouTube),
   ]);
-  const settings = parseSettings(rawSettings);
+  const parsedSettings = parseSettings(rawSettings);
+  const now = Date.now();
+  const settings = {
+    ...parsedSettings,
+    limits: {
+      instagram: settleLimit(parsedSettings.limits.instagram, now),
+      youtube: settleLimit(parsedSettings.limits.youtube, now),
+    },
+  };
   const restore =
     settings.keepLastLocation &&
     typeof rawRoute === 'string' &&
@@ -159,6 +186,10 @@ async function loadState(): Promise<Loaded> {
         ? rawProfile
         : null,
     usageLog: parseUsageLog(rawUsage),
+    appUsage: {
+      instagram: parseUsageLog(rawUsageInstagram),
+      youtube: parseUsageLog(rawUsageYouTube),
+    },
     reelsSession: parseReelsSession(rawReels, Date.now()),
   };
 }
@@ -278,10 +309,45 @@ function FocusShell({ initial }: { initial: Loaded }) {
     skeletonForRoute(routeKindForPath(initialPath)),
   );
 
-  const usage = useUsageTracker(
-    initial.usageLog,
-    settings.trackUsage && settings.onboardingComplete && screen === 'browser',
+  // ---- pause before opening, daily limits -----------------------------
+  const [gate, setGate] = useState<Gate | null>(() => {
+    const s = initial.settings;
+    if (!s.onboardingComplete || !s.openLastAppOnLaunch) {
+      return null;
+    }
+    const app = s.lastService;
+    const time = Date.now();
+    const used = initial.appUsage[app][dayKey(time)] ?? 0;
+    if (limitStatus(s.limits[app], used, time).state === 'reached') {
+      return { app, mode: 'limit' };
+    }
+    return s.pauseSeconds > 0 ? { app, mode: 'pause' } : null;
+  });
+
+  const inApp =
+    settings.onboardingComplete && screen === 'browser' && gate === null;
+  const usage = useUsageTracker(initial.usageLog, settings.trackUsage && inApp);
+  // Per app, for the daily limits (also when the total is not shown).
+  const instagramUsage = useUsageTracker(
+    initial.appUsage.instagram,
+    inApp &&
+      activeService === 'instagram' &&
+      (settings.trackUsage || settings.limits.instagram.minutes !== null),
+    STORAGE_KEYS.usageInstagram,
   );
+  const youtubeUsage = useUsageTracker(
+    initial.appUsage.youtube,
+    inApp &&
+      activeService === 'youtube' &&
+      (settings.trackUsage || settings.limits.youtube.minutes !== null),
+    STORAGE_KEYS.usageYouTube,
+  );
+  const appUsage = { instagram: instagramUsage, youtube: youtubeUsage };
+  const appLimit = (app: ServiceId, time = Date.now()): LimitStatus =>
+    limitStatus(settings.limits[app], appUsage[app].todaySeconds(time), time);
+  // For timers and listeners, which must not restart on every render.
+  const appLimitRef = useRef(appLimit);
+  appLimitRef.current = appLimit;
 
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
@@ -720,6 +786,86 @@ function FocusShell({ initial }: { initial: Loaded }) {
     [activeService, updateSettings],
   );
 
+  const pauseMediaOf = useCallback((app: ServiceId) => {
+    if (app === 'instagram') {
+      browser.current?.pauseMedia();
+    } else {
+      youtube.current?.pauseMedia();
+    }
+  }, []);
+
+  /** Opening an app from the Focus home: daily limit first, then the pause. */
+  const openApp = useCallback(
+    (id: ServiceId) => {
+      if (appLimitRef.current(id).state === 'reached') {
+        setGate({ app: id, mode: 'limit' });
+        return;
+      }
+      selectService(id);
+      if (settingsRef.current.pauseSeconds > 0) {
+        setGate({ app: id, mode: 'pause' });
+      }
+    },
+    [selectService],
+  );
+
+  const leaveGate = useCallback(() => {
+    if (gate) {
+      pauseMediaOf(gate.app);
+    }
+    setGate(null);
+    setScreen('settings');
+  }, [gate, pauseMediaOf]);
+
+  // Limit reached while the app is open (or lowered below today's time):
+  // close it at once.
+  const usingApp =
+    settings.onboardingComplete && screen !== 'settings' && gate === null;
+  useEffect(() => {
+    if (!usingApp) {
+      return;
+    }
+    const check = () => {
+      if (appLimitRef.current(activeService).state === 'reached') {
+        pauseMediaOf(activeService);
+        setGate({ app: activeService, mode: 'limit' });
+      }
+    };
+    check();
+    const timer = setInterval(check, LIMIT_CHECK_MS);
+    return () => clearInterval(timer);
+  }, [usingApp, activeService, pauseMediaOf, settings.limits]);
+
+  // Coming back after a while is opening the app again: same pause.
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
+  const activeServiceRef = useRef(activeService);
+  activeServiceRef.current = activeService;
+  useEffect(() => {
+    let backgroundAt: number | null = null;
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'background') {
+        backgroundAt = Date.now();
+        return;
+      }
+      if (state !== 'active' || backgroundAt === null) {
+        return;
+      }
+      const away = Date.now() - backgroundAt;
+      backgroundAt = null;
+      if (away < RESUME_PAUSE_AFTER_MS || screenRef.current === 'settings') {
+        return;
+      }
+      const app = activeServiceRef.current;
+      if (appLimitRef.current(app).state === 'reached') {
+        setGate({ app, mode: 'limit' });
+      } else if (settingsRef.current.pauseSeconds > 0) {
+        setGate(prev => prev ?? { app, mode: 'pause' });
+      }
+    });
+    return () => subscription.remove();
+  }, []);
+
   const onYouTubeTab = useCallback(
     (tab: TabId) => {
       const yt = settings.youtube;
@@ -876,6 +1022,16 @@ function FocusShell({ initial }: { initial: Loaded }) {
   );
   const tabSpace = tabBarSpace(insets.bottom);
 
+  const appBadges: Partial<Record<ServiceId, string>> = {};
+  for (const id of SERVICE_IDS) {
+    const status = appLimit(id);
+    if (status.state === 'reached') {
+      appBadges[id] = 'Limit erreicht';
+    } else if (status.state === 'ok') {
+      appBadges[id] = `noch ${formatDuration(status.remainingSeconds)}`;
+    }
+  }
+
   const youtubeTab: TabId =
     screen === 'search'
       ? 'ytSearch'
@@ -998,7 +1154,8 @@ function FocusShell({ initial }: { initial: Loaded }) {
         <SettingsScreen
           settings={settings}
           onChange={updateSettings}
-          onOpenApp={selectService}
+          onOpenApp={openApp}
+          appBadges={appBadges}
           health={health}
           diagnostics={diagnostics}
           clearingWebsiteData={clearing}
@@ -1054,6 +1211,18 @@ function FocusShell({ initial }: { initial: Loaded }) {
               ? (['feed'] as const)
               : []),
           ]}
+        />
+      ) : null}
+
+      {gate ? (
+        <GateScreen
+          app={gate.app}
+          mode={gate.mode}
+          pauseSeconds={settings.pauseSeconds}
+          usedTodaySeconds={appUsage[gate.app].todaySeconds(Date.now())}
+          limit={appLimit(gate.app)}
+          onOpen={() => setGate(null)}
+          onLeave={leaveGate}
         />
       ) : null}
     </View>

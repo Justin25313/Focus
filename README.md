@@ -14,6 +14,10 @@ gedrückt halten (oder *Bearbeiten*) zeigt, was Focus in der App sperrt. Darunte
 alle Apps gilt: Nutzungszeit, Graustufen, Verhalten. Der runde Focus-Knopf rechts in der
 Leiste führt immer dorthin zurück; jede App behält ihre WebView beim Wechsel.
 
+**Gegen das Öffnen aus Gewohnheit:** kurze Pause (3/5/10 s, Atem-Animation) vor jeder App,
+auch nach mindestens 5 Minuten Abwesenheit · **Tageslimit pro App** – danach bis morgen zu;
+weniger gilt sofort, mehr Zeit oder „Aus“ erst ab morgen.
+
 **YouTube:** Shorts gesperrt (Player, Kanal-Tabs, Regale, Links) · Start = Abos, „Nur Suche“
 oder YouTube-Startseite · Trends/Erkunden/Gaming gesperrt · Empfehlungen unter Videos und
 Kommentare optional ausgeblendet · eigene Suche mit Vorschlägen beim Tippen · Google-Login

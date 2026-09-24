@@ -8,10 +8,15 @@ import {
   YouTubeControls,
   parseYouTubeControls,
 } from '../controls/youtube';
+import { DEFAULT_LIMITS, DailyLimits, parseLimits } from '../controls/limits';
 import { ServiceId, isServiceId } from '../services/services';
 
+/** Seconds of the pause before an app opens; 0 = off. */
+export const PAUSE_OPTIONS_S = [0, 3, 5, 10] as const;
+export type PauseSeconds = (typeof PAUSE_OPTIONS_S)[number];
+
 export type FocusSettings = {
-  schemaVersion: 5;
+  schemaVersion: 6;
   onboardingComplete: boolean;
   /** Launch into the last used app instead of the Focus home. */
   openLastAppOnLaunch: boolean;
@@ -22,10 +27,12 @@ export type FocusSettings = {
   youtube: YouTubeControls;
   /** The app Focus opens on launch: the one used last. */
   lastService: ServiceId;
+  pauseSeconds: PauseSeconds;
+  limits: DailyLimits;
 };
 
 export const DEFAULT_SETTINGS: FocusSettings = {
-  schemaVersion: 5,
+  schemaVersion: 6,
   onboardingComplete: false,
   openLastAppOnLaunch: false,
   keepLastLocation: true,
@@ -34,6 +41,8 @@ export const DEFAULT_SETTINGS: FocusSettings = {
   controls: DEFAULT_CONTROLS,
   youtube: DEFAULT_YOUTUBE_CONTROLS,
   lastService: 'instagram',
+  pauseSeconds: 5,
+  limits: DEFAULT_LIMITS,
 };
 
 function bool(value: unknown, fallback: boolean): boolean {
@@ -51,6 +60,7 @@ function bool(value: unknown, fallback: boolean): boolean {
  *  v3 → v4: adds `youtube` controls and `lastService` (Instagram).
  *  v4 → v5: `openInstagramOnLaunch` becomes `openLastAppOnLaunch`, off:
  *           Focus now starts on its home with the app icons.
+ *  v5 → v6: adds `pauseSeconds` (5) and daily `limits` (none).
  */
 export function parseSettings(raw: unknown): FocusSettings {
   if (typeof raw !== 'object' || raw === null) {
@@ -58,7 +68,7 @@ export function parseSettings(raw: unknown): FocusSettings {
   }
   const data = raw as Record<string, unknown>;
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     onboardingComplete: bool(
       data.onboardingComplete,
       DEFAULT_SETTINGS.onboardingComplete,
@@ -76,5 +86,9 @@ export function parseSettings(raw: unknown): FocusSettings {
     controls: parseControls(data.controls),
     youtube: parseYouTubeControls(data.youtube),
     lastService: isServiceId(data.lastService) ? data.lastService : 'instagram',
+    pauseSeconds: PAUSE_OPTIONS_S.includes(data.pauseSeconds as PauseSeconds)
+      ? (data.pauseSeconds as PauseSeconds)
+      : DEFAULT_SETTINGS.pauseSeconds,
+    limits: parseLimits(data.limits),
   };
 }

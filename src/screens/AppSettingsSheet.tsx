@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  ActionSheetIOS,
   Alert,
   Modal,
   Pressable,
@@ -22,6 +23,13 @@ import {
   formatCountdown,
   lockoutMinutes,
 } from '../controls/reelsSession';
+import {
+  DailyLimit,
+  LIMIT_OPTIONS_MIN,
+  changeLimit,
+  formatLimit,
+  limitMinutesAt,
+} from '../controls/limits';
 import { YouTubeControls, YouTubeHome } from '../controls/youtube';
 import { SERVICE_INFO, ServiceId } from '../services/services';
 import { FocusSettings } from '../storage/settings';
@@ -149,6 +157,14 @@ export function AppSettingsSheet({ app, onClose, ...props }: Props) {
           </Pressable>
         </View>
         <ScrollView contentContainerStyle={styles.content}>
+          <LimitSection
+            limit={props.settings.limits[shown]}
+            onChange={limit =>
+              props.onChange({
+                limits: { ...props.settings.limits, [shown]: limit },
+              })
+            }
+          />
           {shown === 'instagram' ? (
             <InstagramSettings {...props} />
           ) : (
@@ -164,6 +180,53 @@ export function AppSettingsSheet({ app, onClose, ...props }: Props) {
         </ScrollView>
       </View>
     </Modal>
+  );
+}
+
+/** Daily limit: less applies now, more (or none) from tomorrow. */
+function LimitSection({
+  limit,
+  onChange,
+}: {
+  limit: DailyLimit;
+  onChange: (limit: DailyLimit) => void;
+}) {
+  const now = Date.now();
+  const today = limitMinutesAt(limit, now);
+  const pick = () => {
+    const values: (number | null)[] = [null, ...LIMIT_OPTIONS_MIN];
+    const options = values.map(formatLimit);
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        title: 'Tageslimit',
+        message:
+          'Weniger gilt sofort. Mehr Zeit oder „Aus“ gilt erst ab morgen.',
+        options: [...options, 'Abbrechen'],
+        cancelButtonIndex: options.length,
+      },
+      index => {
+        if (index < values.length) {
+          onChange(changeLimit(limit, values[index], Date.now()));
+        }
+      },
+    );
+  };
+  return (
+    <GroupedSection
+      title="Tageslimit"
+      footer="Ist die Zeit um, bleibt die App bis morgen zu. Weniger gilt sofort, mehr Zeit oder „Aus“ erst ab morgen."
+    >
+      <ValueRow
+        label="Pro Tag"
+        detail={
+          limit.next
+            ? `Ab morgen: ${formatLimit(limit.next.minutes)}`
+            : undefined
+        }
+        value={formatLimit(today)}
+        onPress={pick}
+      />
+    </GroupedSection>
   );
 }
 

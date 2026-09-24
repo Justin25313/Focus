@@ -44,9 +44,9 @@ const source = {
       name: 'Focus',
       bundleIdentifier: 'com.justin25313.focus',
       developerName: 'Justin',
-      subtitle: 'Instagram ohne Reels und Explore',
+      subtitle: 'Instagram und YouTube ohne Endlos-Feeds',
       localizedDescription:
-        'Instagram ohne Reels, Explore und algorithmischen Ballast. Kein Konto, keine Cloud, kein Tracking.',
+        'Instagram ohne Reels und Explore, YouTube ohne Shorts – mit Pause vor dem Öffnen und Tageslimits. Kein Konto, keine Cloud, kein Tracking.',
       iconURL: `${base}/icon.png`,
       tintColor: '#1E6B57',
       category: 'social',
