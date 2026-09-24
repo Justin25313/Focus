@@ -52,7 +52,7 @@ import {
 import { TabBar, TabId } from '../ui/TabBar';
 import { UsageLog, parseUsageLog } from '../usage/usage';
 import { useUsageTracker } from '../usage/useUsageTracker';
-import { TAB_BAR_HEIGHT, useTheme } from '../ui/theme';
+import { tabBarSpace, useTheme } from '../ui/theme';
 
 /** Keys shared with AppDelegate.swift (NSUserDefaults). */
 const CLEAR_REQUEST_KEY = 'FocusClearWebsiteDataRequest';
@@ -77,16 +77,6 @@ type Loaded = {
   ownProfilePath: string | null;
   usageLog: UsageLog;
 };
-
-/** Pages where pulling down reloads, as in Instagram's app. */
-function canPullToRefresh(path: string): boolean {
-  const kind = routeKindForPath(path);
-  return (
-    kind === 'home' ||
-    kind === 'profile' ||
-    path.toLowerCase() === INSTAGRAM_INBOX_PATH
-  );
-}
 
 /** Whether `path` is the signed-in user's profile or one of its tabs. */
 function isOwnProfile(path: string, ownPath: string | null): boolean {
@@ -237,7 +227,13 @@ function FocusShell({ initial }: { initial: Loaded }) {
   const loadingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadingSince = useRef(Date.now());
 
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const hideLoading = useCallback(() => {
+    if (reloadTimer.current) {
+      clearTimeout(reloadTimer.current);
+      reloadTimer.current = null;
+    }
     if (loadingTimer.current) {
       clearTimeout(loadingTimer.current);
       loadingTimer.current = null;
@@ -403,13 +399,17 @@ function FocusShell({ initial }: { initial: Loaded }) {
   const handleLoadStart = useCallback(
     (url: string, isReload: boolean) => {
       setHealth(prev => (prev === 'active' ? prev : 'starting'));
+      const path = instagramPathFromUrl(url);
+      const variant = path
+        ? skeletonForRoute(routeKindForPath(path))
+        : 'generic';
       if (isReload) {
-        // Pull-to-refresh: the native spinner is the loading indicator,
-        // exactly like in Instagram's app.
+        // Pull-to-refresh: let the page's own spinner show first; only if
+        // the reload takes a moment does the skeleton take over.
+        reloadTimer.current = setTimeout(() => showLoading(variant), 350);
         return;
       }
-      const path = instagramPathFromUrl(url);
-      showLoading(path ? skeletonForRoute(routeKindForPath(path)) : 'generic');
+      showLoading(variant);
     },
     [showLoading],
   );
@@ -661,6 +661,14 @@ function FocusShell({ initial }: { initial: Loaded }) {
     );
   }
 
+  // Like Instagram's app: no tab bar inside a chat, where the composer
+  // sits at the bottom of the screen.
+  const showTabBar = !(
+    screen === 'browser' &&
+    !block &&
+    /^\/direct\/t\//i.test(currentPath)
+  );
+
   const activeTab: TabId =
     screen === 'search'
       ? 'search'
@@ -682,7 +690,8 @@ function FocusShell({ initial }: { initial: Loaded }) {
       <View
         style={[
           styles.browser,
-          { top: insets.top, bottom: TAB_BAR_HEIGHT + insets.bottom },
+          // Full height: Instagram scrolls underneath the floating tab bar.
+          { top: insets.top },
         ]}
       >
         <BrowserView
@@ -690,8 +699,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
           initialUrl={startUrl}
           controls={settings.controls}
           grayscale={settings.grayscale}
-          pullToRefresh={canPullToRefresh(currentPath)}
-          darkMode={theme.dark}
+          bottomInset={showTabBar ? tabBarSpace(insets.bottom) : 0}
           onRoute={handleRoute}
           onBlocked={handleBlocked}
           onMessage={handleMessage}
@@ -762,7 +770,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
         />
       ) : null}
 
-      <View style={styles.tabBar}>
+      {showTabBar ? (
         <TabBar
           active={activeTab}
           onPress={onTab}
@@ -773,7 +781,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
               : []),
           ]}
         />
-      </View>
+      ) : null}
     </View>
   );
 }
@@ -783,11 +791,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   browser: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-  },
-  tabBar: {
     position: 'absolute',
     left: 0,
     right: 0,

@@ -13,7 +13,7 @@ import { SearchUser } from '../filtering/engine/messages';
 import { parseSearchInput } from '../filtering/instagram/search';
 import { ChevronIcon, SearchIcon, VerifiedIcon } from '../ui/icons';
 import { AvatarRow, Pulse } from '../ui/skeleton/Skeleton';
-import { TAB_BAR_HEIGHT, useTheme } from '../ui/theme';
+import { tabBarSpace, useTheme } from '../ui/theme';
 
 export type SearchResult = { ok: boolean; users: SearchUser[] };
 
@@ -141,7 +141,7 @@ export function SearchScreen({
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
         contentContainerStyle={{
-          paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24,
+          paddingBottom: tabBarSpace(insets.bottom) + 12,
         }}
       >
         {parsed.kind === 'username' ? (

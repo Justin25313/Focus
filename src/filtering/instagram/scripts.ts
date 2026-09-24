@@ -104,6 +104,7 @@ export function buildGuardConfig(
  *  - apply the home feed mode (Following feed, hidden feed, no feed)
  *  - hide posts labelled as sponsored or suggested (exact label match only)
  *  - grayscale
+ *  - pull-to-refresh with the spinner below Instagram's header, as in the app
  *
  * DOM work is driven by one batched MutationObserver, so changes apply
  * before the next paint instead of popping in later.
@@ -131,6 +132,15 @@ const GUARD_SOURCE = String.raw`
   var SCAN_ATTR = 'data-focus-scan';
   var MAX_SCANS = 5;
   var lastRedirectAt = 0;
+  var BACK_ATTR = 'data-focus-hide-back';
+  var PTR_ID = 'focus-ptr';
+  var PTR_SPACER_ATTR = 'data-focus-ptr-spacer';
+  var PTR_THRESHOLD = 70;
+  var ptrState = 'idle';
+  var ptrPath = null;
+  var ptrTimer = null;
+  var ptrPull = 0;
+  var touching = false;
   var SETTLE_QUIET_MS = 250;
   var SETTLE_MAX_MS = 4000;
   var settlePath = null;
@@ -182,6 +192,16 @@ const GUARD_SOURCE = String.raw`
       css += '[' + NAV_ATTR + ']{display:none!important;}';
     }
     css += '[' + HIDDEN_ATTR + ']{display:none!important;}';
+    css +=
+      '#' + PTR_ID + '{position:fixed;left:50%;width:28px;height:28px;margin-left:-14px;' +
+      'z-index:2147483646;pointer-events:none;opacity:0;}' +
+      '#' + PTR_ID + '.spin svg{animation:focus-ptr-spin .9s steps(8) infinite;}' +
+      '@keyframes focus-ptr-spin{to{transform:rotate(360deg);}}' +
+      '[' + PTR_SPACER_ATTR + ']{transition:height .2s ease;overflow:hidden;}';
+    if (config.homeFeed === 'following') {
+      // The Following feed's back arrow leads to the "For you" feed.
+      css += '[' + BACK_ATTR + ']{display:none!important;}';
+    }
     if (config.homeFeed === 'hidden') {
       css +=
         'html[' + ROUTE_ATTR + '="home"] main article{display:none!important;}' +
@@ -279,6 +299,157 @@ const GUARD_SOURCE = String.raw`
           post({ type: 'OWN_PROFILE', path: ownProfilePath });
         }
         return;
+      }
+    }
+  }
+
+  // ---- pull to refresh -------------------------------------------
+
+  function canRefresh(path) {
+    if (path === '/' || path === config.inboxPath) {
+      return true;
+    }
+    var match = PROFILE_PATH.exec(path);
+    return !!match && NOT_PROFILES.indexOf(match[1].toLowerCase()) === -1;
+  }
+
+  // Bottom edge of Instagram's fixed/sticky top bar, or 0.
+  function headerBottom() {
+    if (typeof document.elementFromPoint !== 'function') {
+      return 0;
+    }
+    var el = document.elementFromPoint((w.innerWidth || 0) / 2, 4);
+    for (var depth = 0; el && el !== document.body && depth < 12; depth++) {
+      var position = w.getComputedStyle(el).position;
+      if (position === 'fixed' || position === 'sticky') {
+        var rect = el.getBoundingClientRect();
+        return rect.top <= 2 && rect.height < 160 ? rect.bottom : 0;
+      }
+      el = el.parentElement;
+    }
+    return 0;
+  }
+
+  function spinnerSvg() {
+    var lines = '';
+    for (var i = 0; i < 8; i++) {
+      lines +=
+        '<line x1="14" y1="3.5" x2="14" y2="8.5" opacity="' + (1 - i * 0.11).toFixed(2) +
+        '" transform="rotate(' + i * -45 + ' 14 14)"/>';
+    }
+    return (
+      '<svg viewBox="0 0 28 28" width="28" height="28"><g stroke="#8e8e8e" ' +
+      'stroke-width="2.6" stroke-linecap="round">' + lines + '</g></svg>'
+    );
+  }
+
+  function ptrElement() {
+    var el = document.getElementById(PTR_ID);
+    if (!el && document.body) {
+      el = document.createElement('div');
+      el.id = PTR_ID;
+      el.innerHTML = spinnerSvg();
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+
+  function resetPtr() {
+    ptrState = 'idle';
+    ptrPull = 0;
+    var el = document.getElementById(PTR_ID);
+    if (el) {
+      el.style.opacity = '0';
+      el.className = '';
+    }
+  }
+
+  function onScrollForPtr() {
+    if (ptrState === 'refreshing') {
+      return;
+    }
+    var y = w.scrollY || w.pageYOffset || 0;
+    if (y >= 0 || !touching || !canRefresh(location.pathname)) {
+      if (ptrState === 'pulling' && !touching) {
+        resetPtr();
+      }
+      return;
+    }
+    var el = ptrElement();
+    if (!el) {
+      return;
+    }
+    ptrState = 'pulling';
+    ptrPull = -y;
+    el.style.top = headerBottom() + Math.max(4, ptrPull / 2 - 14) + 'px';
+    el.style.opacity = String(Math.min(1, ptrPull / PTR_THRESHOLD));
+    el.firstChild.style.transform = 'rotate(' + Math.round(ptrPull * 3) + 'deg)';
+  }
+
+  // Ends a refresh that did not replace the page (offline, navigation).
+  function finishRefresh() {
+    if (ptrTimer) {
+      clearTimeout(ptrTimer);
+      ptrTimer = null;
+    }
+    var spacers = document.querySelectorAll('[' + PTR_SPACER_ATTR + ']');
+    for (var i = 0; i < spacers.length; i++) {
+      spacers[i].parentNode.removeChild(spacers[i]);
+    }
+    ptrPath = null;
+    resetPtr();
+  }
+
+  function startRefresh() {
+    ptrState = 'refreshing';
+    ptrPath = location.pathname;
+    ptrTimer = setTimeout(finishRefresh, 8000);
+    var el = ptrElement();
+    var top = headerBottom();
+    // Keep a gap below the header while refreshing, like the app.
+    var main = document.querySelector('main');
+    if (main && main.parentNode) {
+      var spacer = document.createElement('div');
+      spacer.setAttribute(PTR_SPACER_ATTR, '');
+      spacer.style.height = '0px';
+      main.parentNode.insertBefore(spacer, main);
+      setTimeout(function () {
+        spacer.style.height = '52px';
+      }, 0);
+    }
+    if (el) {
+      el.className = 'spin';
+      el.firstChild.style.transform = '';
+      el.style.top = top + 12 + 'px';
+      el.style.opacity = '1';
+    }
+    setTimeout(function () {
+      // Indirection only so tests can observe the reload.
+      (w.__focusReloadForTests || location.reload.bind(location))();
+    }, 450);
+  }
+
+  function onTouchEnd() {
+    touching = false;
+    if (ptrState !== 'pulling') {
+      return;
+    }
+    if (ptrPull >= PTR_THRESHOLD) {
+      startRefresh();
+    } else {
+      resetPtr();
+    }
+  }
+
+  function hideFollowingBackLink() {
+    if (config.homeFeed !== 'following' || location.pathname !== '/') {
+      return;
+    }
+    var links = document.querySelectorAll('a[href="/"]:not([' + BACK_ATTR + '])');
+    for (var i = 0; i < links.length; i++) {
+      var rect = links[i].getBoundingClientRect();
+      if (rect.height > 0 && rect.top < 80 && rect.height < 60 && rect.width < 80) {
+        links[i].setAttribute(BACK_ATTR, '');
       }
     }
   }
@@ -423,7 +594,11 @@ const GUARD_SOURCE = String.raw`
     }
     ensureStyle(false);
     tidyInstagramNav();
+    hideFollowingBackLink();
     var path = location.pathname || '/';
+    if (ptrState === 'refreshing' && path !== ptrPath) {
+      finishRefresh();
+    }
     var root = document.documentElement;
     if (root) {
       if (path === '/') {
@@ -642,6 +817,18 @@ const GUARD_SOURCE = String.raw`
     writable: false,
     configurable: false
   });
+
+  var touchOptions = { passive: true, capture: true };
+  w.addEventListener(
+    'touchstart',
+    function () {
+      touching = true;
+    },
+    touchOptions
+  );
+  w.addEventListener('touchend', onTouchEnd, touchOptions);
+  w.addEventListener('touchcancel', onTouchEnd, touchOptions);
+  w.addEventListener('scroll', onScrollForPtr, { passive: true });
 
   wrapHistory('pushState');
   wrapHistory('replaceState');

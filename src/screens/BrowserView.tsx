@@ -79,9 +79,8 @@ type Props = BrowserEvents & {
   initialUrl: string;
   controls: Controls;
   grayscale: boolean;
-  /** Pull down at the top to reload, like Instagram's app (not in chats). */
-  pullToRefresh: boolean;
-  darkMode: boolean;
+  /** Space kept free under the page for the floating tab bar. */
+  bottomInset: number;
 };
 
 /**
@@ -94,8 +93,7 @@ function BrowserViewImpl(
     initialUrl,
     controls,
     grayscale,
-    pullToRefresh,
-    darkMode,
+    bottomInset,
     onRoute,
     onBlocked,
     onMessage,
@@ -221,6 +219,11 @@ function BrowserViewImpl(
     [onMessage],
   );
 
+  const contentInset = useMemo(
+    () => ({ top: 0, left: 0, right: 0, bottom: bottomInset }),
+    [bottomInset],
+  );
+
   const handleLoadStart = useCallback(
     (event: WebViewNavigationEvent) =>
       onLoadStart(
@@ -280,10 +283,10 @@ function BrowserViewImpl(
       contentInsetAdjustmentBehavior="never"
       automaticallyAdjustContentInsets={false}
       decelerationRate="normal"
-      // Only where Instagram's app has it too; in a chat, scrolling up to
-      // older messages must never reload the conversation.
-      pullToRefreshEnabled={pullToRefresh}
-      refreshControlLightMode={darkMode}
+      // Pull-to-refresh lives in the page (guard script), so the spinner
+      // appears below Instagram's header like in the app.
+      pullToRefreshEnabled={false}
+      contentInset={contentInset}
       showsVerticalScrollIndicator={false}
       showsHorizontalScrollIndicator={false}
       fraudulentWebsiteWarningEnabled

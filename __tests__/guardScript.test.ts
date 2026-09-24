@@ -413,6 +413,81 @@ describe('injected guard script', () => {
     });
   });
 
+  describe('pull to refresh', () => {
+    const pull = (distance: number) => {
+      Object.defineProperty(window, 'scrollY', {
+        value: -distance,
+        configurable: true,
+      });
+      window.dispatchEvent(new Event('scroll'));
+    };
+    const release = () => {
+      Object.defineProperty(window, 'scrollY', {
+        value: 0,
+        configurable: true,
+      });
+      window.dispatchEvent(new Event('touchend'));
+    };
+
+    afterEach(() => {
+      Object.defineProperty(window, 'scrollY', {
+        value: 0,
+        configurable: true,
+      });
+      delete (window as any).__focusReloadForTests;
+      document.getElementById('focus-ptr')?.remove();
+      document
+        .querySelectorAll('[data-focus-ptr-spacer]')
+        .forEach(el => el.remove());
+    });
+
+    it('shows the spinner below the header and reloads on release', async () => {
+      history.pushState({}, '', '/');
+      const main = document.createElement('main');
+      document.body.appendChild(main);
+      const reload = jest.fn();
+      (window as any).__focusReloadForTests = reload;
+
+      window.dispatchEvent(new Event('touchstart'));
+      pull(40);
+      const spinner = document.getElementById('focus-ptr');
+      expect(spinner).not.toBeNull();
+      expect(Number(spinner!.style.opacity)).toBeGreaterThan(0);
+      expect(Number(spinner!.style.opacity)).toBeLessThan(1);
+
+      pull(90);
+      release();
+      expect(spinner!.className).toBe('spin');
+      expect(
+        main.previousElementSibling?.hasAttribute('data-focus-ptr-spacer'),
+      ).toBe(true);
+      await waitFor(() => reload.mock.calls.length === 1);
+      main.remove();
+      history.pushState({}, '', '/natgeo/');
+    });
+
+    it('does nothing for a short pull', async () => {
+      history.pushState({}, '', '/natgeo/');
+      const reload = jest.fn();
+      (window as any).__focusReloadForTests = reload;
+      window.dispatchEvent(new Event('touchstart'));
+      pull(30);
+      release();
+      await new Promise<void>(resolve => setTimeout(resolve, 600));
+      expect(reload).not.toHaveBeenCalled();
+      expect(document.getElementById('focus-ptr')?.style.opacity).toBe('0');
+    });
+
+    it('never refreshes inside a chat', () => {
+      history.pushState({}, '', '/direct/t/123/');
+      window.dispatchEvent(new Event('touchstart'));
+      pull(120);
+      expect(document.getElementById('focus-ptr')).toBeNull();
+      release();
+      history.pushState({}, '', '/natgeo/');
+    });
+  });
+
   it('can be injected twice without side effects', () => {
     install();
     expect(document.querySelectorAll('#focus-guard-style')).toHaveLength(1);

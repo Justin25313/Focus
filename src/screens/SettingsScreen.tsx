@@ -26,7 +26,7 @@ import {
   ValueRow,
 } from '../ui/Grouped';
 import { formatTimestamp } from '../ui/format';
-import { TAB_BAR_HEIGHT, useTheme } from '../ui/theme';
+import { tabBarSpace, useTheme } from '../ui/theme';
 
 export type FilterHealth = 'starting' | 'active' | 'noResponse';
 
@@ -157,7 +157,7 @@ export function SettingsScreen({
       <ScrollView
         contentContainerStyle={{
           paddingTop: insets.top + 10,
-          paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24,
+          paddingBottom: tabBarSpace(insets.bottom) + 12,
         }}
       >
         <Text style={[styles.largeTitle, { color: theme.label }]}>Focus</Text>
@@ -377,7 +377,7 @@ export function SettingsScreen({
         </GroupedSection>
 
         <Text style={[styles.about, { color: theme.tertiaryLabel }]}>
-          Focus 0.3 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
+          Focus 0.4 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
           Deine Einstellungen bleiben auf diesem iPhone.
         </Text>
       </ScrollView>

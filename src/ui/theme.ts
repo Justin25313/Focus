@@ -14,7 +14,9 @@ const light = {
   accent: '#1E6B57',
   onAccent: '#FFFFFF',
   accentSoft: 'rgba(30,107,87,0.12)',
-  barBackground: 'rgba(249,249,249,0.97)',
+  barBackground: 'rgba(250,250,250,0.72)',
+  barSelected: 'rgba(0,0,0,0.07)',
+  barBorder: 'rgba(0,0,0,0.06)',
   webBackground: '#FFFFFF',
   skeleton: '#EDEDF0',
   // Validated for the light surface (lightness band, chroma, contrast).
@@ -34,7 +36,9 @@ const dark: typeof light = {
   accent: '#6FD1B2',
   onAccent: '#04241B',
   accentSoft: 'rgba(111,209,178,0.16)',
-  barBackground: 'rgba(22,22,24,0.97)',
+  barBackground: 'rgba(30,30,32,0.6)',
+  barSelected: 'rgba(255,255,255,0.12)',
+  barBorder: 'rgba(255,255,255,0.08)',
   webBackground: '#000000',
   skeleton: '#1F1F22',
   // Validated for the dark surface.
@@ -50,5 +54,15 @@ export function useTheme(): Theme {
     : { ...light, dark: false };
 }
 
-/** Height of the Focus tab bar without the home-indicator inset. */
-export const TAB_BAR_HEIGHT = 49;
+/** The floating tab bar: a glass pill above the home indicator. */
+export const TAB_BAR_PILL_HEIGHT = 58;
+
+/** Distance of the pill from the bottom edge (23 pt on iPhone 15 Pro). */
+export function tabBarBottom(insetBottom: number): number {
+  return Math.max(insetBottom - 11, 12);
+}
+
+/** Space that scrolling content keeps free below it for the pill. */
+export function tabBarSpace(insetBottom: number): number {
+  return TAB_BAR_PILL_HEIGHT + tabBarBottom(insetBottom) + 12;
+}

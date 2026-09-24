@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { INSTAGRAM_RULE_VERSION } from '../filtering/instagram/routes';
-import { TAB_BAR_HEIGHT, useTheme } from '../ui/theme';
+import { tabBarSpace, useTheme } from '../ui/theme';
 
 const SECTIONS: { title: string; points: string[] }[] = [
   {
@@ -52,7 +52,7 @@ export function AboutScreen({ onBack }: { onBack: () => void }) {
       </View>
       <ScrollView
         contentContainerStyle={{
-          paddingBottom: TAB_BAR_HEIGHT + insets.bottom + 24,
+          paddingBottom: tabBarSpace(insets.bottom) + 12,
         }}
       >
         <Text style={[styles.title, { color: theme.label }]}>

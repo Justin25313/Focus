@@ -1,6 +1,6 @@
 {
   "name": "Focus",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "scripts": {
     "ios": "react-native run-ios",
@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^3.1.1",
+    "@react-native-community/blur": "^4.4.1",
     "react": "19.2.3",
     "react-native": "0.87.1",
     "react-native-safe-area-context": "^5.5.2",

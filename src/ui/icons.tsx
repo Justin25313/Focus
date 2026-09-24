@@ -55,20 +55,17 @@ export function MessageIcon({ color, size = 26, filled }: IconProps) {
   );
 }
 
+/** Person in a circle, as in Instagram's tab bar. */
 export function ProfileIcon({ color, size = 26, filled }: IconProps) {
+  const width = filled ? 2.3 : 1.9;
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Circle
-        cx={12}
-        cy={8.2}
-        r={3.9}
-        {...stroke(color)}
-        fill={filled ? color : 'none'}
-      />
+      <Circle cx={12} cy={12} r={9.6} {...stroke(color)} strokeWidth={width} />
+      <Circle cx={12} cy={10} r={3.4} {...stroke(color)} strokeWidth={width} />
       <Path
-        d="M4.5 20.2c.8-3.8 3.9-5.9 7.5-5.9s6.7 2.1 7.5 5.9z"
+        d="M6.2 18.9c1.2-2.4 3.3-3.7 5.8-3.7s4.6 1.3 5.8 3.7"
         {...stroke(color)}
-        fill={filled ? color : 'none'}
+        strokeWidth={width}
       />
     </Svg>
   );
