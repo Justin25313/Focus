@@ -50,8 +50,8 @@ Profile, Stories und Beiträge funktionieren normal.
 4. Repository klonen und Abhängigkeiten installieren:
 
    ```sh
-   git clone https://github.com/justin25313/focus.git
-   cd focus
+   git clone https://github.com/Justin25313/Focus.git
+   cd Focus
    npm install
    npm run pods        # = cd ios && bundle install && bundle exec pod install
    ```
