@@ -192,6 +192,17 @@ Unbekannte Routen erscheinen im Focus-Tab unter *Filterstatus → Unbekannte Rou
 
 ---
 
+## Sicherheit & öffentliches Repo
+
+- Im Repo liegen **keine Geheimnisse**: kein Passwort, kein Token, kein Zertifikat.
+  Die GitHub-Action nutzt nur GitHubs automatisches, kurzlebiges Token.
+- `.gitignore` schließt Signier-Material (`*.p12`, `*.mobileprovision`, …),
+  Kopplungsdateien von SideStore, `.env`-Dateien und alle Build-Ergebnisse aus.
+- Commits laufen über die anonyme GitHub-Adresse
+  (`…@users.noreply.github.com`), nie über eine private E-Mail.
+- Die Action läuft nur im Original-Repo, nie in Forks, und darf nur Releases anlegen.
+- Instagram-Login, Cookies und Einstellungen liegen ausschließlich auf dem iPhone.
+
 ## Bekannte Grenzen
 
 - Instagram Web ≠ Instagram-App: Kamera, Filter, manche Posting- und Creator-Funktionen,

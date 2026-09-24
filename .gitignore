@@ -76,3 +76,35 @@ yarn-error.log
 
 # Sideload builds
 /dist/
+
+# ---------------------------------------------------------------
+# Never commit secrets or signing material (the repo is public).
+# ---------------------------------------------------------------
+.env
+.env.*
+*.pem
+*.key
+*.p8
+*.p12
+*.cer
+*.certSigningRequest
+*.mobileprovision
+*.provisionprofile
+*.keychain
+*.xcconfig.local
+**/GoogleService-Info.plist
+# SideStore/AltStore pairing files
+*.mobiledevicepairing
+*.plist.pairing
+*.rppairing
+
+# Build output
+/ios/build-dev/
+*.ipa
+*.dSYM.zip
+*.dSYM/
+
+# Editors / OS
+.vscode/
+.DS_Store
+*.swp

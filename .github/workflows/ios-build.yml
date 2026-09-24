@@ -9,8 +9,9 @@ on:
     paths-ignore: ['**.md', 'assets/**']
   workflow_dispatch:
 
+# Least privilege by default; only the job below may create releases.
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ios-build-${{ github.ref }}
@@ -18,12 +19,17 @@ concurrency:
 
 jobs:
   ipa:
+    # Only in the original repository, never in forks.
+    if: github.repository == 'Justin25313/Focus'
     runs-on: macos-15
     timeout-minutes: 60
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # build number = commit count
+          persist-credentials: false
 
       - uses: actions/setup-node@v4
         with:
