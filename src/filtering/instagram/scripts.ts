@@ -58,6 +58,8 @@ export type PinTab = {
   index: number;
   /** Tabs to remove, e.g. "For you". */
   hideIndexes: number[];
+  /** Remove every other tab (and extras like "+") from the list. */
+  onlyTab: boolean;
   hideWhilePending: string;
 };
 
@@ -83,6 +85,10 @@ export type GuardConfig = {
   hideAppNav: boolean;
   /** Links that identify the app's bottom bar (by href, never text). */
   navProbes: string;
+  /** Links that identify the site's own top header, hidden when set. */
+  topBarProbes: string;
+  /** Report horizontal swipes (Instagram: feed ↔ messages). */
+  swipeNav: boolean;
   pinTab: PinTab | null;
   homeFeed: HomeFeed | 'none';
   followingPath: string;
@@ -125,6 +131,8 @@ export function buildGuardConfig(
     hiddenLinkSelectors: hidden,
     hideAppNav: true,
     navProbes: 'a[href="/"], a[href="/explore/"], a[href="/direct/inbox/"]',
+    topBarProbes: '',
+    swipeNav: true,
     pinTab: null,
     homeFeed: controls.homeFeed,
     followingPath: INSTAGRAM_FOLLOWING_PATH,
@@ -159,6 +167,8 @@ function basicConfig(
     hiddenLinkSelectors: [],
     hideAppNav: false,
     navProbes: '',
+    topBarProbes: '',
+    swipeNav: false,
     pinTab: null,
     homeFeed: 'none',
     followingPath: '/',
@@ -185,8 +195,12 @@ export function buildYouTubeGuardConfig(
     youtubePolicyFor(controls),
     grayscale,
   );
-  // Focus has its own tab bar.
-  const hidden = ['ytm-pivot-bar-renderer'];
+  // Focus has its own tab bar and search.
+  const hidden = [
+    'ytm-pivot-bar-renderer',
+    'ytm-mobile-topbar-renderer button[aria-label*="earch"]',
+    'ytm-mobile-topbar-renderer button[aria-label*="uche"]',
+  ];
   if (controls.blockShorts) {
     hidden.push(
       'ytm-reel-shelf-renderer',
@@ -247,13 +261,26 @@ export function buildXGuardConfig(
     navProbes:
       'a[href="/home"], a[href="/explore"], a[href="/notifications"], a[href="/messages"]',
     searchPaths: ['/explore'],
-    hiddenLinkSelectors: ['a[href="/explore"]', 'a[href^="/i/trends"]'],
-    hiddenSelectors: ['[data-testid="sidebarColumn"]'],
+    hiddenLinkSelectors: [
+      'a[href="/explore"]',
+      'a[href^="/i/trends"]',
+      'a[href^="/i/premium"]',
+      'a[href^="/i/verified"]',
+    ],
+    hiddenSelectors: [
+      '[data-testid="sidebarColumn"]',
+      '[data-testid="BottomBar"]',
+      // X's bottom bar, also while the app is still loading (then it is
+      // not fixed yet, so the probe-based search does not find it).
+      'nav[role="navigation"]:has(a[href="/home"]):has(a[href="/notifications"])',
+    ],
     pinTab: controls.followingOnly
       ? {
           path: X_HOME_PATH,
           index: 1,
           hideIndexes: [0],
+          // Topic tabs (News, Business, …) are algorithmic feeds as well.
+          onlyTab: true,
           hideWhilePending: 'section[role="region"]',
         }
       : null,
@@ -282,10 +309,16 @@ export function buildRedditGuardConfig(grayscale = false): GuardConfig {
       'a[href^="https://www.reddit.com/r/popular"]',
       'a[href^="https://www.reddit.com/r/all"]',
     ],
+    // Focus shows an app-style header instead of the web one.
+    hideAppNav: true,
+    topBarProbes:
+      'a[href="/"], a[href^="/submit"], a[href="/notifications"], a[href^="https://www.reddit.com/submit"]',
     hiddenSelectors: [
       'shreddit-ad-post',
       'shreddit-comments-page-ad',
       'shreddit-sidebar-ad',
+      'reddit-header-large',
+      'reddit-header-small',
     ],
     contentSelector: 'shreddit-app, main, shreddit-feed, shreddit-post',
   };
@@ -661,6 +694,108 @@ const GUARD_SOURCE = String.raw`
     }
   }
 
+  // ---- compact tab bar while scrolling down ------------------------
+
+  var SCROLL_STEP = 10;
+  var SCROLL_TOP_ZONE = 60;
+  var lastScrollY = 0;
+  var compact = false;
+
+  function setCompact(next) {
+    if (next !== compact) {
+      compact = next;
+      post({ type: 'SCROLL_STATE', compact: next });
+    }
+  }
+
+  // Page scroll, or an inner scroller that fills the screen (X, Reddit).
+  function onScrollForBar(event) {
+    var target = event && event.target;
+    var y;
+    if (
+      !target ||
+      target === w ||
+      target === document ||
+      target === document.documentElement ||
+      target === document.body
+    ) {
+      y = w.scrollY || 0;
+    } else if (target.clientHeight > (w.innerHeight || 0) * 0.6) {
+      y = target.scrollTop || 0;
+    } else {
+      return;
+    }
+    if (y < SCROLL_TOP_ZONE) {
+      setCompact(false);
+    } else if (y - lastScrollY > SCROLL_STEP) {
+      setCompact(true);
+    } else if (lastScrollY - y > SCROLL_STEP) {
+      setCompact(false);
+    }
+    if (Math.abs(y - lastScrollY) > SCROLL_STEP || y < SCROLL_TOP_ZONE) {
+      lastScrollY = y;
+    }
+  }
+
+  // ---- horizontal swipe (Instagram: feed <-> messages) ---------------
+
+  var SWIPE_MIN_X = 80;
+  var SWIPE_MAX_Y = 45;
+  var SWIPE_MAX_MS = 600;
+  var EDGE = 24;
+  var swipe = null;
+
+  // Swipes that start in something that scrolls or slides sideways
+  // (story tray, carousels) belong to that element.
+  function inHorizontalScroller(el) {
+    for (var depth = 0; el && el !== document.body && depth < 25; depth++) {
+      if (el.nodeType === 1) {
+        if (el.scrollWidth > el.clientWidth + 4) {
+          var overflow = w.getComputedStyle(el).overflowX;
+          if (overflow === 'auto' || overflow === 'scroll') {
+            return true;
+          }
+        }
+        if (el.tagName === 'UL' && el.children.length > 1 && el.closest('article')) {
+          return true;
+        }
+      }
+      el = el.parentNode;
+    }
+    return false;
+  }
+
+  function onSwipeStart(event) {
+    swipe = null;
+    if (!config.swipeNav || !event.touches || event.touches.length !== 1) {
+      return;
+    }
+    var t = event.touches[0];
+    var width = w.innerWidth || 0;
+    if (t.clientX < EDGE || t.clientX > width - EDGE || inHorizontalScroller(event.target)) {
+      return;
+    }
+    swipe = { x: t.clientX, y: t.clientY, at: Date.now() };
+  }
+
+  function onSwipeEnd(event) {
+    var start = swipe;
+    swipe = null;
+    if (!start || !event.changedTouches || !event.changedTouches.length) {
+      return;
+    }
+    var t = event.changedTouches[0];
+    var dx = t.clientX - start.x;
+    var dy = t.clientY - start.y;
+    if (
+      Math.abs(dx) >= SWIPE_MIN_X &&
+      Math.abs(dy) <= SWIPE_MAX_Y &&
+      Date.now() - start.at <= SWIPE_MAX_MS
+    ) {
+      post({ type: 'SWIPE', direction: dx < 0 ? 'left' : 'right' });
+    }
+  }
+
   // The Following feed's header starts with a back arrow to "For you".
   // Find whatever is tappable at the header's left edge and hide it
   // (keeping its space, so the title does not jump).
@@ -689,7 +824,38 @@ const GUARD_SOURCE = String.raw`
     }
   }
 
+  // The site's own header: a sticky/fixed element at the top that holds
+  // one of the probe links. Hidden where Focus shows its own header.
+  function topBarFor(anchor) {
+    var el = anchor.parentElement;
+    for (var depth = 0; el && el !== document.body && depth < 12; depth++) {
+      var position = w.getComputedStyle(el).position;
+      if (position === 'fixed' || position === 'sticky') {
+        var rect = el.getBoundingClientRect();
+        return rect.height > 0 && rect.height < 140 && rect.top < 40 ? el : null;
+      }
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  function tidyTopBar() {
+    if (!config.topBarProbes) {
+      return;
+    }
+    var probes = document.querySelectorAll(config.topBarProbes);
+    for (var i = 0; i < probes.length; i++) {
+      if (!probes[i].closest('[' + NAV_ATTR + ']')) {
+        var bar = topBarFor(probes[i]);
+        if (bar) {
+          bar.setAttribute(NAV_ATTR, '');
+        }
+      }
+    }
+  }
+
   function tidyAppNav() {
+    tidyTopBar();
     if (!config.navProbes) {
       return;
     }
@@ -732,14 +898,31 @@ const GUARD_SOURCE = String.raw`
       root.setAttribute(PIN_ATTR, '');
       return;
     }
+    var wanted = tabs[pin.index];
+    if (pin.onlyTab) {
+      // Remove every other tab and extra (e.g. "+") in the tab list.
+      var list = wanted.closest('[role="tablist"]');
+      var items = list ? list.querySelectorAll('[role="presentation"], [role="tab"], a, button') : [];
+      for (var k = 0; k < items.length; k++) {
+        if (!items[k].contains(wanted) && !wanted.contains(items[k])) {
+          items[k].setAttribute(PIN_HIDE_ATTR, '');
+        }
+      }
+    }
     for (var j = 0; j < pin.hideIndexes.length; j++) {
       var tab = tabs[pin.hideIndexes[j]];
-      if (tab && tab !== tabs[pin.index]) {
+      if (tab && tab !== wanted) {
         (tab.closest('[role="presentation"]') || tab).setAttribute(PIN_HIDE_ATTR, '');
       }
     }
-    var wanted = tabs[pin.index];
-    if (wanted.getAttribute('aria-selected') === 'true') {
+    // Another allowed tab (not a hidden one) may stay selected.
+    var selected = null;
+    for (var s2 = 0; s2 < tabs.length; s2++) {
+      if (tabs[s2].getAttribute('aria-selected') === 'true') {
+        selected = s2;
+      }
+    }
+    if (selected === pin.index || (selected !== null && !pin.onlyTab && pin.hideIndexes.indexOf(selected) === -1)) {
       root.removeAttribute(PIN_ATTR);
       return;
     }
@@ -921,6 +1104,9 @@ const GUARD_SOURCE = String.raw`
       if (lastRoutePath !== path) {
         post({ type: 'ROUTE_CHANGED', path: path });
         markSettling();
+        // The app shows the full tab bar on every new page.
+        compact = false;
+        lastScrollY = 0;
       }
     }
     lastRoutePath = path;
@@ -1111,12 +1297,15 @@ const GUARD_SOURCE = String.raw`
   var touchOptions = { passive: true, capture: true };
   w.addEventListener(
     'touchstart',
-    function () {
+    function (event) {
       touching = true;
+      onSwipeStart(event);
     },
     touchOptions
   );
   w.addEventListener('touchend', onTouchEnd, touchOptions);
+  w.addEventListener('touchend', onSwipeEnd, touchOptions);
+  w.addEventListener('scroll', onScrollForBar, { passive: true, capture: true });
   w.addEventListener('touchcancel', onTouchEnd, touchOptions);
   w.addEventListener('scroll', onScrollForPtr, { passive: true });
 

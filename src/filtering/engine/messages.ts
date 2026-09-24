@@ -39,7 +39,11 @@ export type WebMessage =
       requestId: number;
       ok: boolean;
       users: SearchUser[];
-    };
+    }
+  /** Scrolled down (compact tab bar) or up/to the top (full tab bar). */
+  | { type: 'SCROLL_STATE'; compact: boolean }
+  /** A deliberate horizontal swipe outside carousels and scrollers. */
+  | { type: 'SWIPE'; direction: 'left' | 'right' };
 
 const KNOWN_REASONS: ReadonlySet<string> = new Set(BLOCK_REASONS);
 const MAX_PATH = 512;
@@ -167,6 +171,14 @@ export function parseWebMessage(
         users,
       };
     }
+    case 'SCROLL_STATE':
+      return typeof msg.compact === 'boolean'
+        ? { type: 'SCROLL_STATE', compact: msg.compact }
+        : null;
+    case 'SWIPE':
+      return msg.direction === 'left' || msg.direction === 'right'
+        ? { type: 'SWIPE', direction: msg.direction }
+        : null;
     default:
       return null;
   }

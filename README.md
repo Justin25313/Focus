@@ -20,16 +20,17 @@ weniger gilt sofort, mehr Zeit oder „Aus“ erst ab morgen.
 
 **YouTube:** Shorts gesperrt (Player, Kanal-Tabs, Regale, Links) · Start = Abos, „Nur Suche“
 oder YouTube-Startseite · Trends/Erkunden/Gaming gesperrt · Empfehlungen unter Videos und
-Kommentare optional ausgeblendet · eigene Suche mit Vorschlägen beim Tippen · Google-Login
-bleibt in Focus.
+Kommentare optional ausgeblendet · eigene Suche mit Vorschlägen beim Tippen · „Du“ als
+native Liste (Verlauf, Später ansehen, Playlists, Mag ich, Kanäle) · Google-Login bleibt in Focus.
 
-**X:** nur „Folge ich“ (Focus hält den Tab ausgewählt, „Für dich“ verschwindet; solange das
-nicht sicher ist, bleibt die Timeline verborgen) · Erkunden und Trends gesperrt · eigene
+**X:** nur „Folge ich“ (Focus hält den Tab ausgewählt, „Für dich“ und Themen-Tabs wie News
+verschwinden; solange das nicht sicher ist, bleibt die Timeline verborgen) · kein Premium-Upsell · Erkunden und Trends gesperrt · eigene
 Suche mit `@name` · Leiste: Start, Suche, Mitteilungen, Nachrichten.
 
-**Reddit:** Startseite, Popular, All und Erkunden gesperrt · Werbung ausgeblendet · Focus
-startet bei *Deine Communities* (jede geöffnete Community landet dort) · Suche nach
-`r/name`, `u/name` oder Beiträgen.
+**Reddit:** wie die App – eigene Kopfzeile (Communities/Zurück, Suchfeld, +), Leiste Home,
+Posteingang, Du · Startseite, Popular, All und Erkunden gesperrt · Werbung ausgeblendet ·
+Home = *Deine Communities* (jede geöffnete Community landet dort) · Suche nach `r/name`,
+`u/name` oder Beiträgen.
 
 **Instagram:**
 
@@ -40,6 +41,8 @@ startet bei *Deine Communities* (jede geöffnete Community landet dort) · Suche
 - **Ausgeblendet:** eindeutig markierte Werbung und Vorschläge, Reels-Einstiege, Instagrams eigene Leiste
 - **Suche:** eigene Profilsuche (Name, `@benutzername` oder Link) statt Explore
 - **Graustufen**, **Nutzungszeit** (nur lokal), **letzter Ort** nach Neustart
+- **Wischen** vom Feed zu den Nachrichten und zurück, wie in der App
+- **Leiste wird beim Runterscrollen etwas kleiner**, beim Hochscrollen wieder normal (alle Apps)
 - **Kein Neuladen** bei App-Wechsel, Sperren oder Kontrollzentrum; Lade-Skeletons statt Springen
 - Login direkt bei Instagram – Focus sieht und speichert kein Passwort
 

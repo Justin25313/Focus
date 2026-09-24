@@ -4,8 +4,9 @@ import {
   isLiquidGlassSupported,
 } from '@callstack/liquid-glass';
 import { BlurView } from '@react-native-community/blur';
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useEffect, useRef } from 'react';
 import {
+  Animated,
   ColorValue,
   Image,
   PlatformColor,
@@ -50,10 +51,11 @@ export const X_TABS: TabItem[] = [
   { id: 'xMessages', label: 'Nachrichten', icon: 'message' },
 ];
 
-/** Reddit: Focus's start (your communities, search), notifications. */
+/** Reddit, like its app: home (your communities), inbox, you. */
 export const REDDIT_TABS: TabItem[] = [
   { id: 'rHome', label: 'Communities', icon: 'home' },
-  { id: 'rNotifications', label: 'Mitteilungen', icon: 'bell' },
+  { id: 'rNotifications', label: 'Posteingang', icon: 'bell' },
+  { id: 'rProfile', label: 'Du', icon: 'profile' },
 ];
 
 export const WEB_APP_TABS: Record<WebAppId, TabItem[]> = {
@@ -63,6 +65,9 @@ export const WEB_APP_TABS: Record<WebAppId, TabItem[]> = {
 };
 
 const GAP = 10;
+/** Compact bar while scrolling down: slightly smaller, a bit lower. */
+const COMPACT_SCALE = 0.88;
+const COMPACT_DROP = 8;
 
 /**
  * Colors that resolve inside the glass: Liquid Glass turns light over
@@ -141,6 +146,7 @@ export function TabBar({
   onPress,
   hiddenTabs = [],
   reelsCountdown,
+  compact = false,
 }: {
   /** The current app's buttons; empty for apps that bring their own UI. */
   tabs: TabItem[];
@@ -150,90 +156,120 @@ export function TabBar({
   hiddenTabs?: TabId[];
   /** Remaining Reels time, shown under the Reels icon. */
   reelsCountdown?: string;
+  /** While scrolling down the bar gets a little smaller, like the app's. */
+  compact?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   const focusSelected = active === 'focus';
   const visibleTabs = tabs.filter(tab => !hiddenTabs.includes(tab.id));
+  const shrink = useRef(new Animated.Value(compact ? 1 : 0)).current;
+  useEffect(() => {
+    Animated.spring(shrink, {
+      toValue: compact ? 1 : 0,
+      useNativeDriver: true,
+      speed: 18,
+      bounciness: 4,
+    }).start();
+  }, [compact, shrink]);
+  const transform = [
+    {
+      translateY: shrink.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, COMPACT_DROP],
+      }),
+    },
+    {
+      scale: shrink.interpolate({
+        inputRange: [0, 1],
+        outputRange: [1, COMPACT_SCALE],
+      }),
+    },
+  ];
 
   return (
-    <LiquidGlassContainerView
-      spacing={GAP}
+    <Animated.View
       pointerEvents="box-none"
-      style={[styles.wrap, { bottom: tabBarBottom(insets.bottom) }]}
+      style={[styles.wrap, { bottom: tabBarBottom(insets.bottom), transform }]}
     >
-      {visibleTabs.length > 0 ? (
-        <Glass style={styles.pill}>
-          <View accessibilityRole="tablist" style={styles.row}>
-            {visibleTabs.map(({ id, label, icon }) => {
-              const selected = id === active;
-              return (
-                <Pressable
-                  key={id}
-                  accessibilityRole="tab"
-                  accessibilityLabel={label}
-                  accessibilityState={{ selected }}
-                  onPress={() => onPress(id)}
-                  style={styles.item}
-                  hitSlop={4}
-                >
-                  <View
-                    style={[
-                      styles.itemInner,
-                      selected ? styles.selected : null,
-                    ]}
+      <LiquidGlassContainerView
+        spacing={GAP}
+        pointerEvents="box-none"
+        style={styles.container}
+      >
+        {visibleTabs.length > 0 ? (
+          <Glass style={styles.pill}>
+            <View accessibilityRole="tablist" style={styles.row}>
+              {visibleTabs.map(({ id, label, icon }) => {
+                const selected = id === active;
+                return (
+                  <Pressable
+                    key={id}
+                    accessibilityRole="tab"
+                    accessibilityLabel={label}
+                    accessibilityState={{ selected }}
+                    onPress={() => onPress(id)}
+                    style={styles.item}
+                    hitSlop={4}
                   >
-                    {id === 'reels' && reelsCountdown ? (
-                      <>
+                    <View
+                      style={[
+                        styles.itemInner,
+                        selected ? styles.selected : null,
+                      ]}
+                    >
+                      {id === 'reels' && reelsCountdown ? (
+                        <>
+                          <TabIcon
+                            name={icon}
+                            color={glassLabel}
+                            size={22}
+                            filled={selected}
+                          />
+                          <Text
+                            style={styles.countdown}
+                            accessibilityLabel={`Noch ${reelsCountdown}`}
+                          >
+                            {reelsCountdown}
+                          </Text>
+                        </>
+                      ) : (
                         <TabIcon
                           name={icon}
                           color={glassLabel}
-                          size={22}
+                          size={27}
                           filled={selected}
                         />
-                        <Text
-                          style={styles.countdown}
-                          accessibilityLabel={`Noch ${reelsCountdown}`}
-                        >
-                          {reelsCountdown}
-                        </Text>
-                      </>
-                    ) : (
-                      <TabIcon
-                        name={icon}
-                        color={glassLabel}
-                        size={27}
-                        filled={selected}
-                      />
-                    )}
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        </Glass>
-      ) : (
-        <View style={styles.spacer} />
-      )}
+                      )}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </Glass>
+        ) : (
+          <View style={styles.spacer} />
+        )}
 
-      <Glass style={styles.circle}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Focus"
-          accessibilityHint="Zurück zu Focus"
-          accessibilityState={{ selected: focusSelected }}
-          onPress={() => onPress('focus')}
-          style={[styles.circleInner, focusSelected ? styles.selected : null]}
-          hitSlop={6}
-        >
-          <TabIcon
-            name="focus"
-            color={glassLabel}
-            size={27}
-            filled={focusSelected}
-          />
-        </Pressable>
-      </Glass>
-    </LiquidGlassContainerView>
+        <Glass style={styles.circle}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Focus"
+            accessibilityHint="Zurück zu Focus"
+            accessibilityState={{ selected: focusSelected }}
+            onPress={() => onPress('focus')}
+            style={[styles.circleInner, focusSelected ? styles.selected : null]}
+            hitSlop={6}
+          >
+            <TabIcon
+              name="focus"
+              color={glassLabel}
+              size={27}
+              filled={focusSelected}
+            />
+          </Pressable>
+        </Glass>
+      </LiquidGlassContainerView>
+    </Animated.View>
   );
 }
 
@@ -242,6 +278,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 22,
     right: 22,
+  },
+  container: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: GAP,

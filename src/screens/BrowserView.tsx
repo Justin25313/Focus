@@ -68,6 +68,7 @@ export type BrowserHandle = {
   clearCaches: () => void;
   /** Stops video/audio, e.g. when switching to another app. */
   pauseMedia: () => void;
+  goBack: () => void;
 };
 
 export type BrowserEvents = {
@@ -159,6 +160,7 @@ function BrowserViewImpl(
       search: (query, requestId) => inject(searchScript(query, requestId)),
       clearCaches: () => webRef.current?.clearCache(true),
       pauseMedia: () => inject(PAUSE_MEDIA_SCRIPT),
+      goBack: () => webRef.current?.goBack(),
     }),
     [inject],
   );

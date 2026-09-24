@@ -188,3 +188,31 @@ export function FillIcon({ color, size = 18 }: IconProps) {
     </Svg>
   );
 }
+
+export function MenuIcon({ color, size = 22 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        d="M4 6.5h16M4 12h16M4 17.5h16"
+        {...stroke(color)}
+        strokeWidth={2}
+      />
+    </Svg>
+  );
+}
+
+export function PlusIcon({ color, size = 22 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d="M12 4.5v15M4.5 12h15" {...stroke(color)} strokeWidth={2} />
+    </Svg>
+  );
+}
+
+export function BackIcon({ color, size = 22 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d="M15 4.5 7.5 12l7.5 7.5" {...stroke(color)} strokeWidth={2.2} />
+    </Svg>
+  );
+}

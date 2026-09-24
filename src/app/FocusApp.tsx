@@ -45,8 +45,9 @@ import { youtubeHomePathFor } from '../controls/youtube';
 import {
   YOUTUBE_ORIGIN,
   YOUTUBE_SERVICE_RULES,
-  YOUTUBE_YOU_PATH,
 } from '../filtering/youtube/routes';
+import { LinkItem, LinkListScreen } from '../screens/LinkListScreen';
+import { RedditHeader } from '../screens/RedditHeader';
 import { WebSearchScreen, youtubeSearchPath } from '../screens/WebSearchScreen';
 import { fetchYouTubeSuggestions } from '../search/youtubeSuggest';
 import {
@@ -146,7 +147,34 @@ const RESUME_PAUSE_AFTER_MS = 5 * 60 * 1000;
 /** How often the daily limit is checked while an app is open. */
 const LIMIT_CHECK_MS = 5000;
 
-type Screen = 'browser' | 'search' | 'settings';
+type Screen = 'browser' | 'search' | 'settings' | 'library';
+
+/** Native "Du" pages: places that the websites render unreliably. */
+const LIBRARY: Partial<Record<WebAppId, { title: string; items: LinkItem[] }>> =
+  {
+    youtube: {
+      title: 'Du',
+      items: [
+        { key: 'history', title: 'Verlauf', path: '/feed/history' },
+        { key: 'wl', title: 'Später ansehen', path: '/playlist?list=WL' },
+        { key: 'playlists', title: 'Playlists', path: '/feed/playlists' },
+        { key: 'liked', title: 'Mag ich', path: '/playlist?list=LL' },
+        {
+          key: 'channels',
+          title: 'Deine Kanäle (Abos)',
+          path: '/feed/channels',
+        },
+      ],
+    },
+    reddit: {
+      title: 'Du',
+      items: [
+        { key: 'profile', title: 'Profil', path: '/user/me/' },
+        { key: 'saved', title: 'Gespeichert', path: '/user/me/saved/' },
+        { key: 'settings', title: 'Einstellungen', path: '/settings/' },
+      ],
+    },
+  };
 
 type Gate = { app: ServiceId; mode: 'pause' | 'limit' };
 
@@ -284,6 +312,8 @@ function FocusShell({ initial }: { initial: Loaded }) {
   const [health, setHealth] = useState<FilterHealth>('starting');
   const [offline, setOffline] = useState(false);
   const [clearing, setClearing] = useState(false);
+  // Scrolling down makes the tab bar a little smaller (like the apps).
+  const [compactBar, setCompactBar] = useState(false);
 
   // ---- timed Reels ---------------------------------------------------
   const [reelsSession, setReelsSession] = useState(initial.reelsSession);
@@ -351,6 +381,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
   const [communities, setCommunities] = useState(initial.communities);
   const onWebRoute = useMemo(() => {
     const make = (id: WebAppId) => (path: string) => {
+      setCompactBar(false);
       setWebPaths(prev => (prev[id] === path ? prev : { ...prev, [id]: path }));
       const community = id === 'reddit' ? subredditFromPath(path) : null;
       if (community) {
@@ -558,6 +589,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
 
   const handleRoute = useCallback(
     (path: string) => {
+      setCompactBar(false);
       setCurrentPath(prev => (prev === path ? prev : path));
       setBlock(null);
       setOffline(false);
@@ -672,6 +704,12 @@ function FocusShell({ initial }: { initial: Loaded }) {
         case 'OPEN_SEARCH':
           setScreen('search');
           break;
+        case 'SCROLL_STATE':
+          setCompactBar(message.compact);
+          break;
+        case 'SWIPE':
+          swipeRef.current(message.direction);
+          break;
         case 'SEARCH_RESULTS': {
           const resolve = pendingSearches.current.get(message.requestId);
           if (resolve) {
@@ -765,6 +803,24 @@ function FocusShell({ initial }: { initial: Loaded }) {
     [showLoading],
   );
   openPathRef.current = openPath;
+
+  // Like the app: swipe left on the feed for messages, right to go back.
+  const swipeRef = useRef<(direction: 'left' | 'right') => void>(() => {});
+  swipeRef.current = direction => {
+    const { homeFeed } = settings.controls;
+    if (screen !== 'browser' || block || homeFeed === 'off') {
+      return;
+    }
+    const kind = routeKindForPath(currentPath);
+    if (direction === 'left' && kind === 'home') {
+      openPath(INSTAGRAM_INBOX_PATH);
+    } else if (
+      direction === 'right' &&
+      currentPath.replace(/\/?$/, '/') === INSTAGRAM_INBOX_PATH
+    ) {
+      openPath(homePathFor(settings.controls));
+    }
+  };
 
   // Opening Reels waits for the render in which they are unblocked, so the
   // WebView is reconfigured before it navigates there.
@@ -897,6 +953,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
         pauseMediaOf(activeService);
       }
       setActiveService(id);
+      setCompactBar(false);
       setOpened(prev => (prev.includes(id) ? prev : [...prev, id]));
       updateSettings({ lastService: id });
       // Reddit starts on Focus's own start (your communities) until you
@@ -1007,7 +1064,8 @@ function FocusShell({ initial }: { initial: Loaded }) {
           }
           break;
         case 'ytYou':
-          goWeb('youtube', YOUTUBE_YOU_PATH);
+        case 'rProfile':
+          setScreen('library');
           break;
         case 'xHome':
           goWeb('x', X_HOME_PATH);
@@ -1209,21 +1267,31 @@ function FocusShell({ initial }: { initial: Loaded }) {
     }
     switch (app) {
       case 'youtube':
-        return screen === 'search'
-          ? 'ytSearch'
-          : /^\/(?:feed\/(?:you|library|history)|playlist)/.test(path)
+        if (screen === 'search') {
+          return 'ytSearch';
+        }
+        return screen === 'library' ||
+          /^\/(?:feed\/(?:you|library|history|playlists|channels)|playlist)/.test(
+            path,
+          )
           ? 'ytYou'
           : 'ytHome';
       case 'x':
-        return screen === 'search'
-          ? 'xSearch'
-          : path.startsWith(X_NOTIFICATIONS_PATH)
+        if (screen === 'search') {
+          return 'xSearch';
+        }
+        return path.startsWith(X_NOTIFICATIONS_PATH)
           ? 'xNotifications'
           : path.startsWith(X_MESSAGES_PATH)
           ? 'xMessages'
           : 'xHome';
       case 'reddit':
-        return screen !== 'search' && path.startsWith(REDDIT_NOTIFICATIONS_PATH)
+        if (screen === 'search') {
+          return 'rHome';
+        }
+        return screen === 'library' || /^\/(?:user\/me|settings)/.test(path)
+          ? 'rProfile'
+          : path.startsWith(REDDIT_NOTIFICATIONS_PATH)
           ? 'rNotifications'
           : 'rHome';
     }
@@ -1306,6 +1374,18 @@ function FocusShell({ initial }: { initial: Loaded }) {
               activeService === id ? null : styles.hidden,
             ]}
           >
+            {id === 'reddit' ? (
+              <RedditHeader
+                canGoBack={
+                  !/^\/(?:r\/[^/]+\/?)?$/.test(webPaths.reddit) &&
+                  !webPaths.reddit.startsWith(REDDIT_NOTIFICATIONS_PATH)
+                }
+                onMenu={() => setScreen('search')}
+                onBack={() => webRefs.current.reddit?.goBack()}
+                onSearch={() => setScreen('search')}
+                onCreate={() => webRefs.current.reddit?.navigate('/submit')}
+              />
+            ) : null}
             <ServiceBrowser
               ref={setWebRef[id]}
               initialUrl={webInitialUrls[id]}
@@ -1315,10 +1395,22 @@ function FocusShell({ initial }: { initial: Loaded }) {
               bottomInset={activeService === id && !showTabBar ? 0 : tabSpace}
               onRoute={onWebRoute[id]}
               onSearch={() => setScreen('search')}
+              onScrollState={setCompactBar}
             />
           </View>
         ) : null,
       )}
+
+      {screen === 'library' && !onInstagram && LIBRARY[activeService] ? (
+        <LinkListScreen
+          title={LIBRARY[activeService]!.title}
+          items={LIBRARY[activeService]!.items}
+          onOpen={path => {
+            setScreen('browser');
+            webRefs.current[activeService]?.navigate(path);
+          }}
+        />
+      ) : null}
 
       {screen === 'search' && !onInstagram ? (
         <WebSearchScreen
@@ -1397,6 +1489,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
           tabs={WEB_APP_TABS[activeService]}
           active={webTab(activeService)}
           onPress={onWebTab}
+          compact={compactBar && screen === 'browser'}
         />
       ) : null}
       {showTabBar && onInstagram ? (
@@ -1404,6 +1497,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
           tabs={INSTAGRAM_TABS}
           active={instagramTab}
           onPress={onTab}
+          compact={compactBar && screen === 'browser' && !block}
           reelsCountdown={
             reels.state === 'active'
               ? formatCountdown(reels.remainingMs)

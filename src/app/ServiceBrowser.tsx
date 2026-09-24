@@ -25,6 +25,7 @@ export type ServiceBrowserHandle = {
   scrollToTop: () => void;
   pauseMedia: () => void;
   reload: () => void;
+  goBack: () => void;
 };
 
 type Props = {
@@ -37,6 +38,8 @@ type Props = {
   onRoute: (path: string) => void;
   /** "Search" on a block screen (e.g. YouTube's search-only home). */
   onSearch: () => void;
+  /** Scrolling down (compact tab bar) or back up. */
+  onScrollState: (compact: boolean) => void;
 };
 
 const LOADING_MAX_MS = 8000;
@@ -56,6 +59,7 @@ function ServiceBrowserImpl(
     bottomInset,
     onRoute,
     onSearch,
+    onScrollState,
   }: Props,
   ref: React.Ref<ServiceBrowserHandle>,
 ) {
@@ -85,6 +89,7 @@ function ServiceBrowserImpl(
       scrollToTop: () => browser.current?.scrollToTop(),
       pauseMedia: () => browser.current?.pauseMedia(),
       reload: () => browser.current?.reload(),
+      goBack: () => browser.current?.goBack(),
     }),
     [],
   );
@@ -127,11 +132,17 @@ function ServiceBrowserImpl(
         case 'PAGE_READY':
           setLoading(null);
           break;
+        case 'OPEN_SEARCH':
+          onSearch();
+          break;
+        case 'SCROLL_STATE':
+          onScrollState(message.compact);
+          break;
         default:
           break;
       }
     },
-    [handleBlocked, handleRoute],
+    [handleBlocked, handleRoute, onScrollState, onSearch],
   );
 
   return (
