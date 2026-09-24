@@ -11,6 +11,7 @@ export type TabIconName =
   | 'message'
   | 'reels'
   | 'profile'
+  | 'bell'
   | 'focus';
 
 export const TAB_ICONS: Record<
@@ -36,6 +37,10 @@ export const TAB_ICONS: Record<
   profile: {
     outline: require('./profile.png'),
     filled: require('./profile-filled.png'),
+  },
+  bell: {
+    outline: require('./bell.png'),
+    filled: require('./bell-filled.png'),
   },
   focus: {
     outline: require('./focus.png'),

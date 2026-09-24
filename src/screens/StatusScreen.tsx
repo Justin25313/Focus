@@ -22,6 +22,9 @@ const REASON_LABEL: Record<BlockReason, string> = {
   ytHome: 'YouTube-Start',
   ytSubs: 'YouTube-Abos',
   ytExplore: 'YouTube-Trends',
+  xExplore: 'X-Erkunden',
+  rHome: 'Reddit-Startseite',
+  rPopular: 'Reddit Popular',
 };
 
 /** Whether the Instagram filter is running, and what it did (local only). */

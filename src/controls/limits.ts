@@ -21,6 +21,8 @@ const MAX_LIMIT_MIN = 24 * 60;
 export const DEFAULT_LIMITS: DailyLimits = {
   instagram: { minutes: null },
   youtube: { minutes: null },
+  x: { minutes: null },
+  reddit: { minutes: null },
 };
 
 function tomorrowKey(now: number): string {

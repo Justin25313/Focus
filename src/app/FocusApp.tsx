@@ -35,7 +35,10 @@ import {
 import { LimitStatus, limitStatus, settleLimit } from '../controls/limits';
 import { SearchUser, WebMessage } from '../filtering/engine/messages';
 import {
+  GuardConfig,
   buildGuardConfig,
+  buildRedditGuardConfig,
+  buildXGuardConfig,
   buildYouTubeGuardConfig,
 } from '../filtering/instagram/scripts';
 import { youtubeHomePathFor } from '../controls/youtube';
@@ -44,8 +47,36 @@ import {
   YOUTUBE_SERVICE_RULES,
   YOUTUBE_YOU_PATH,
 } from '../filtering/youtube/routes';
-import { YouTubeSearchScreen } from '../screens/YouTubeSearchScreen';
-import { SERVICE_IDS, ServiceId } from '../services/services';
+import { WebSearchScreen, youtubeSearchPath } from '../screens/WebSearchScreen';
+import { fetchYouTubeSuggestions } from '../search/youtubeSuggest';
+import {
+  addCommunity,
+  parseCommunities,
+  redditShortcuts,
+  xShortcuts,
+} from '../search/shortcuts';
+import {
+  X_HOME_PATH,
+  X_MESSAGES_PATH,
+  X_NOTIFICATIONS_PATH,
+  X_ORIGIN,
+  X_SERVICE_RULES,
+  xSearchPath,
+} from '../filtering/x/routes';
+import {
+  REDDIT_NOTIFICATIONS_PATH,
+  REDDIT_ORIGIN,
+  REDDIT_SERVICE_RULES,
+  redditSearchPath,
+  subredditFromPath,
+} from '../filtering/reddit/routes';
+import { ServiceRules } from '../filtering/engine/types';
+import {
+  SERVICE_IDS,
+  ServiceId,
+  WEB_APP_IDS,
+  WebAppId,
+} from '../services/services';
 import { GateScreen } from '../screens/GateScreen';
 import { ServiceBrowser, ServiceBrowserHandle } from './ServiceBrowser';
 import {
@@ -81,7 +112,7 @@ import {
   SkeletonVariant,
   skeletonForRoute,
 } from '../ui/skeleton/InstagramSkeleton';
-import { INSTAGRAM_TABS, TabBar, TabId, YOUTUBE_TABS } from '../ui/TabBar';
+import { INSTAGRAM_TABS, TabBar, TabId, WEB_APP_TABS } from '../ui/TabBar';
 import {
   UsageLog,
   dayKey,
@@ -104,6 +135,12 @@ const LOADING_AFTER_LOAD_MS = 3000;
 /** PAGE_READY messages this soon after a new load began are leftovers. */
 const LOADING_STALE_MS = 400;
 
+const WEB_APP_RULES: Record<WebAppId, ServiceRules> = {
+  youtube: YOUTUBE_SERVICE_RULES,
+  x: X_SERVICE_RULES,
+  reddit: REDDIT_SERVICE_RULES,
+};
+
 /** Coming back after this long counts as opening the app again. */
 const RESUME_PAUSE_AFTER_MS = 5 * 60 * 1000;
 /** How often the daily limit is checked while an app is open. */
@@ -121,6 +158,7 @@ type Loaded = {
   ownProfilePath: string | null;
   usageLog: UsageLog;
   appUsage: Record<ServiceId, UsageLog>;
+  communities: string[];
   reelsSession: ReelsSession | null;
 };
 
@@ -148,6 +186,9 @@ async function loadState(): Promise<Loaded> {
     rawReels,
     rawUsageInstagram,
     rawUsageYouTube,
+    rawUsageX,
+    rawUsageReddit,
+    rawCommunities,
   ] = await Promise.all([
     readJson(STORAGE_KEYS.settings),
     readJson(STORAGE_KEYS.lastRoute),
@@ -158,6 +199,9 @@ async function loadState(): Promise<Loaded> {
     readJson(STORAGE_KEYS.reelsSession),
     readJson(STORAGE_KEYS.usageInstagram),
     readJson(STORAGE_KEYS.usageYouTube),
+    readJson(STORAGE_KEYS.usageX),
+    readJson(STORAGE_KEYS.usageReddit),
+    readJson(STORAGE_KEYS.redditCommunities),
   ]);
   const parsedSettings = parseSettings(rawSettings);
   const now = Date.now();
@@ -166,6 +210,8 @@ async function loadState(): Promise<Loaded> {
     limits: {
       instagram: settleLimit(parsedSettings.limits.instagram, now),
       youtube: settleLimit(parsedSettings.limits.youtube, now),
+      x: settleLimit(parsedSettings.limits.x, now),
+      reddit: settleLimit(parsedSettings.limits.reddit, now),
     },
   };
   const restore =
@@ -189,7 +235,10 @@ async function loadState(): Promise<Loaded> {
     appUsage: {
       instagram: parseUsageLog(rawUsageInstagram),
       youtube: parseUsageLog(rawUsageYouTube),
+      x: parseUsageLog(rawUsageX),
+      reddit: parseUsageLog(rawUsageReddit),
     },
+    communities: parseCommunities(rawCommunities),
     reelsSession: parseReelsSession(rawReels, Date.now()),
   };
 }
@@ -265,12 +314,58 @@ function FocusShell({ initial }: { initial: Loaded }) {
   const [opened, setOpened] = useState<ServiceId[]>([
     initial.settings.lastService,
   ]);
-  const youtube = useRef<ServiceBrowserHandle>(null);
-  const [youtubePath, setYoutubePath] = useState('/');
-  const youtubeGuardConfig = useMemo(
-    () => buildYouTubeGuardConfig(settings.youtube, settings.grayscale),
-    [settings.youtube, settings.grayscale],
+  // YouTube, X and Reddit: one generic browser each.
+  const webRefs = useRef<Record<WebAppId, ServiceBrowserHandle | null>>({
+    youtube: null,
+    x: null,
+    reddit: null,
+  });
+  const setWebRef = useMemo(() => {
+    const make = (id: WebAppId) => (handle: ServiceBrowserHandle | null) => {
+      webRefs.current[id] = handle;
+    };
+    return { youtube: make('youtube'), x: make('x'), reddit: make('reddit') };
+  }, []);
+  const [webPaths, setWebPaths] = useState<Record<WebAppId, string>>({
+    youtube: '/',
+    x: '/',
+    reddit: '/',
+  });
+  // Read once: a WebView keeps its page, later changes never reload it.
+  const [webInitialUrls] = useState<Record<WebAppId, string>>(() => ({
+    youtube: YOUTUBE_ORIGIN + youtubeHomePathFor(initial.settings.youtube),
+    x: X_ORIGIN + X_HOME_PATH,
+    reddit: REDDIT_ORIGIN + REDDIT_NOTIFICATIONS_PATH,
+  }));
+  const webGuardConfigs = useMemo<Record<WebAppId, GuardConfig>>(
+    () => ({
+      youtube: buildYouTubeGuardConfig(settings.youtube, settings.grayscale),
+      x: buildXGuardConfig(settings.x, settings.grayscale),
+      reddit: buildRedditGuardConfig(settings.grayscale),
+    }),
+    [settings.youtube, settings.x, settings.grayscale],
   );
+  const [recentQueries, setRecentQueries] = useState<
+    Record<WebAppId, string[]>
+  >({ youtube: [], x: [], reddit: [] });
+  const [communities, setCommunities] = useState(initial.communities);
+  const onWebRoute = useMemo(() => {
+    const make = (id: WebAppId) => (path: string) => {
+      setWebPaths(prev => (prev[id] === path ? prev : { ...prev, [id]: path }));
+      const community = id === 'reddit' ? subredditFromPath(path) : null;
+      if (community) {
+        setCommunities(prev => {
+          if (prev[0]?.toLowerCase() === community.toLowerCase()) {
+            return prev;
+          }
+          const next = addCommunity(prev, community);
+          writeJson(STORAGE_KEYS.redditCommunities, next);
+          return next;
+        });
+      }
+    };
+    return { youtube: make('youtube'), x: make('x'), reddit: make('reddit') };
+  }, []);
 
   // Tick every second while a window runs (countdown + exact stop); wake up
   // once when a lockout ends; re-check whenever the app comes back.
@@ -342,7 +437,26 @@ function FocusShell({ initial }: { initial: Loaded }) {
       (settings.trackUsage || settings.limits.youtube.minutes !== null),
     STORAGE_KEYS.usageYouTube,
   );
-  const appUsage = { instagram: instagramUsage, youtube: youtubeUsage };
+  const xUsage = useUsageTracker(
+    initial.appUsage.x,
+    inApp &&
+      activeService === 'x' &&
+      (settings.trackUsage || settings.limits.x.minutes !== null),
+    STORAGE_KEYS.usageX,
+  );
+  const redditUsage = useUsageTracker(
+    initial.appUsage.reddit,
+    inApp &&
+      activeService === 'reddit' &&
+      (settings.trackUsage || settings.limits.reddit.minutes !== null),
+    STORAGE_KEYS.usageReddit,
+  );
+  const appUsage = {
+    instagram: instagramUsage,
+    youtube: youtubeUsage,
+    x: xUsage,
+    reddit: redditUsage,
+  };
   const appLimit = (app: ServiceId, time = Date.now()): LimitStatus =>
     limitStatus(settings.limits[app], appUsage[app].todaySeconds(time), time);
   // For timers and listeners, which must not restart on every render.
@@ -768,31 +882,31 @@ function FocusShell({ initial }: { initial: Loaded }) {
     [block, currentPath, openPath, ownProfilePath, screen, settings.controls],
   );
 
-  const selectService = useCallback(
-    (id: ServiceId) => {
-      // Nothing keeps playing in an app you left.
-      if (id !== activeService) {
-        if (activeService === 'instagram') {
-          browser.current?.pauseMedia();
-        } else {
-          youtube.current?.pauseMedia();
-        }
-      }
-      setActiveService(id);
-      setOpened(prev => (prev.includes(id) ? prev : [...prev, id]));
-      updateSettings({ lastService: id });
-      setScreen('browser');
-    },
-    [activeService, updateSettings],
-  );
-
   const pauseMediaOf = useCallback((app: ServiceId) => {
     if (app === 'instagram') {
       browser.current?.pauseMedia();
     } else {
-      youtube.current?.pauseMedia();
+      webRefs.current[app]?.pauseMedia();
     }
   }, []);
+
+  const selectService = useCallback(
+    (id: ServiceId) => {
+      // Nothing keeps playing in an app you left.
+      if (id !== activeService) {
+        pauseMediaOf(activeService);
+      }
+      setActiveService(id);
+      setOpened(prev => (prev.includes(id) ? prev : [...prev, id]));
+      updateSettings({ lastService: id });
+      // Reddit starts on Focus's own start (your communities) until you
+      // have opened something there.
+      setScreen(
+        id === 'reddit' && !opened.includes('reddit') ? 'search' : 'browser',
+      );
+    },
+    [activeService, opened, pauseMediaOf, updateSettings],
+  );
 
   /** Opening an app from the Focus home: daily limit first, then the pause. */
   const openApp = useCallback(
@@ -866,38 +980,58 @@ function FocusShell({ initial }: { initial: Loaded }) {
     return () => subscription.remove();
   }, []);
 
-  const onYouTubeTab = useCallback(
+  /** Opens `path` in a web app, or scrolls up if it is already there. */
+  const goWeb = useCallback(
+    (app: WebAppId, path: string) => {
+      const here = webPaths[app] === path.split('?')[0];
+      if (screen === 'browser' && here) {
+        webRefs.current[app]?.scrollToTop();
+        return;
+      }
+      setScreen('browser');
+      if (!here) {
+        webRefs.current[app]?.navigate(path);
+      }
+    },
+    [screen, webPaths],
+  );
+
+  const onWebTab = useCallback(
     (tab: TabId) => {
-      const yt = settings.youtube;
       switch (tab) {
-        case 'ytHome': {
-          if (yt.home === 'search') {
+        case 'ytHome':
+          if (settings.youtube.home === 'search') {
             setScreen('search');
-            break;
-          }
-          const root = youtubeHomePathFor(yt);
-          if (screen !== 'browser') {
-            setScreen('browser');
-          } else if (youtubePath === root) {
-            youtube.current?.scrollToTop();
           } else {
-            youtube.current?.navigate(root);
+            goWeb('youtube', youtubeHomePathFor(settings.youtube));
           }
-          break;
-        }
-        case 'ytSearch':
-          setScreen('search');
           break;
         case 'ytYou':
-          setScreen('browser');
-          youtube.current?.navigate(YOUTUBE_YOU_PATH);
+          goWeb('youtube', YOUTUBE_YOU_PATH);
+          break;
+        case 'xHome':
+          goWeb('x', X_HOME_PATH);
+          break;
+        case 'xNotifications':
+          goWeb('x', X_NOTIFICATIONS_PATH);
+          break;
+        case 'xMessages':
+          goWeb('x', X_MESSAGES_PATH);
+          break;
+        case 'rNotifications':
+          goWeb('reddit', REDDIT_NOTIFICATIONS_PATH);
+          break;
+        case 'ytSearch':
+        case 'xSearch':
+        case 'rHome':
+          setScreen('search');
           break;
         case 'focus':
           setScreen('settings');
           break;
       }
     },
-    [screen, settings.youtube, youtubePath],
+    [goWeb, settings.youtube],
   );
 
   const leaveBlock = useCallback(() => {
@@ -1014,11 +1148,13 @@ function FocusShell({ initial }: { initial: Loaded }) {
   // Like Instagram's app: no tab bar inside a chat, where the composer
   // sits at the bottom of the screen.
   const onInstagram = activeService === 'instagram';
+  // Like the apps themselves: no tab bar where a composer sits at the
+  // bottom (Instagram and X chats, writing a post on X).
   const showTabBar = !(
-    onInstagram &&
     screen === 'browser' &&
-    !block &&
-    /^\/direct\/t\//i.test(currentPath)
+    ((onInstagram && !block && /^\/direct\/t\//i.test(currentPath)) ||
+      (activeService === 'x' &&
+        /^\/(?:messages\/.+|compose\/)/.test(webPaths.x)))
   );
   const tabSpace = tabBarSpace(insets.bottom);
 
@@ -1032,14 +1168,66 @@ function FocusShell({ initial }: { initial: Loaded }) {
     }
   }
 
-  const youtubeTab: TabId =
-    screen === 'search'
-      ? 'ytSearch'
-      : screen === 'settings'
-      ? 'focus'
-      : /^\/(?:feed\/(?:you|library|history)|playlist)/.test(youtubePath)
-      ? 'ytYou'
-      : 'ytHome';
+  const searchSetup = (app: WebAppId) => {
+    switch (app) {
+      case 'youtube':
+        return {
+          title: 'Suche',
+          placeholder: 'YouTube durchsuchen',
+          searchPath: youtubeSearchPath,
+          suggest: fetchYouTubeSuggestions,
+        };
+      case 'x':
+        return {
+          title: 'Suche',
+          placeholder: 'X durchsuchen oder @name',
+          searchPath: xSearchPath,
+          shortcuts: xShortcuts,
+        };
+      case 'reddit':
+        return {
+          title: 'Reddit',
+          placeholder: 'Community, u/name oder Suchbegriff',
+          searchPath: redditSearchPath,
+          shortcuts: redditShortcuts,
+          saved: {
+            title: 'Deine Communities',
+            items: communities.map(name => ({
+              key: name,
+              title: `r/${name}`,
+              path: `/r/${name}/`,
+            })),
+          },
+        };
+    }
+  };
+
+  const webTab = (app: WebAppId): TabId => {
+    const path = webPaths[app];
+    if (screen === 'settings') {
+      return 'focus';
+    }
+    switch (app) {
+      case 'youtube':
+        return screen === 'search'
+          ? 'ytSearch'
+          : /^\/(?:feed\/(?:you|library|history)|playlist)/.test(path)
+          ? 'ytYou'
+          : 'ytHome';
+      case 'x':
+        return screen === 'search'
+          ? 'xSearch'
+          : path.startsWith(X_NOTIFICATIONS_PATH)
+          ? 'xNotifications'
+          : path.startsWith(X_MESSAGES_PATH)
+          ? 'xMessages'
+          : 'xHome';
+      case 'reddit':
+        return screen !== 'search' && path.startsWith(REDDIT_NOTIFICATIONS_PATH)
+          ? 'rNotifications'
+          : 'rHome';
+    }
+  };
 
   const instagramTab: TabId =
     screen === 'search'
@@ -1107,34 +1295,51 @@ function FocusShell({ initial }: { initial: Loaded }) {
         ) : null}
       </View>
 
-      {opened.includes('youtube') ? (
-        <View
-          pointerEvents={activeService === 'youtube' ? 'auto' : 'none'}
-          style={[
-            styles.browser,
-            { top: insets.top },
-            activeService === 'youtube' ? null : styles.hidden,
-          ]}
-        >
-          <ServiceBrowser
-            ref={youtube}
-            initialUrl={YOUTUBE_ORIGIN + youtubeHomePathFor(settings.youtube)}
-            service={YOUTUBE_SERVICE_RULES}
-            guardConfig={youtubeGuardConfig}
-            skeleton="videos"
-            bottomInset={tabSpace}
-            onRoute={setYoutubePath}
-            onSearch={() => setScreen('search')}
-          />
-        </View>
-      ) : null}
+      {WEB_APP_IDS.map(id =>
+        opened.includes(id) ? (
+          <View
+            key={id}
+            pointerEvents={activeService === id ? 'auto' : 'none'}
+            style={[
+              styles.browser,
+              { top: insets.top },
+              activeService === id ? null : styles.hidden,
+            ]}
+          >
+            <ServiceBrowser
+              ref={setWebRef[id]}
+              initialUrl={webInitialUrls[id]}
+              service={WEB_APP_RULES[id]}
+              guardConfig={webGuardConfigs[id]}
+              skeleton={id === 'youtube' ? 'videos' : 'generic'}
+              bottomInset={activeService === id && !showTabBar ? 0 : tabSpace}
+              onRoute={onWebRoute[id]}
+              onSearch={() => setScreen('search')}
+            />
+          </View>
+        ) : null,
+      )}
 
-      {screen === 'search' && activeService === 'youtube' ? (
-        <YouTubeSearchScreen
+      {screen === 'search' && !onInstagram ? (
+        <WebSearchScreen
+          key={activeService}
           visible
-          onSearch={path => {
+          {...searchSetup(activeService)}
+          recent={recentQueries[activeService]}
+          onRemember={query =>
+            setRecentQueries(prev => ({
+              ...prev,
+              [activeService]: [
+                query,
+                ...prev[activeService].filter(
+                  item => item.toLowerCase() !== query.toLowerCase(),
+                ),
+              ].slice(0, 8),
+            }))
+          }
+          onOpen={path => {
             setScreen('browser');
-            youtube.current?.navigate(path);
+            webRefs.current[activeService]?.navigate(path);
           }}
         />
       ) : null}
@@ -1187,11 +1392,11 @@ function FocusShell({ initial }: { initial: Loaded }) {
         />
       ) : null}
 
-      {showTabBar && activeService === 'youtube' ? (
+      {showTabBar && !onInstagram ? (
         <TabBar
-          tabs={YOUTUBE_TABS}
-          active={youtubeTab}
-          onPress={onYouTubeTab}
+          tabs={WEB_APP_TABS[activeService]}
+          active={webTab(activeService)}
+          onPress={onWebTab}
         />
       ) : null}
       {showTabBar && onInstagram ? (

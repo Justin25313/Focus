@@ -2,6 +2,8 @@ import React from 'react';
 import Svg, {
   Circle,
   Defs,
+  Ellipse,
+  G,
   Path,
   RadialGradient,
   Rect,
@@ -51,6 +53,56 @@ export function AppIcon({ id, size = 62 }: { id: ServiceId; size?: number }) {
           fill="none"
         />
         <Circle cx={66.5} cy={33.5} r={4.3} fill="#FFFFFF" />
+      </Svg>
+    );
+  }
+  if (id === 'x') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 100 100">
+        <Rect
+          x={0.5}
+          y={0.5}
+          width={99}
+          height={99}
+          rx={22}
+          fill="#000000"
+          stroke={theme.dark ? 'rgba(255,255,255,0.18)' : 'none'}
+          strokeWidth={1}
+        />
+        <G transform="translate(26 26) scale(2)">
+          <Path
+            fill="#FFFFFF"
+            d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+          />
+        </G>
+      </Svg>
+    );
+  }
+  if (id === 'reddit') {
+    return (
+      <Svg width={size} height={size} viewBox="0 0 100 100">
+        <Rect width={100} height={100} rx={22.5} fill="#FF4500" />
+        <Path
+          d="M50 42 L55 24 L68 27"
+          stroke="#FFFFFF"
+          strokeWidth={3.2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+        <Circle cx={71} cy={27.5} r={5.5} fill="#FFFFFF" />
+        <Circle cx={26} cy={50} r={7} fill="#FFFFFF" />
+        <Circle cx={74} cy={50} r={7} fill="#FFFFFF" />
+        <Ellipse cx={50} cy={60} rx={27} ry={19} fill="#FFFFFF" />
+        <Circle cx={40} cy={57} r={4.5} fill="#FF4500" />
+        <Circle cx={60} cy={57} r={4.5} fill="#FF4500" />
+        <Path
+          d="M39.5 67.5q10.5 6.5 21 0"
+          stroke="#FF4500"
+          strokeWidth={3}
+          strokeLinecap="round"
+          fill="none"
+        />
       </Svg>
     );
   }

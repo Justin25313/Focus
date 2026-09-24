@@ -12,7 +12,7 @@ import { YOUTUBE_SERVICE_RULES } from '../src/filtering/youtube/routes';
 import {
   encodeSearchQuery,
   youtubeSearchPath,
-} from '../src/screens/YouTubeSearchScreen';
+} from '../src/screens/WebSearchScreen';
 
 const yt = (path: string) => `https://m.youtube.com${path}`;
 const defaults = youtubePolicyFor(DEFAULT_YOUTUBE_CONTROLS);

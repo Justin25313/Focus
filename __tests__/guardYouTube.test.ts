@@ -10,7 +10,7 @@ import {
   buildGuardScript,
   navigateScript,
 } from '../src/filtering/instagram/scripts';
-import { youtubeSearchPath } from '../src/screens/YouTubeSearchScreen';
+import { youtubeSearchPath } from '../src/screens/WebSearchScreen';
 
 type Posted = Record<string, unknown>;
 const posted: Posted[] = [];

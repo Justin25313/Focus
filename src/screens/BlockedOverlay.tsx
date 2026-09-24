@@ -47,7 +47,28 @@ const COPY: Record<BlockReason, { title: string; body: string }> = {
     title: 'Trends sind aus',
     body: 'Trends, Erkunden und Gaming sind algorithmische Endlos-Listen und bleiben gesperrt.',
   },
+  xExplore: {
+    title: 'Erkunden ist aus',
+    body: 'Trends und der Erkunden-Feed von X sind algorithmische Endlos-Listen. Such gezielt nach Posts oder Accounts.',
+  },
+  rHome: {
+    title: 'Die Reddit-Startseite ist aus',
+    body: 'Sie mischt Empfehlungen unter deine Communities. Öffne eine Community gezielt oder such danach.',
+  },
+  rPopular: {
+    title: 'Popular ist aus',
+    body: 'Popular, All und Erkunden sind Reddits Endlos-Feeds. Deine Communities erreichst du über die Focus-Suche.',
+  },
 };
+
+/** Blocks where a deliberate search is the better way to what you want. */
+const SEARCHABLE: BlockReason[] = [
+  'ytHome',
+  'ytSubs',
+  'xExplore',
+  'rHome',
+  'rPopular',
+];
 
 export function BlockedOverlay({
   reason,
@@ -93,15 +114,13 @@ export function BlockedOverlay({
         {reason === 'explore' ? (
           <PrimaryButton title="Profil suchen" onPress={onSearch} />
         ) : null}
-        {reason === 'ytHome' || reason === 'ytSubs' ? (
+        {SEARCHABLE.includes(reason) ? (
           <PrimaryButton title="Suchen" onPress={onSearch} />
         ) : null}
         <PrimaryButton
           title="Zurück"
           onPress={onBack}
-          secondary={
-            reason === 'explore' || reason === 'ytHome' || reason === 'ytSubs'
-          }
+          secondary={reason === 'explore' || SEARCHABLE.includes(reason)}
         />
         {reason === 'sharedReel' && !timeUp ? (
           <PrimaryButton

@@ -30,6 +30,7 @@ import {
   formatLimit,
   limitMinutesAt,
 } from '../controls/limits';
+import { XControls } from '../controls/x';
 import { YouTubeControls, YouTubeHome } from '../controls/youtube';
 import { SERVICE_INFO, ServiceId } from '../services/services';
 import { FocusSettings } from '../storage/settings';
@@ -165,9 +166,8 @@ export function AppSettingsSheet({ app, onClose, ...props }: Props) {
               })
             }
           />
-          {shown === 'instagram' ? (
-            <InstagramSettings {...props} />
-          ) : (
+          {shown === 'instagram' ? <InstagramSettings {...props} /> : null}
+          {shown === 'youtube' ? (
             <YouTubeSettings
               youtube={props.settings.youtube}
               onChange={patch =>
@@ -176,7 +176,16 @@ export function AppSettingsSheet({ app, onClose, ...props }: Props) {
                 })
               }
             />
-          )}
+          ) : null}
+          {shown === 'x' ? (
+            <XSettings
+              x={props.settings.x}
+              onChange={patch =>
+                props.onChange({ x: { ...props.settings.x, ...patch } })
+              }
+            />
+          ) : null}
+          {shown === 'reddit' ? <RedditSettings /> : null}
         </ScrollView>
       </View>
     </Modal>
@@ -451,6 +460,47 @@ function YouTubeSettings({
         />
       </GroupedSection>
     </>
+  );
+}
+
+function XSettings({
+  x,
+  onChange,
+}: {
+  x: XControls;
+  onChange: (patch: Partial<XControls>) => void;
+}) {
+  return (
+    <GroupedSection
+      title="Inhalte"
+      footer="Erkunden und Trends sind immer gesperrt. Die Suche findet Posts und Accounts gezielt."
+    >
+      <SwitchRow
+        label="Nur „Folge ich“"
+        detail="Die Startseite zeigt nur Accounts, denen du folgst – „Für dich“ verschwindet."
+        value={x.followingOnly}
+        onValueChange={value =>
+          value
+            ? onChange({ followingOnly: true })
+            : confirmUnblock('„Für dich“', () =>
+                onChange({ followingOnly: false }),
+              )
+        }
+      />
+    </GroupedSection>
+  );
+}
+
+function RedditSettings() {
+  return (
+    <GroupedSection
+      title="Inhalte"
+      footer="Reddit startet in Focus bei deinen Communities: Jede, die du öffnest, landet dort. Die Suche findet Communities (r/name), Leute (u/name) und Beiträge."
+    >
+      <ValueRow label="Startseite" value="Gesperrt" />
+      <ValueRow label="Popular, All, Erkunden" value="Gesperrt" />
+      <ValueRow label="Werbung" value="Ausgeblendet" />
+    </GroupedSection>
   );
 }
 

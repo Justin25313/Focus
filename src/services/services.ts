@@ -1,6 +1,10 @@
-export type ServiceId = 'instagram' | 'youtube';
+export type ServiceId = 'instagram' | 'youtube' | 'x' | 'reddit';
 
-export const SERVICE_IDS: ServiceId[] = ['instagram', 'youtube'];
+export const SERVICE_IDS: ServiceId[] = ['instagram', 'youtube', 'x', 'reddit'];
+
+/** Apps shown in a generic web browser (everything except Instagram). */
+export type WebAppId = Exclude<ServiceId, 'instagram'>;
+export const WEB_APP_IDS: WebAppId[] = ['youtube', 'x', 'reddit'];
 
 export const SERVICE_INFO: Record<
   ServiceId,
@@ -13,6 +17,14 @@ export const SERVICE_INFO: Record<
   youtube: {
     name: 'YouTube',
     tagline: 'Ohne Shorts und Empfehlungen',
+  },
+  x: {
+    name: 'X',
+    tagline: 'Nur „Folge ich“, ohne Erkunden',
+  },
+  reddit: {
+    name: 'Reddit',
+    tagline: 'Nur deine Communities',
   },
 };
 

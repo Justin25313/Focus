@@ -19,6 +19,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TAB_BAR_PILL_HEIGHT, tabBarBottom, useTheme } from './theme';
 import { TAB_ICONS, TabIconName } from './tabIcons';
+import type { WebAppId } from '../services/services';
 
 export type TabId = string;
 
@@ -40,6 +41,26 @@ export const YOUTUBE_TABS: TabItem[] = [
   { id: 'ytSearch', label: 'Suche', icon: 'search' },
   { id: 'ytYou', label: 'Du', icon: 'profile' },
 ];
+
+/** X: timeline (Following), search, notifications, messages. */
+export const X_TABS: TabItem[] = [
+  { id: 'xHome', label: 'Startseite', icon: 'home' },
+  { id: 'xSearch', label: 'Suche', icon: 'search' },
+  { id: 'xNotifications', label: 'Mitteilungen', icon: 'bell' },
+  { id: 'xMessages', label: 'Nachrichten', icon: 'message' },
+];
+
+/** Reddit: Focus's start (your communities, search), notifications. */
+export const REDDIT_TABS: TabItem[] = [
+  { id: 'rHome', label: 'Communities', icon: 'home' },
+  { id: 'rNotifications', label: 'Mitteilungen', icon: 'bell' },
+];
+
+export const WEB_APP_TABS: Record<WebAppId, TabItem[]> = {
+  youtube: YOUTUBE_TABS,
+  x: X_TABS,
+  reddit: REDDIT_TABS,
+};
 
 const GAP = 10;
 

@@ -1,3 +1,4 @@
+import { isSignInHost } from '../engine/signIn';
 import { RouteRule, ServiceRules } from '../engine/types';
 
 /**
@@ -47,20 +48,13 @@ const YOUTUBE_HOSTS: ReadonlySet<string> = new Set([
   'm.youtube.com',
 ]);
 
-/**
- * Google domains, including country ones: sign-in hops through e.g.
- * accounts.google.de to set its cookies there. Handing such a hop to
- * iOS breaks the login (white page) and can open the YouTube app.
- */
-const GOOGLE_HOST = /^(?:[a-z0-9-]+\.)*google\.(?:[a-z]{2,3}|co\.[a-z]{2}|com\.[a-z]{2})$/;
-
 /** Google sign-in and consent pages, short links. */
 export function isYouTubeInAppHost(host: string): boolean {
   return (
     YOUTUBE_HOSTS.has(host) ||
     host.endsWith('.youtube.com') ||
     host === 'youtu.be' ||
-    GOOGLE_HOST.test(host)
+    isSignInHost(host)
   );
 }
 

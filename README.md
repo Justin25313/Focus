@@ -1,6 +1,6 @@
 # Focus
 
-Instagram und YouTube ohne Endlos-Feeds – als private iPhone-App.
+Instagram, YouTube, X und Reddit ohne Endlos-Feeds – als private iPhone-App.
 Kein Konto, kein Backend, kein Tracking, kein Abo.
 
 Focus lädt Instagram (mobile Web) in einer dauerhaften WebView und legt eine
@@ -22,6 +22,14 @@ weniger gilt sofort, mehr Zeit oder „Aus“ erst ab morgen.
 oder YouTube-Startseite · Trends/Erkunden/Gaming gesperrt · Empfehlungen unter Videos und
 Kommentare optional ausgeblendet · eigene Suche mit Vorschlägen beim Tippen · Google-Login
 bleibt in Focus.
+
+**X:** nur „Folge ich“ (Focus hält den Tab ausgewählt, „Für dich“ verschwindet; solange das
+nicht sicher ist, bleibt die Timeline verborgen) · Erkunden und Trends gesperrt · eigene
+Suche mit `@name` · Leiste: Start, Suche, Mitteilungen, Nachrichten.
+
+**Reddit:** Startseite, Popular, All und Erkunden gesperrt · Werbung ausgeblendet · Focus
+startet bei *Deine Communities* (jede geöffnete Community landet dort) · Suche nach
+`r/name`, `u/name` oder Beiträgen.
 
 **Instagram:**
 
@@ -71,11 +79,13 @@ src/
   app/FocusApp.tsx          Shell: Tabs, Zustand, Aktionen
   controls/controls.ts      Modi und Schalter → Routen-Policy
   services/services.ts      Die Apps (Name, Beta, User-Agent)
-  app/ServiceBrowser.tsx    Browser für YouTube (Guard, Sperre, Laden)
+  app/ServiceBrowser.tsx    Browser für YouTube, X, Reddit (Guard, Sperre, Laden)
   filtering/
     engine/types.ts         Gemeinsame Sperrgründe, Regel- und App-Typen
     instagram/routes.ts     Instagram-Regeln (versioniert)
     youtube/routes.ts       YouTube-Regeln
+    x/routes.ts             X-Regeln
+    reddit/routes.ts        Reddit-Regeln
     instagram/scripts.ts    In-Page-Guard für WKWebView (Konfiguration je App)
     engine/RouteGuard.ts    Entscheidung für jede Navigation
     engine/messages.ts      Validierung der WebView-Bridge

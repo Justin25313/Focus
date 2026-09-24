@@ -14,6 +14,11 @@ export const BLOCK_REASONS = [
   'ytHome',
   'ytSubs',
   'ytExplore',
+  // X
+  'xExplore',
+  // Reddit
+  'rHome',
+  'rPopular',
 ] as const;
 
 export type BlockReason = (typeof BLOCK_REASONS)[number];

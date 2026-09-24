@@ -40,5 +40,9 @@ export const STORAGE_KEYS = {
   /** Per-app usage (for daily limits); `usage` stays the total. */
   usageInstagram: 'focus.usage.instagram',
   usageYouTube: 'focus.usage.youtube',
+  usageX: 'focus.usage.x',
+  usageReddit: 'focus.usage.reddit',
+  /** Reddit communities you opened, for Focus's Reddit start. */
+  redditCommunities: 'focus.redditCommunities',
   reelsSession: 'focus.reelsSession',
 } as const;

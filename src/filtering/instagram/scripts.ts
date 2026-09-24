@@ -10,6 +10,9 @@ import {
   YouTubeControls,
   youtubePolicyFor,
 } from '../../controls/youtube';
+import { DEFAULT_X_CONTROLS, XControls, xPolicyFor } from '../../controls/x';
+import { X_HOME_PATH, X_ORIGIN, X_SERVICE_RULES } from '../x/routes';
+import { REDDIT_ORIGIN, REDDIT_SERVICE_RULES } from '../reddit/routes';
 import {
   YOUTUBE_ORIGIN,
   YOUTUBE_SERVICE_RULES,
@@ -43,7 +46,20 @@ const SUGGESTED_LABELS = [
   'vorgeschlagene beiträge',
 ];
 
-export type GuardService = 'instagram' | 'youtube';
+export type GuardService = 'instagram' | 'youtube' | 'x' | 'reddit';
+
+/**
+ * Keep one tab of a tab list selected on a page (X: "Following" instead
+ * of "For you"). While another tab is selected, `hideWhilePending` stays
+ * hidden (fail closed) and the wanted tab is clicked.
+ */
+export type PinTab = {
+  path: string;
+  index: number;
+  /** Tabs to remove, e.g. "For you". */
+  hideIndexes: number[];
+  hideWhilePending: string;
+};
 
 export type GuardConfig = {
   service: GuardService;
@@ -63,8 +79,11 @@ export type GuardConfig = {
   searchPaths: string[];
   /** Entry points hidden via early CSS (matched on href only, never on text). */
   hiddenLinkSelectors: string[];
-  /** Hide Instagram's bottom tab bar; Focus shows its own. */
-  hideInstagramNav: boolean;
+  /** Hide the app's own bottom tab bar; Focus shows its own. */
+  hideAppNav: boolean;
+  /** Links that identify the app's bottom bar (by href, never text). */
+  navProbes: string;
+  pinTab: PinTab | null;
   homeFeed: HomeFeed | 'none';
   followingPath: string;
   inboxPath: string;
@@ -104,7 +123,9 @@ export function buildGuardConfig(
     pullToRefresh: true,
     searchPaths: policy.explore ? ['/explore/'] : [],
     hiddenLinkSelectors: hidden,
-    hideInstagramNav: true,
+    hideAppNav: true,
+    navProbes: 'a[href="/"], a[href="/explore/"], a[href="/direct/inbox/"]',
+    pinTab: null,
     homeFeed: controls.homeFeed,
     followingPath: INSTAGRAM_FOLLOWING_PATH,
     inboxPath: INSTAGRAM_INBOX_PATH,
@@ -136,7 +157,9 @@ function basicConfig(
     pullToRefresh: false,
     searchPaths: [],
     hiddenLinkSelectors: [],
-    hideInstagramNav: false,
+    hideAppNav: false,
+    navProbes: '',
+    pinTab: null,
     homeFeed: 'none',
     followingPath: '/',
     inboxPath: '/',
@@ -204,6 +227,71 @@ export function buildYouTubeGuardConfig(
 }
 
 /**
+ * X (x.com). The home timeline keeps "Following" selected; Erkunden and
+ * trends are blocked; X's own bottom bar makes way for Focus's.
+ */
+export function buildXGuardConfig(
+  controls: XControls = DEFAULT_X_CONTROLS,
+  grayscale = false,
+): GuardConfig {
+  const config = basicConfig(
+    'x',
+    X_ORIGIN,
+    X_SERVICE_RULES,
+    xPolicyFor(),
+    grayscale,
+  );
+  return {
+    ...config,
+    hideAppNav: true,
+    navProbes:
+      'a[href="/home"], a[href="/explore"], a[href="/notifications"], a[href="/messages"]',
+    searchPaths: ['/explore'],
+    hiddenLinkSelectors: ['a[href="/explore"]', 'a[href^="/i/trends"]'],
+    hiddenSelectors: ['[data-testid="sidebarColumn"]'],
+    pinTab: controls.followingOnly
+      ? {
+          path: X_HOME_PATH,
+          index: 1,
+          hideIndexes: [0],
+          hideWhilePending: 'section[role="region"]',
+        }
+      : null,
+    contentSelector: '[data-testid="primaryColumn"], main, form',
+  };
+}
+
+/**
+ * Reddit (www.reddit.com, "shreddit"). Home, Popular and All are blocked
+ * by route; promoted posts are Reddit's own custom elements.
+ */
+export function buildRedditGuardConfig(grayscale = false): GuardConfig {
+  const config = basicConfig(
+    'reddit',
+    REDDIT_ORIGIN,
+    REDDIT_SERVICE_RULES,
+    { rHome: true, rPopular: true },
+    grayscale,
+  );
+  return {
+    ...config,
+    hiddenLinkSelectors: [
+      'a[href^="/r/popular"]',
+      'a[href^="/r/all"]',
+      'a[href^="/explore"]',
+      'a[href^="https://www.reddit.com/r/popular"]',
+      'a[href^="https://www.reddit.com/r/all"]',
+    ],
+    hiddenSelectors: [
+      'shreddit-ad-post',
+      'shreddit-comments-page-ad',
+      'shreddit-sidebar-ad',
+    ],
+    contentSelector: 'shreddit-app, main, shreddit-feed, shreddit-post',
+  };
+}
+
+/**
  * The in-page guard. Runs at document start in the main frame only.
  *
  * Responsibilities:
@@ -237,7 +325,6 @@ const GUARD_SOURCE = String.raw`
   var STYLE_ID = 'focus-guard-style';
   var BLOCKED_ATTR = 'data-focus-blocked';
   var NAV_ATTR = 'data-focus-ig-nav';
-  var NAV_PROBES = 'a[href="/"], a[href="/explore/"], a[href="/direct/inbox/"]';
   var PROFILE_PATH = /^\/([A-Za-z0-9._]{1,30})\/$/;
   var NOT_PROFILES = ['explore', 'reels', 'reel', 'direct', 'accounts', 'p', 'stories', 'tv'];
   var ownProfilePath = null;
@@ -247,6 +334,9 @@ const GUARD_SOURCE = String.raw`
   var MAX_SCANS = 5;
   var lastRedirectAt = 0;
   var BACK_ATTR = 'data-focus-hide-back';
+  var PIN_ATTR = 'data-focus-pin-pending';
+  var PIN_HIDE_ATTR = 'data-focus-pin-hide';
+  var lastPinClick = 0;
   var PTR_ID = 'focus-ptr';
   var PTR_SPACER_ATTR = 'data-focus-ptr-spacer';
   var PTR_THRESHOLD = 70;
@@ -306,7 +396,7 @@ const GUARD_SOURCE = String.raw`
     if (config.hiddenLinkSelectors.length) {
       css += config.hiddenLinkSelectors.join(',') + '{display:none!important;}';
     }
-    if (config.hideInstagramNav) {
+    if (config.hideAppNav) {
       css += '[' + NAV_ATTR + ']{display:none!important;}';
     }
     if (config.hiddenSelectors.length) {
@@ -319,6 +409,12 @@ const GUARD_SOURCE = String.raw`
       '#' + PTR_ID + '.spin svg{animation:focus-ptr-spin .9s steps(8) infinite;}' +
       '@keyframes focus-ptr-spin{to{transform:rotate(360deg);}}' +
       '[' + PTR_SPACER_ATTR + ']{transition:height .2s ease;overflow:hidden;}';
+    if (config.pinTab) {
+      css +=
+        'html[' + PIN_ATTR + '] ' + config.pinTab.hideWhilePending +
+        '{visibility:hidden!important;}' +
+        '[' + PIN_HIDE_ATTR + ']{display:none!important;}';
+    }
     if (config.homeFeed === 'following') {
       // The Following feed's back arrow leads to the "For you" feed.
       css += '[' + BACK_ATTR + ']{visibility:hidden!important;pointer-events:none!important;}';
@@ -593,19 +689,64 @@ const GUARD_SOURCE = String.raw`
     }
   }
 
-  function tidyInstagramNav() {
-    var probes = document.querySelectorAll(NAV_PROBES);
+  function tidyAppNav() {
+    if (!config.navProbes) {
+      return;
+    }
+    var probes = document.querySelectorAll(config.navProbes);
     for (var i = 0; i < probes.length; i++) {
       if (probes[i].closest('[' + NAV_ATTR + ']')) {
         continue;
       }
       var bar = bottomBarFor(probes[i]);
       if (bar) {
-        reportOwnProfile(bar);
-        if (config.hideInstagramNav) {
+        if (config.service === 'instagram') {
+          reportOwnProfile(bar);
+        }
+        if (config.hideAppNav) {
           bar.setAttribute(NAV_ATTR, '');
         }
       }
+    }
+  }
+
+  function pinTab() {
+    var pin = config.pinTab;
+    var root = document.documentElement;
+    if (!root) {
+      return;
+    }
+    if (!pin || location.pathname !== pin.path) {
+      root.removeAttribute(PIN_ATTR);
+      return;
+    }
+    var lists = document.querySelectorAll('[role="tablist"]');
+    var tabs = null;
+    for (var i = 0; i < lists.length && !tabs; i++) {
+      var found = lists[i].querySelectorAll('[role="tab"]');
+      if (found.length > pin.index) {
+        tabs = found;
+      }
+    }
+    if (!tabs) {
+      root.setAttribute(PIN_ATTR, '');
+      return;
+    }
+    for (var j = 0; j < pin.hideIndexes.length; j++) {
+      var tab = tabs[pin.hideIndexes[j]];
+      if (tab && tab !== tabs[pin.index]) {
+        (tab.closest('[role="presentation"]') || tab).setAttribute(PIN_HIDE_ATTR, '');
+      }
+    }
+    var wanted = tabs[pin.index];
+    if (wanted.getAttribute('aria-selected') === 'true') {
+      root.removeAttribute(PIN_ATTR);
+      return;
+    }
+    root.setAttribute(PIN_ATTR, '');
+    if (Date.now() - lastPinClick > 1000) {
+      lastPinClick = Date.now();
+      wanted.click();
     }
   }
 
@@ -732,8 +873,9 @@ const GUARD_SOURCE = String.raw`
       return;
     }
     ensureStyle(false);
+    tidyAppNav();
+    pinTab();
     if (config.service === 'instagram') {
-      tidyInstagramNav();
       hideFollowingBackLink();
     }
     var path = location.pathname || '/';

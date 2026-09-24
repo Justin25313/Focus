@@ -58,8 +58,8 @@ describe('daily limits', () => {
         snapchat: { minutes: 10 },
       }),
     ).toEqual({
+      ...DEFAULT_LIMITS,
       instagram: { minutes: 30, next: { minutes: null, from: '2026-09-25' } },
-      youtube: { minutes: null },
     });
     expect(
       parseLimits({ instagram: { minutes: 20, next: { minutes: 5 } } }),
