@@ -59,7 +59,11 @@ jobs:
           VERSION=$(sed -n 1p dist/version.txt)
           BUILD=$(sed -n 2p dist/version.txt)
           TAG="v$VERSION-$BUILD"
-          NOTES=$(git log -1 --pretty=%B)
+          # Commit message without trailers (co-author, session links):
+          # release notes and source.json are public.
+          NOTES=$(git log -1 --pretty=%B \
+            | sed -E '/^(Co-Authored-By|Claude-Session|Signed-off-by):/Id' \
+            | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')
           node scripts/make-source.mjs \
             "https://github.com/${GITHUB_REPOSITORY}/releases/download/$TAG" "$NOTES"
           gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
