@@ -44,6 +44,8 @@ export type WebMessage =
   | { type: 'SCROLL_STATE'; compact: boolean }
   /** A deliberate horizontal swipe outside carousels and scrollers. */
   | { type: 'SWIPE'; direction: 'left' | 'right' }
+  /** A finger is on something that scrolls sideways (carousel, stories). */
+  | { type: 'H_SCROLL'; active: boolean }
   /** Reddit: the communities the signed-in user has joined. */
   | { type: 'SUBSCRIPTIONS'; names: string[] };
 
@@ -190,6 +192,10 @@ export function parseWebMessage(
         .slice(0, MAX_SUBSCRIPTIONS);
       return { type: 'SUBSCRIPTIONS', names };
     }
+    case 'H_SCROLL':
+      return typeof msg.active === 'boolean'
+        ? { type: 'H_SCROLL', active: msg.active }
+        : null;
     case 'SWIPE':
       return msg.direction === 'left' || msg.direction === 'right'
         ? { type: 'SWIPE', direction: msg.direction }

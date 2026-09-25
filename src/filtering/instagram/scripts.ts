@@ -87,8 +87,13 @@ export type GuardConfig = {
   navProbes: string;
   /** Links that identify the site's own top header, hidden when set. */
   topBarProbes: string;
-  /** Report horizontal swipes (Instagram: feed ↔ messages). */
+  /** Report horizontal swipes. */
   swipeNav: boolean;
+  /**
+   * Report when a touch starts on something that scrolls sideways, so
+   * the app's tab pager does not take that swipe (Instagram).
+   */
+  reportHScroll: boolean;
   /**
    * Navigate inside the single-page app (history + popstate) instead of
    * reloading the whole page, verified by fresh content; reload if not.
@@ -141,7 +146,8 @@ export function buildGuardConfig(
     hideAppNav: true,
     navProbes: 'a[href="/"], a[href="/explore/"], a[href="/direct/inbox/"]',
     topBarProbes: '',
-    swipeNav: true,
+    swipeNav: false,
+    reportHScroll: true,
     spaNavigate: true,
     fetchSubscriptions: false,
     pinTab: null,
@@ -180,6 +186,7 @@ function basicConfig(
     navProbes: '',
     topBarProbes: '',
     swipeNav: false,
+    reportHScroll: false,
     spaNavigate: false,
     fetchSubscriptions: false,
     pinTab: null,
@@ -790,8 +797,22 @@ const GUARD_SOURCE = String.raw`
     return false;
   }
 
+  var hScrollActive = false;
+
+  function endHScroll() {
+    if (hScrollActive) {
+      hScrollActive = false;
+      post({ type: 'H_SCROLL', active: false });
+    }
+  }
+
   function onSwipeStart(event) {
     swipe = null;
+    endHScroll();
+    if (config.reportHScroll && event.target && inHorizontalScroller(event.target)) {
+      hScrollActive = true;
+      post({ type: 'H_SCROLL', active: true });
+    }
     if (!config.swipeNav || !event.touches || event.touches.length !== 1) {
       return;
     }
@@ -804,6 +825,7 @@ const GUARD_SOURCE = String.raw`
   }
 
   function onSwipeEnd(event) {
+    endHScroll();
     var start = swipe;
     swipe = null;
     if (!start || !event.changedTouches || !event.changedTouches.length) {
@@ -1137,6 +1159,9 @@ const GUARD_SOURCE = String.raw`
       }
       lastAllowedPath = path;
       if (lastRoutePath !== path) {
+        if (config.fetchSubscriptions) {
+          setTimeout(fetchSubscriptions, 1500);
+        }
         post({ type: 'ROUTE_CHANGED', path: path });
         markSettling();
         // The app shows the full tab bar on every new page.
@@ -1285,7 +1310,14 @@ const GUARD_SOURCE = String.raw`
   }
 
   // Reddit: the joined communities, read with the user's own session.
+  // Retried on later pages (e.g. after signing in) until it worked.
+  var subscriptionsRead = false;
+  var subscriptionsTriedAt = 0;
   function fetchSubscriptions() {
+    if (subscriptionsRead || Date.now() - subscriptionsTriedAt < 20000) {
+      return;
+    }
+    subscriptionsTriedAt = Date.now();
     fetch('/subreddits/mine/subscriber.json?limit=100&raw_json=1', {
       credentials: 'include',
       headers: { Accept: 'application/json' }
@@ -1305,6 +1337,7 @@ const GUARD_SOURCE = String.raw`
             names.push(name);
           }
         }
+        subscriptionsRead = true;
         post({ type: 'SUBSCRIPTIONS', names: names });
       })
       .catch(function () {});
@@ -1413,6 +1446,7 @@ const GUARD_SOURCE = String.raw`
   );
   w.addEventListener('touchend', onTouchEnd, touchOptions);
   w.addEventListener('touchend', onSwipeEnd, touchOptions);
+  w.addEventListener('touchcancel', endHScroll, touchOptions);
   w.addEventListener('scroll', onScrollForBar, { passive: true, capture: true });
   w.addEventListener('touchcancel', onTouchEnd, touchOptions);
   w.addEventListener('scroll', onScrollForPtr, { passive: true });

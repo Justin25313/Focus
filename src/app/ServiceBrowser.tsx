@@ -42,6 +42,7 @@ type Props = {
   onScrollState: (compact: boolean) => void;
   /** App-specific messages (e.g. Reddit's joined communities). */
   onAppMessage?: (message: WebMessage) => void;
+  onExternalLink?: (url: string) => boolean;
 };
 
 const LOADING_MAX_MS = 8000;
@@ -63,6 +64,7 @@ function ServiceBrowserImpl(
     onSearch,
     onScrollState,
     onAppMessage,
+    onExternalLink,
   }: Props,
   ref: React.Ref<ServiceBrowserHandle>,
 ) {
@@ -158,6 +160,7 @@ function ServiceBrowserImpl(
         guardConfig={guardConfig}
         userAgent={userAgent}
         bottomInset={bottomInset}
+        onExternalLink={onExternalLink}
         onRoute={handleRoute}
         onBlocked={handleBlocked}
         onMessage={handleMessage}

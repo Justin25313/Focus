@@ -42,7 +42,10 @@ Werbung ausgeblendet · Suche nach `r/name`, `u/name` oder Beiträgen.
 - **Ausgeblendet:** eindeutig markierte Werbung und Vorschläge, Reels-Einstiege, Instagrams eigene Leiste
 - **Suche:** eigene Profilsuche (Name, `@benutzername` oder Link) statt Explore
 - **Graustufen**, **Nutzungszeit** (nur lokal), **letzter Ort** nach Neustart
-- **Wischen** vom Feed zu den Nachrichten und zurück, wie in der App
+- **Tabs wie in der App:** jeder Tab (Home, Reels, Nachrichten, Suche, Profil) hat eine eigene
+  Seite, die ihren Stand behält; seitlich wischen wechselt den Tab, die anderen Tabs laden im
+  Hintergrund vor – Wechseln ohne Nachladen
+- **Links zu Instagram, YouTube, X oder Reddit** öffnen in Focus, nie in den echten Apps
 - **Leiste wird beim Runterscrollen etwas kleiner**, beim Hochscrollen wieder normal (alle Apps)
 - **Schnell:** Seitenwechsel ohne Neuladen, die Ladefläche geht, sobald Inhalte da sind
 - **Kein Neuladen** bei App-Wechsel, Sperren oder Kontrollzentrum; Lade-Skeletons statt Springen

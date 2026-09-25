@@ -90,6 +90,11 @@ type Props = BrowserEvents & {
   userAgent?: UserAgent;
   /** Space kept free under the page for the floating tab bar. */
   bottomInset: number;
+  /**
+   * A link leaving this app. Return true when Focus handled it (e.g. an
+   * Instagram link opened in Focus's Instagram); otherwise iOS opens it.
+   */
+  onExternalLink?: (url: string) => boolean;
 };
 
 /**
@@ -112,12 +117,15 @@ function BrowserViewImpl(
     onLoadEnd,
     onLoadError,
     onProcessTerminated,
+    onExternalLink,
   }: Props,
   ref: React.Ref<BrowserHandle>,
 ) {
   const webRef = useRef<InstagramWebView>(null);
   const source = useRef({ uri: initialUrl }).current;
   const lastExternal = useRef<{ url: string; at: number } | null>(null);
+  const onExternalLinkRef = useRef(onExternalLink);
+  onExternalLinkRef.current = onExternalLink;
   const serviceRef = useRef(service);
   serviceRef.current = service;
 
@@ -172,6 +180,9 @@ function BrowserViewImpl(
       return;
     }
     lastExternal.current = { url, at: now };
+    if (onExternalLinkRef.current?.(url)) {
+      return;
+    }
     Linking.openURL(url).catch(() => {});
   }, []);
 

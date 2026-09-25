@@ -39,8 +39,9 @@ beforeAll(() => {
   // jsdom cannot load pages; full-page fallbacks land here instead.
   (window as unknown as Record<string, unknown>).__focusReplaceForTests =
     () => {};
+  // Instagram reports sideways scrollers; swipes are checked as well.
   // eslint-disable-next-line no-eval
-  (0, eval)(buildGuardScript(buildGuardConfig()));
+  (0, eval)(buildGuardScript({ ...buildGuardConfig(), swipeNav: true }));
 });
 
 beforeEach(() => {
@@ -78,6 +79,11 @@ describe('swipes', () => {
     document.body.appendChild(article);
     swipe(list.querySelector('img') as Element, 300, 120);
     expect(ofType('SWIPE')).toHaveLength(0);
+    // The tab pager is told to stay still while the carousel is swiped.
+    expect(ofType('H_SCROLL')).toEqual([
+      { type: 'H_SCROLL', active: true },
+      { type: 'H_SCROLL', active: false },
+    ]);
     article.remove();
   });
 });
