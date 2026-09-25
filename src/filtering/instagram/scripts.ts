@@ -113,6 +113,8 @@ export type GuardConfig = {
   sponsoredLabels: string[];
   suggestedLabels: string[];
   webAppId: string;
+  /** Instagram: your profile gets the app's profile top (null = off). */
+  ownProfilePath: string | null;
 };
 
 export function buildGuardConfig(
@@ -168,6 +170,7 @@ export function buildGuardConfig(
     sponsoredLabels: controls.hideSponsored ? SPONSORED_LABELS : [],
     suggestedLabels: controls.hideSuggested ? SUGGESTED_LABELS : [],
     webAppId: INSTAGRAM_WEB_APP_ID,
+    ownProfilePath,
   };
 }
 
@@ -209,6 +212,7 @@ function basicConfig(
     sponsoredLabels: [],
     suggestedLabels: [],
     webAppId: '',
+    ownProfilePath: null,
   };
 }
 
@@ -409,6 +413,11 @@ const GUARD_SOURCE = String.raw`
   var TOP_ATTR = 'data-focus-top';
   var TOP_PATH_ATTR = 'data-focus-top-hidden';
   var OVERLAY_HEAD_ATTR = 'data-focus-overlay-head';
+  var PROFILE_ID = 'focus-profile-top';
+  var OWN_PROFILE_ATTR = 'data-focus-own-profile';
+  var profile = null;
+  var profileFor = null;
+  var profileTriedAt = 0;
   var OVERLAY_HOST_ATTR = 'data-focus-overlay-host';
   var OVERLAY_DONE_ATTR = 'data-focus-overlay';
   var OVERLAY_SCAN_ATTR = 'data-focus-overlay-scan';
@@ -494,6 +503,27 @@ const GUARD_SOURCE = String.raw`
       '[' + PTR_SPACER_ATTR + ']{transition:height .2s ease;overflow:hidden;}';
     if (config.topBarProbes) {
       css += 'html[' + TOP_PATH_ATTR + '] [' + TOP_ATTR + ']{display:none!important;}';
+    }
+    if (config.ownProfilePath) {
+      var P = '#' + PROFILE_ID;
+      css +=
+        'html[' + OWN_PROFILE_ATTR + '] main header{display:none!important;}' +
+        P + '{padding:14px 16px 6px;font:15px/1.3 -apple-system,system-ui,sans-serif;}' +
+        P + ' .fp-row{display:flex;align-items:center;gap:22px;}' +
+        P + ' .fp-pic{position:relative;flex:0 0 auto;width:86px;height:86px;}' +
+        P + ' .fp-pic img{width:86px;height:86px;border-radius:50%;object-fit:cover;display:block;}' +
+        P + ' .fp-add{position:absolute;right:-2px;bottom:-2px;width:26px;height:26px;border-radius:13px;' +
+        'background:#262626;color:#fff;border:3px solid rgb(var(--ig-primary-background,255,255,255));' +
+        'display:flex;align-items:center;justify-content:center;font-size:20px;line-height:1;font-weight:500;}' +
+        P + ' .fp-right{flex:1;min-width:0;}' +
+        P + ' .fp-name{font-weight:600;font-size:16px;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}' +
+        P + ' .fp-stats{display:flex;justify-content:space-between;}' +
+        P + ' .fp-stat b{display:block;font-size:18px;font-weight:700;}' +
+        P + ' .fp-stat span{font-size:15px;}' +
+        P + ' .fp-bio{margin-top:10px;white-space:pre-wrap;}' +
+        P + ' .fp-buttons{display:flex;gap:6px;margin-top:14px;}' +
+        P + ' .fp-btn{flex:1;height:34px;border-radius:9px;border:0;background:rgba(128,128,128,.16);' +
+        'color:inherit;font:600 15px -apple-system,system-ui,sans-serif;}';
     }
     if (config.overlayVideoHeaders) {
       css +=
@@ -964,6 +994,161 @@ const GUARD_SOURCE = String.raw`
   // Feed videos, like the app: the author row lies transparent over the
   // top of the video instead of above it. Found by layout (the element
   // right above the video's container), never by text.
+  // ---- your profile, like the app ----------------------------------
+
+  function compactCount(n) {
+    if (n < 10000) {
+      return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    }
+    if (n < 1000000) {
+      return (Math.round(n / 100) / 10).toString().replace('.', ',') + ' Tsd.';
+    }
+    return (Math.round(n / 100000) / 10).toString().replace('.', ',') + ' Mio.';
+  }
+
+  // Your own numbers, read with your own session (like the search).
+  function fetchProfile(username) {
+    if (Date.now() - profileTriedAt < 15000) {
+      return;
+    }
+    profileTriedAt = Date.now();
+    fetch('/api/v1/users/web_profile_info/?username=' + encodeURIComponent(username), {
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        'X-IG-App-ID': config.webAppId,
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+      .then(function (response) {
+        return response.ok ? response.json() : null;
+      })
+      .then(function (json) {
+        var user = json && json.data && json.data.user;
+        if (!user) {
+          return;
+        }
+        var count = function (edge) {
+          return edge && typeof edge.count === 'number' ? edge.count : 0;
+        };
+        var pic = String(user.profile_pic_url_hd || user.profile_pic_url || '');
+        profile = {
+          name: String(user.full_name || username).slice(0, 80),
+          bio: String(user.biography || '').slice(0, 300),
+          pic: /^https:\/\//.test(pic) ? pic : '',
+          posts: count(user.edge_owner_to_timeline_media),
+          followers: count(user.edge_followed_by),
+          following: count(user.edge_follow)
+        };
+        profileFor = username;
+        safeCheck();
+      })
+      .catch(function () {});
+  }
+
+  function el(tag, className, text) {
+    var node = document.createElement(tag);
+    if (className) {
+      node.className = className;
+    }
+    if (text !== undefined) {
+      node.textContent = text;
+    }
+    return node;
+  }
+
+  function buildProfileTop(own) {
+    var top = el('div');
+    top.id = PROFILE_ID;
+    var row = el('div', 'fp-row');
+    var picBox = el('div', 'fp-pic');
+    if (profile.pic) {
+      var img = el('img');
+      img.src = profile.pic;
+      img.alt = '';
+      picBox.appendChild(img);
+    }
+    var add = el('button', 'fp-add', '+');
+    add.setAttribute('aria-label', 'Story erstellen');
+    add.addEventListener('click', function (event) {
+      stop(event);
+      post({ type: 'CREATE' });
+    });
+    picBox.appendChild(add);
+    var right = el('div', 'fp-right');
+    right.appendChild(el('div', 'fp-name', profile.name));
+    var stats = el('div', 'fp-stats');
+    var pairs = [
+      [profile.posts, 'Beiträge'],
+      [profile.followers, 'Follower'],
+      [profile.following, 'Gefolgt']
+    ];
+    for (var i = 0; i < pairs.length; i++) {
+      var stat = el('div', 'fp-stat');
+      stat.appendChild(el('b', '', compactCount(pairs[i][0])));
+      stat.appendChild(el('span', '', pairs[i][1]));
+      stats.appendChild(stat);
+    }
+    right.appendChild(stats);
+    row.appendChild(picBox);
+    row.appendChild(right);
+    top.appendChild(row);
+    if (profile.bio) {
+      top.appendChild(el('div', 'fp-bio', profile.bio));
+    }
+    var buttons = el('div', 'fp-buttons');
+    var edit = el('button', 'fp-btn', 'Bearbeiten');
+    edit.addEventListener('click', function (event) {
+      stop(event);
+      navigate('/accounts/edit/');
+    });
+    var share = el('button', 'fp-btn', 'Profil teilen');
+    share.addEventListener('click', function (event) {
+      stop(event);
+      post({ type: 'SHARE', url: 'https://www.instagram.com' + own });
+    });
+    buttons.appendChild(edit);
+    buttons.appendChild(share);
+    top.appendChild(buttons);
+    return top;
+  }
+
+  // Only when Instagram's own profile header is there to replace (and
+  // the numbers are known); otherwise the web version simply stays.
+  function ownProfileTop() {
+    var own = config.ownProfilePath;
+    var root = document.documentElement;
+    var existing = document.getElementById(PROFILE_ID);
+    var onOwn = !!own && (location.pathname || '').toLowerCase() === own.toLowerCase();
+    if (!onOwn) {
+      if (existing) {
+        existing.parentNode.removeChild(existing);
+      }
+      if (root) {
+        root.removeAttribute(OWN_PROFILE_ATTR);
+      }
+      return;
+    }
+    var username = own.replace(/\//g, '');
+    if (!profile || profileFor !== username) {
+      fetchProfile(username);
+      return;
+    }
+    var header = document.querySelector('main header');
+    if (!header || !header.parentNode) {
+      return;
+    }
+    if (!existing || existing.nextElementSibling !== header) {
+      if (existing) {
+        existing.parentNode.removeChild(existing);
+      }
+      header.parentNode.insertBefore(buildProfileTop(own), header);
+    }
+    if (root) {
+      root.setAttribute(OWN_PROFILE_ATTR, '');
+    }
+  }
+
   function overlayVideoHeaders() {
     if (!config.overlayVideoHeaders) {
       return;
@@ -1218,6 +1403,9 @@ const GUARD_SOURCE = String.raw`
     tidyAppNav();
     pinTab();
     overlayVideoHeaders();
+    if (config.service === 'instagram') {
+      ownProfileTop();
+    }
     if (config.service === 'instagram') {
       hideFollowingBackLink();
     }

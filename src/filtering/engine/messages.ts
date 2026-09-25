@@ -48,6 +48,8 @@ export type WebMessage =
   | { type: 'H_SCROLL'; active: boolean }
   /** Instagram: posting or a story was tapped (only in the real app). */
   | { type: 'CREATE' }
+  /** Instagram: "Profil teilen" – the profile's own address only. */
+  | { type: 'SHARE'; url: string }
   /** Reddit: the communities the signed-in user has joined. */
   | { type: 'SUBSCRIPTIONS'; names: string[] };
 
@@ -196,6 +198,11 @@ export function parseWebMessage(
     }
     case 'CREATE':
       return { type: 'CREATE' };
+    case 'SHARE':
+      return typeof msg.url === 'string' &&
+        /^https:\/\/www\.instagram\.com\/[A-Za-z0-9._]{1,30}\/$/.test(msg.url)
+        ? { type: 'SHARE', url: msg.url }
+        : null;
     case 'H_SCROLL':
       return typeof msg.active === 'boolean'
         ? { type: 'H_SCROLL', active: msg.active }

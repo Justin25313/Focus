@@ -14,6 +14,7 @@ import {
   Alert,
   Linking,
   NativeScrollEvent,
+  Share,
   NativeSyntheticEvent,
   ScrollView,
   StyleSheet,
@@ -387,6 +388,10 @@ function InstagramAppImpl(
         }
         if (message.type === 'CREATE') {
           askCreate();
+          return;
+        }
+        if (message.type === 'SHARE') {
+          Share.share({ url: message.url }).catch(() => {});
           return;
         }
         onMessage(message);

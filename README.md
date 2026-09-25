@@ -39,7 +39,8 @@ Werbung ausgeblendet · Suche nach `r/name`, `u/name` oder Beiträgen.
 - **Startseite:** „Für dich“ wie in der App (Standard, ohne Reels) · „Gefolgt“ – umschaltbar
   oben über „Für dich ⌄“ · nur Stories · aus
 - **Aussehen wie die App:** Kopfzeilen von Startseite (+, Für dich ⌄, ♥) und Profil
-  (+, Name ⌄, Menü); Videos im Feed mit durchsichtiger Kopfzeile; „+“ und „Deine Story“
+  (+, Name ⌄, Menü); dein Profil oben wie in der App (Bild mit +, Name über fetten Zahlen,
+  „Bearbeiten“, „Profil teilen“ über das iOS-Teilen-Menü); Videos im Feed mit durchsichtiger Kopfzeile; „+“ und „Deine Story“
   fragen, ob die Instagram-App geöffnet werden soll (Posten geht nur dort)
 - **Gesperrt:** Reels-Feed, einzelne Reels, Profil-Reels, Explore; optional Stories und Gespeichert
 - **Reels-Zeitfenster:** 5/10/15 Minuten, Countdown in der Leiste, harter Stopp, nicht verlängerbar, danach mindestens 5 Minuten gesperrt
