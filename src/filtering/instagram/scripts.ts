@@ -85,8 +85,12 @@ export type GuardConfig = {
   hideAppNav: boolean;
   /** Links that identify the app's bottom bar (by href, never text). */
   navProbes: string;
-  /** Links that identify the site's own top header, hidden when set. */
+  /** Links that identify the site's own top header (Focus shows its own). */
   topBarProbes: string;
+  /** Paths where that header is hidden; null = everywhere. */
+  topBarPaths: string[] | null;
+  /** Instagram: author row over feed videos, transparent like the app. */
+  overlayVideoHeaders: boolean;
   /** Report horizontal swipes. */
   swipeNav: boolean;
   /**
@@ -114,6 +118,8 @@ export type GuardConfig = {
 export function buildGuardConfig(
   controls: Controls = DEFAULT_CONTROLS,
   grayscale = false,
+  /** The signed-in profile: Focus shows the app's header there. */
+  ownProfilePath: string | null = null,
 ): GuardConfig {
   const policy = policyFor(controls);
   const hidden: string[] = [];
@@ -145,7 +151,11 @@ export function buildGuardConfig(
     hiddenLinkSelectors: hidden,
     hideAppNav: true,
     navProbes: 'a[href="/"], a[href="/explore/"], a[href="/direct/inbox/"]',
-    topBarProbes: '',
+    // Home and your profile get Focus's app-style header instead.
+    topBarProbes:
+      'a[href="/accounts/activity/"], a[href^="/accounts/settings"], a[href*="threads."], a[href="/"], a[href^="/direct/inbox"], a[href^="/create"]',
+    topBarPaths: ['/', ...(ownProfilePath ? [ownProfilePath] : [])],
+    overlayVideoHeaders: true,
     swipeNav: false,
     reportHScroll: true,
     spaNavigate: true,
@@ -185,6 +195,8 @@ function basicConfig(
     hideAppNav: false,
     navProbes: '',
     topBarProbes: '',
+    topBarPaths: null,
+    overlayVideoHeaders: false,
     swipeNav: false,
     reportHScroll: false,
     spaNavigate: false,
@@ -394,6 +406,12 @@ const GUARD_SOURCE = String.raw`
   var lastRedirectAt = 0;
   var BACK_ATTR = 'data-focus-hide-back';
   var PIN_ATTR = 'data-focus-pin-pending';
+  var TOP_ATTR = 'data-focus-top';
+  var TOP_PATH_ATTR = 'data-focus-top-hidden';
+  var OVERLAY_HEAD_ATTR = 'data-focus-overlay-head';
+  var OVERLAY_HOST_ATTR = 'data-focus-overlay-host';
+  var OVERLAY_DONE_ATTR = 'data-focus-overlay';
+  var OVERLAY_SCAN_ATTR = 'data-focus-overlay-scan';
   var PIN_HIDE_ATTR = 'data-focus-pin-hide';
   var lastPinClick = 0;
   var PTR_ID = 'focus-ptr';
@@ -474,6 +492,18 @@ const GUARD_SOURCE = String.raw`
       '#' + PTR_ID + '.spin svg{animation:focus-ptr-spin .9s steps(8) infinite;}' +
       '@keyframes focus-ptr-spin{to{transform:rotate(360deg);}}' +
       '[' + PTR_SPACER_ATTR + ']{transition:height .2s ease;overflow:hidden;}';
+    if (config.topBarProbes) {
+      css += 'html[' + TOP_PATH_ATTR + '] [' + TOP_ATTR + ']{display:none!important;}';
+    }
+    if (config.overlayVideoHeaders) {
+      css +=
+        '[' + OVERLAY_HOST_ATTR + ']{position:relative!important;}' +
+        '[' + OVERLAY_HEAD_ATTR + ']{position:absolute!important;top:0;left:0;right:0;z-index:5;' +
+        'background:linear-gradient(rgba(0,0,0,.35),rgba(0,0,0,0))!important;' +
+        'text-shadow:0 1px 2px rgba(0,0,0,.45);}' +
+        '[' + OVERLAY_HEAD_ATTR + '],[' + OVERLAY_HEAD_ATTR + '] *{color:#fff!important;}' +
+        '[' + OVERLAY_HEAD_ATTR + '] svg[aria-label]{fill:#fff!important;}';
+    }
     if (config.pinTab) {
       css +=
         'html[' + PIN_ATTR + '] ' + config.pinTab.hideWhilePending +
@@ -872,32 +902,104 @@ const GUARD_SOURCE = String.raw`
   }
 
   // The site's own header: a sticky/fixed element at the top that holds
-  // one of the probe links. Hidden where Focus shows its own header.
+  // one of the probe links – or, if it scrolls with the page, the widest
+  // full-width row at the very top around it.
   function topBarFor(anchor) {
     var el = anchor.parentElement;
+    var row = null;
+    var width = w.innerWidth || document.documentElement.clientWidth;
     for (var depth = 0; el && el !== document.body && depth < 12; depth++) {
       var position = w.getComputedStyle(el).position;
+      var rect = el.getBoundingClientRect();
       if (position === 'fixed' || position === 'sticky') {
-        var rect = el.getBoundingClientRect();
         return rect.height > 0 && rect.height < 140 && rect.top < 40 ? el : null;
+      }
+      if (rect.height > 90) {
+        break;
+      }
+      if (rect.top <= 12 && rect.height >= 28 && rect.width >= width * 0.9) {
+        row = el;
       }
       el = el.parentElement;
     }
-    return null;
+    return row;
+  }
+
+  function onTopBarPath() {
+    if (config.topBarPaths === null) {
+      return true;
+    }
+    var path = (location.pathname || '/').toLowerCase();
+    for (var i = 0; i < config.topBarPaths.length; i++) {
+      if (config.topBarPaths[i].toLowerCase() === path) {
+        return true;
+      }
+    }
+    return false;
   }
 
   function tidyTopBar() {
     if (!config.topBarProbes) {
       return;
     }
+    var root = document.documentElement;
+    if (root) {
+      if (onTopBarPath()) {
+        root.setAttribute(TOP_PATH_ATTR, '');
+      } else {
+        root.removeAttribute(TOP_PATH_ATTR);
+      }
+    }
     var probes = document.querySelectorAll(config.topBarProbes);
     for (var i = 0; i < probes.length; i++) {
-      if (!probes[i].closest('[' + NAV_ATTR + ']')) {
+      if (!probes[i].closest('[' + TOP_ATTR + ']')) {
         var bar = topBarFor(probes[i]);
         if (bar) {
-          bar.setAttribute(NAV_ATTR, '');
+          bar.setAttribute(TOP_ATTR, '');
         }
       }
+    }
+  }
+
+  // Feed videos, like the app: the author row lies transparent over the
+  // top of the video instead of above it. Found by layout (the element
+  // right above the video's container), never by text.
+  function overlayVideoHeaders() {
+    if (!config.overlayVideoHeaders) {
+      return;
+    }
+    var articles = document.querySelectorAll('article:not([' + OVERLAY_DONE_ATTR + '])');
+    for (var i = 0; i < articles.length; i++) {
+      var article = articles[i];
+      var scans = Number(article.getAttribute(OVERLAY_SCAN_ATTR) || 0);
+      if (scans >= MAX_SCANS) {
+        continue;
+      }
+      article.setAttribute(OVERLAY_SCAN_ATTR, String(scans + 1));
+      var video = article.querySelector('video');
+      if (!video) {
+        continue;
+      }
+      var top = video.getBoundingClientRect().top;
+      var media = video;
+      while (
+        media.parentElement &&
+        media.parentElement !== article &&
+        Math.abs(media.parentElement.getBoundingClientRect().top - top) < 2
+      ) {
+        media = media.parentElement;
+      }
+      var head = media.previousElementSibling;
+      if (!head || !head.querySelector('img')) {
+        continue;
+      }
+      var box = head.getBoundingClientRect();
+      if (box.height < 36 || box.height > 90 || Math.abs(box.bottom - top) > 4) {
+        continue;
+      }
+      head.setAttribute(OVERLAY_HEAD_ATTR, '');
+      head.parentElement.setAttribute(OVERLAY_HOST_ATTR, '');
+      article.setAttribute(OVERLAY_DONE_ATTR, '');
     }
   }
 
@@ -1115,6 +1217,7 @@ const GUARD_SOURCE = String.raw`
     ensureStyle(false);
     tidyAppNav();
     pinTab();
+    overlayVideoHeaders();
     if (config.service === 'instagram') {
       hideFollowingBackLink();
     }
@@ -1225,6 +1328,18 @@ const GUARD_SOURCE = String.raw`
 
   function onClick(event) {
     var target = event.target;
+    // Posting and stories only work in the real app: a file picker opened
+    // here, or a link to /create, asks the app instead.
+    if (
+      config.service === 'instagram' &&
+      target &&
+      target.matches &&
+      target.matches('input[type="file"]')
+    ) {
+      stop(event);
+      post({ type: 'CREATE' });
+      return;
+    }
     var anchor = target && target.closest ? target.closest('a[href]') : null;
     if (!anchor || !isGuardedHost()) {
       return;
@@ -1241,6 +1356,11 @@ const GUARD_SOURCE = String.raw`
     if (config.searchPaths.indexOf(url.pathname) !== -1) {
       stop(event);
       post({ type: 'OPEN_SEARCH' });
+      return;
+    }
+    if (config.service === 'instagram' && /^\/create(\/|$)/.test(url.pathname)) {
+      stop(event);
+      post({ type: 'CREATE' });
       return;
     }
     var reason = reasonFor(url.pathname, url.hostname);

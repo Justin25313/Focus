@@ -35,7 +35,8 @@ export const PRESETS: Record<PresetId, Controls> = {
     blockExplore: true,
     blockStories: false,
     blockSaved: false,
-    homeFeed: 'following',
+    // Like the app's start ("Für dich"); "Gefolgt" is one tap away.
+    homeFeed: 'normal',
     hideSponsored: true,
     hideSuggested: true,
   },

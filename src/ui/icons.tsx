@@ -216,3 +216,22 @@ export function BackIcon({ color, size = 22 }: IconProps) {
     </Svg>
   );
 }
+
+export function HeartIcon({ color, size = 26 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        d="M12 20.2S3.5 15.1 3.5 9.1A4.6 4.6 0 0 1 12 6.6a4.6 4.6 0 0 1 8.5 2.5c0 6-8.5 11.1-8.5 11.1z"
+        {...stroke(color)}
+      />
+    </Svg>
+  );
+}
+
+export function ChevronDownIcon({ color, size = 14 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d="m5 9 7 7 7-7" {...stroke(color)} strokeWidth={2.6} />
+    </Svg>
+  );
+}

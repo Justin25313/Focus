@@ -35,9 +35,12 @@ const lastOfType = (type: string) => messagesOfType(type).pop();
 // Settle timers from earlier steps may post PAGE_READY at any time.
 const withoutReady = () => posted.filter(m => m.type !== 'PAGE_READY');
 
+// These tests run with the Following feed ("Gefolgt") as home.
+const FOLLOWING = { ...PRESETS.balanced, homeFeed: 'following' as const };
+
 function install() {
   // eslint-disable-next-line no-eval
-  (0, eval)(buildGuardScript());
+  (0, eval)(buildGuardScript(buildGuardConfig(FOLLOWING)));
 }
 
 function click(href: string): MouseEvent {
@@ -285,7 +288,7 @@ describe('injected guard script', () => {
     });
     afterEach(() => {
       jest.restoreAllMocks();
-      configure();
+      configure(FOLLOWING);
     });
 
     it('sends home to the Following feed without reloading', () => {
@@ -437,7 +440,7 @@ describe('injected guard script', () => {
       (0, eval)(
         configureScript(
           buildGuardConfig({
-            ...PRESETS.balanced,
+            ...FOLLOWING,
             hideSponsored: false,
             hideSuggested: false,
           }),
@@ -447,7 +450,7 @@ describe('injected guard script', () => {
       expect(suggested.hasAttribute('data-focus-hidden')).toBe(false);
 
       // eslint-disable-next-line no-eval
-      (0, eval)(configureScript(buildGuardConfig()));
+      (0, eval)(configureScript(buildGuardConfig(FOLLOWING)));
       main.remove();
     });
   });

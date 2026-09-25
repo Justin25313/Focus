@@ -46,6 +46,8 @@ export type WebMessage =
   | { type: 'SWIPE'; direction: 'left' | 'right' }
   /** A finger is on something that scrolls sideways (carousel, stories). */
   | { type: 'H_SCROLL'; active: boolean }
+  /** Instagram: posting or a story was tapped (only in the real app). */
+  | { type: 'CREATE' }
   /** Reddit: the communities the signed-in user has joined. */
   | { type: 'SUBSCRIPTIONS'; names: string[] };
 
@@ -192,6 +194,8 @@ export function parseWebMessage(
         .slice(0, MAX_SUBSCRIPTIONS);
       return { type: 'SUBSCRIPTIONS', names };
     }
+    case 'CREATE':
+      return { type: 'CREATE' };
     case 'H_SCROLL':
       return typeof msg.active === 'boolean'
         ? { type: 'H_SCROLL', active: msg.active }

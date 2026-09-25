@@ -36,7 +36,11 @@ Werbung ausgeblendet · Suche nach `r/name`, `u/name` oder Beiträgen.
 **Instagram:**
 
 - **Modi:** Ausgewogen (Standard) · Stories + Nachrichten · Nur Nachrichten · Eigene
-- **Startseite:** „Folge ich“ (nur Accounts, denen du folgst) · nur Stories · „Für dich“ · aus
+- **Startseite:** „Für dich“ wie in der App (Standard, ohne Reels) · „Gefolgt“ – umschaltbar
+  oben über „Für dich ⌄“ · nur Stories · aus
+- **Aussehen wie die App:** Kopfzeilen von Startseite (+, Für dich ⌄, ♥) und Profil
+  (+, Name ⌄, Menü); Videos im Feed mit durchsichtiger Kopfzeile; „+“ und „Deine Story“
+  fragen, ob die Instagram-App geöffnet werden soll (Posten geht nur dort)
 - **Gesperrt:** Reels-Feed, einzelne Reels, Profil-Reels, Explore; optional Stories und Gespeichert
 - **Reels-Zeitfenster:** 5/10/15 Minuten, Countdown in der Leiste, harter Stopp, nicht verlängerbar, danach mindestens 5 Minuten gesperrt
 - **Ausgeblendet:** eindeutig markierte Werbung und Vorschläge, Reels-Einstiege, Instagrams eigene Leiste

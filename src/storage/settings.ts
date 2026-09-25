@@ -17,7 +17,7 @@ export const PAUSE_OPTIONS_S = [0, 3, 5, 10] as const;
 export type PauseSeconds = (typeof PAUSE_OPTIONS_S)[number];
 
 export type FocusSettings = {
-  schemaVersion: 7;
+  schemaVersion: 8;
   onboardingComplete: boolean;
   /** Launch into the last used app instead of the Focus home. */
   openLastAppOnLaunch: boolean;
@@ -34,7 +34,7 @@ export type FocusSettings = {
 };
 
 export const DEFAULT_SETTINGS: FocusSettings = {
-  schemaVersion: 7,
+  schemaVersion: 8,
   onboardingComplete: false,
   openLastAppOnLaunch: false,
   keepLastLocation: true,
@@ -65,14 +65,23 @@ function bool(value: unknown, fallback: boolean): boolean {
  *           Focus now starts on its home with the app icons.
  *  v5 → v6: adds `pauseSeconds` (5) and daily `limits` (none).
  *  v6 → v7: adds X and Reddit (`x` controls: Following only).
+ *  v7 → v8: Instagram's start is "Für dich" like the app (was the
+ *           Following feed); the old default moves along.
  */
+function migrateControls(controls: Controls, version: unknown): Controls {
+  const old = typeof version === 'number' ? version : 0;
+  return old < 8 && controls.homeFeed === 'following'
+    ? { ...controls, homeFeed: 'normal' }
+    : controls;
+}
+
 export function parseSettings(raw: unknown): FocusSettings {
   if (typeof raw !== 'object' || raw === null) {
     return { ...DEFAULT_SETTINGS };
   }
   const data = raw as Record<string, unknown>;
   return {
-    schemaVersion: 7,
+    schemaVersion: 8,
     onboardingComplete: bool(
       data.onboardingComplete,
       DEFAULT_SETTINGS.onboardingComplete,
@@ -87,7 +96,7 @@ export function parseSettings(raw: unknown): FocusSettings {
     ),
     grayscale: bool(data.grayscale, DEFAULT_SETTINGS.grayscale),
     trackUsage: bool(data.trackUsage, DEFAULT_SETTINGS.trackUsage),
-    controls: parseControls(data.controls),
+    controls: migrateControls(parseControls(data.controls), data.schemaVersion),
     youtube: parseYouTubeControls(data.youtube),
     x: parseXControls(data.x),
     lastService: isServiceId(data.lastService) ? data.lastService : 'instagram',

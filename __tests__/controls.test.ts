@@ -52,7 +52,10 @@ describe('route policy per mode', () => {
 
 describe('home path', () => {
   it('follows the home feed setting', () => {
-    expect(homePathFor(PRESETS.balanced)).toBe('/?variant=following');
+    expect(homePathFor(PRESETS.balanced)).toBe('/');
+    expect(homePathFor({ ...PRESETS.balanced, homeFeed: 'following' })).toBe(
+      '/?variant=following',
+    );
     expect(homePathFor(PRESETS.storiesMessages)).toBe('/');
     expect(homePathFor(PRESETS.messages)).toBe('/direct/inbox/');
     expect(homePathFor({ ...PRESETS.balanced, homeFeed: 'normal' })).toBe('/');

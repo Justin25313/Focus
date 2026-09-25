@@ -48,8 +48,7 @@ import { useTheme } from '../ui/theme';
 const MODES: Record<PresetId, { label: string; detail: string }> = {
   balanced: {
     label: 'Ausgewogen',
-    detail:
-      'Feed nur von Leuten, denen du folgst. Stories, Nachrichten, Profile.',
+    detail: 'Startseite wie in der App – ohne Reels und Explore.',
   },
   storiesMessages: {
     label: 'Stories + Nachrichten',
@@ -63,19 +62,19 @@ const MODES: Record<PresetId, { label: string; detail: string }> = {
 
 const HOME_FEEDS: { id: HomeFeed; label: string; detail: string }[] = [
   {
+    id: 'normal',
+    label: 'Für dich',
+    detail: 'Wie in der App, ohne Reels und Vorschläge.',
+  },
+  {
     id: 'following',
-    label: 'Folge ich',
+    label: 'Gefolgt',
     detail: 'Nur Accounts, denen du folgst – neueste zuerst.',
   },
   {
     id: 'hidden',
     label: 'Nur Stories',
     detail: 'Stories oben, keine Beiträge.',
-  },
-  {
-    id: 'normal',
-    label: 'Für dich',
-    detail: 'Instagrams Standard-Feed, gefiltert.',
   },
   { id: 'off', label: 'Aus', detail: 'Focus öffnet direkt die Nachrichten.' },
 ];

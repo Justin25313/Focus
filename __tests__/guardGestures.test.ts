@@ -162,3 +162,34 @@ describe('navigation inside Instagram', () => {
     expect(replace).toHaveBeenCalledWith('/nasa/');
   });
 });
+
+describe('like the app', () => {
+  it('hides Instagram’s own header only where Focus shows one', () => {
+    const root = document.documentElement;
+    history.pushState({}, '', '/');
+    expect(root.hasAttribute('data-focus-top-hidden')).toBe(true);
+    history.pushState({}, '', '/natgeo/');
+    expect(root.hasAttribute('data-focus-top-hidden')).toBe(false);
+  });
+
+  it('asks the app when posting or a story is tapped', () => {
+    const link = document.createElement('a');
+    link.setAttribute('href', '/create/story/');
+    const file = document.createElement('input');
+    file.type = 'file';
+    document.body.append(link, file);
+    const tap = (el: Element) => {
+      const event = new MouseEvent('click', {
+        bubbles: true,
+        cancelable: true,
+      });
+      el.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    expect(tap(link)).toBe(true);
+    expect(tap(file)).toBe(true);
+    expect(ofType('CREATE')).toHaveLength(2);
+    link.remove();
+    file.remove();
+  });
+});

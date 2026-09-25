@@ -10,6 +10,9 @@ import React, {
 } from 'react';
 import type { ScrollViewInstance } from 'react-native';
 import {
+  ActionSheetIOS,
+  Alert,
+  Linking,
   NativeScrollEvent,
   NativeSyntheticEvent,
   ScrollView,
@@ -30,6 +33,7 @@ import { BlockedOverlay } from '../screens/BlockedOverlay';
 import { BlockState } from '../screens/BrowserView';
 import { SearchResult, SearchScreen } from '../screens/SearchScreen';
 import { InstagramPage, InstagramPageHandle } from './InstagramPage';
+import { FeedHeader, ProfileHeader } from '../screens/InstagramHeaders';
 
 export type IgTab = 'feed' | 'reels' | 'messages' | 'search' | 'profile';
 
@@ -76,7 +80,31 @@ type Props = {
   onProcessTerminated: () => void;
   onOpenNative: (path: string) => void;
   onExternalLink: (url: string) => boolean;
+  /** The home header's "Für dich ⌄ / Gefolgt ⌄" switch. */
+  onChangeHomeFeed: (feed: 'normal' | 'following') => void;
 };
+
+/** Posting and stories: only in the real app – asked, never silent. */
+function askCreate() {
+  Alert.alert(
+    'Nur in der Instagram-App',
+    'Beiträge und Stories erstellst du in der echten Instagram-App. Danach geht es hier weiter.',
+    [
+      { text: 'Abbrechen', style: 'cancel' },
+      {
+        text: 'Instagram öffnen',
+        onPress: () =>
+          Linking.openURL('instagram://camera').catch(() =>
+            Linking.openURL('instagram://app').catch(() => {}),
+          ),
+      },
+    ],
+  );
+}
+
+function pathOf(url: string): string {
+  return /^[a-z]+:\/\/[^/]+(\/[^?#]*)?/i.exec(url)?.[1] || '/';
+}
 
 function isOwnProfile(path: string, own: string | null): boolean {
   return own !== null && path.toLowerCase().startsWith(own.toLowerCase());
@@ -108,6 +136,7 @@ function InstagramAppImpl(
     onProcessTerminated,
     onOpenNative,
     onExternalLink,
+    onChangeHomeFeed,
   }: Props,
   ref: React.Ref<InstagramAppHandle>,
 ) {
@@ -356,6 +385,10 @@ function InstagramAppImpl(
           setHScroll(message.active);
           return;
         }
+        if (message.type === 'CREATE') {
+          askCreate();
+          return;
+        }
         onMessage(message);
       },
       onSearch: () => {
@@ -384,6 +417,80 @@ function InstagramAppImpl(
     }
   };
 
+  // The app's own headers where the website's are hidden (home, profile).
+  const pathNow = (tab: IgTab) =>
+    paths[tab] ??
+    (initialUrls.current[tab] ? pathOf(initialUrls.current[tab]!) : '/');
+  const ownUsername = ownProfilePath?.replace(/\//g, '') ?? '';
+  const headerFor = (tab: IgTab) => {
+    if (!mounted.includes(tab)) {
+      return null;
+    }
+    const path = pathNow(tab).toLowerCase();
+    if (tab === 'feed' && path === '/') {
+      return (
+        <FeedHeader
+          title={controls.homeFeed === 'following' ? 'Gefolgt' : 'Für dich'}
+          onCreate={askCreate}
+          onTitle={() =>
+            ActionSheetIOS.showActionSheetWithOptions(
+              {
+                options: ['Für dich', 'Gefolgt', 'Abbrechen'],
+                cancelButtonIndex: 2,
+              },
+              index => {
+                if (index === 0) {
+                  onChangeHomeFeed('normal');
+                } else if (index === 1) {
+                  onChangeHomeFeed('following');
+                }
+              },
+            )
+          }
+          onActivity={() => pages.current.feed?.navigate('/accounts/activity/')}
+        />
+      );
+    }
+    if (ownProfilePath && path === ownProfilePath.toLowerCase()) {
+      return (
+        <ProfileHeader
+          username={ownUsername}
+          onCreate={askCreate}
+          onMenu={() =>
+            ActionSheetIOS.showActionSheetWithOptions(
+              {
+                options: ['Profil bearbeiten', 'Gespeichert', 'Abbrechen'],
+                cancelButtonIndex: 2,
+              },
+              index => {
+                const page = pages.current[tab];
+                if (index === 0) {
+                  page?.navigate('/accounts/edit/');
+                } else if (index === 1) {
+                  page?.navigate(`${ownProfilePath}saved/`);
+                }
+              },
+            )
+          }
+        />
+      );
+    }
+    return null;
+  };
+
+  // A new home feed choice: the home tab follows at once.
+  const lastHome = useRef(homePath);
+  useEffect(() => {
+    if (lastHome.current !== homePath) {
+      lastHome.current = homePath;
+      const feed = pages.current.feed;
+      if (feed && pathNow('feed') === '/') {
+        feed.navigate(homePath);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [homePath]);
+
   // No tab swiping inside a chat (the app has no tabs there either) or
   // while a carousel or the story tray is being swiped.
   const inChat =
@@ -409,6 +516,7 @@ function InstagramAppImpl(
       >
         {tabs.map(tab => (
           <View key={tab} style={{ width, height: pageHeight }}>
+            {headerFor(tab)}
             {mounted.includes(tab) ? (
               <InstagramPage
                 ref={handlers[tab].ref}

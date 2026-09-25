@@ -40,7 +40,7 @@ describe('parseSettings', () => {
       openInstagramOnLaunch: true,
       keepLastLocation: false,
     });
-    expect(migrated.schemaVersion).toBe(7);
+    expect(migrated.schemaVersion).toBe(8);
     expect(migrated.x.followingOnly).toBe(true);
     expect(migrated.limits.reddit.minutes).toBeNull();
     expect(migrated.pauseSeconds).toBe(5);
@@ -58,6 +58,17 @@ describe('parseSettings', () => {
       controls: { blockReels: false, homeFeed: 'weird', blockStories: 'yes' },
     });
     expect(parsed.controls).toEqual({ ...PRESETS.balanced, blockReels: false });
+  });
+
+  it('v7 → v8: the old Following default becomes "Für dich"', () => {
+    const old = { ...PRESETS.balanced, homeFeed: 'following' };
+    expect(
+      parseSettings({ schemaVersion: 7, controls: old }).controls.homeFeed,
+    ).toBe('normal');
+    // Chosen after the change: kept.
+    expect(
+      parseSettings({ schemaVersion: 8, controls: old }).controls.homeFeed,
+    ).toBe('following');
   });
 
   it('v4 → v5: starts on the Focus home with the app icons', () => {

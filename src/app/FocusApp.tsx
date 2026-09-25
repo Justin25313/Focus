@@ -305,8 +305,9 @@ function FocusShell({ initial }: { initial: Loaded }) {
   );
 
   const instagramGuardConfig = useMemo(
-    () => buildGuardConfig(effectiveControls, settings.grayscale),
-    [effectiveControls, settings.grayscale],
+    () =>
+      buildGuardConfig(effectiveControls, settings.grayscale, ownProfilePath),
+    [effectiveControls, settings.grayscale, ownProfilePath],
   );
 
   // ---- other apps ------------------------------------------------------
@@ -1121,6 +1122,11 @@ function FocusShell({ initial }: { initial: Loaded }) {
           onProcessTerminated={handleProcessTerminated}
           onOpenNative={openNative}
           onExternalLink={onExternalLink}
+          onChangeHomeFeed={feed =>
+            updateSettings({
+              controls: { ...settings.controls, homeFeed: feed },
+            })
+          }
         />
       </View>
 
