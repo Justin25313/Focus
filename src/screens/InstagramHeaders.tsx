@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { ChevronDownIcon, HeartIcon, MenuIcon, PlusIcon } from '../ui/icons';
+import { ChevronDownIcon, MenuIcon, PlusIcon } from '../ui/icons';
 import { useTheme } from '../ui/theme';
 
 export const INSTAGRAM_HEADER_HEIGHT = 54;
@@ -24,40 +24,6 @@ function IconButton({
     >
       {children}
     </Pressable>
-  );
-}
-
-/** Home, like the app: "+", "Für dich ⌄" (or "Gefolgt ⌄"), heart. */
-export function FeedHeader({
-  title,
-  onCreate,
-  onTitle,
-  onActivity,
-}: {
-  title: string;
-  onCreate: () => void;
-  onTitle: () => void;
-  onActivity: () => void;
-}) {
-  const theme = useTheme();
-  return (
-    <View style={[styles.bar, { backgroundColor: theme.background }]}>
-      <IconButton label="Erstellen" onPress={onCreate}>
-        <PlusIcon color={theme.label} size={30} />
-      </IconButton>
-      <Pressable
-        onPress={onTitle}
-        accessibilityRole="button"
-        accessibilityLabel={`${title}, Feed wählen`}
-        style={({ pressed }) => [styles.title, pressed ? styles.pressed : null]}
-      >
-        <Text style={[styles.titleText, { color: theme.label }]}>{title}</Text>
-        <ChevronDownIcon color={theme.label} size={15} />
-      </Pressable>
-      <IconButton label="Aktivität" onPress={onActivity}>
-        <HeartIcon color={theme.label} size={29} />
-      </IconButton>
-    </View>
   );
 }
 

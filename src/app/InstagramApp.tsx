@@ -34,7 +34,7 @@ import { BlockedOverlay } from '../screens/BlockedOverlay';
 import { BlockState } from '../screens/BrowserView';
 import { SearchResult, SearchScreen } from '../screens/SearchScreen';
 import { InstagramPage, InstagramPageHandle } from './InstagramPage';
-import { FeedHeader, ProfileHeader } from '../screens/InstagramHeaders';
+import { ProfileHeader } from '../screens/InstagramHeaders';
 
 export type IgTab = 'feed' | 'reels' | 'messages' | 'search' | 'profile';
 
@@ -81,8 +81,6 @@ type Props = {
   onProcessTerminated: () => void;
   onOpenNative: (path: string) => void;
   onExternalLink: (url: string) => boolean;
-  /** The home header's "Für dich ⌄ / Gefolgt ⌄" switch. */
-  onChangeHomeFeed: (feed: 'normal' | 'following') => void;
 };
 
 /** Posting and stories: only in the real app – asked, never silent. */
@@ -137,7 +135,6 @@ function InstagramAppImpl(
     onProcessTerminated,
     onOpenNative,
     onExternalLink,
-    onChangeHomeFeed,
   }: Props,
   ref: React.Ref<InstagramAppHandle>,
 ) {
@@ -422,7 +419,8 @@ function InstagramAppImpl(
     }
   };
 
-  // The app's own headers where the website's are hidden (home, profile).
+  // The app's profile header where the website's is hidden. (Home keeps
+  // Instagram's own "+ Für dich ⌄ ♥", which already matches the app.)
   const pathNow = (tab: IgTab) =>
     paths[tab] ??
     (initialUrls.current[tab] ? pathOf(initialUrls.current[tab]!) : '/');
@@ -432,30 +430,6 @@ function InstagramAppImpl(
       return null;
     }
     const path = pathNow(tab).toLowerCase();
-    if (tab === 'feed' && path === '/') {
-      return (
-        <FeedHeader
-          title={controls.homeFeed === 'following' ? 'Gefolgt' : 'Für dich'}
-          onCreate={askCreate}
-          onTitle={() =>
-            ActionSheetIOS.showActionSheetWithOptions(
-              {
-                options: ['Für dich', 'Gefolgt', 'Abbrechen'],
-                cancelButtonIndex: 2,
-              },
-              index => {
-                if (index === 0) {
-                  onChangeHomeFeed('normal');
-                } else if (index === 1) {
-                  onChangeHomeFeed('following');
-                }
-              },
-            )
-          }
-          onActivity={() => pages.current.feed?.navigate('/accounts/activity/')}
-        />
-      );
-    }
     if (ownProfilePath && path === ownProfilePath.toLowerCase()) {
       return (
         <ProfileHeader

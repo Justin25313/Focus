@@ -153,10 +153,11 @@ export function buildGuardConfig(
     hiddenLinkSelectors: hidden,
     hideAppNav: true,
     navProbes: 'a[href="/"], a[href="/explore/"], a[href="/direct/inbox/"]',
-    // Home and your profile get Focus's app-style header instead.
+    // Your profile gets Focus's app-style header instead. (Home keeps
+    // Instagram's own "+ Für dich ⌄ ♥", which already matches the app.)
     topBarProbes:
       'a[href="/accounts/activity/"], a[href^="/accounts/settings"], a[href*="threads."], a[href="/"], a[href^="/direct/inbox"], a[href^="/create"]',
-    topBarPaths: ['/', ...(ownProfilePath ? [ownProfilePath] : [])],
+    topBarPaths: ownProfilePath ? [ownProfilePath] : [],
     overlayVideoHeaders: true,
     swipeNav: false,
     reportHScroll: true,
@@ -988,6 +989,37 @@ const GUARD_SOURCE = String.raw`
           bar.setAttribute(TOP_ATTR, '');
         }
       }
+    }
+    if (config.topBarPaths && onTopBarPath()) {
+      markTopRowAtPoint();
+    }
+  }
+
+  // If no link gave the header away: whatever full-width row sits at the
+  // very top of the unscrolled page on such a path is the header.
+  function markTopRowAtPoint() {
+    if (
+      typeof document.elementFromPoint !== 'function' ||
+      (w.scrollY || 0) > 5 ||
+      document.querySelector('[' + TOP_ATTR + ']')
+    ) {
+      return;
+    }
+    var width = w.innerWidth || document.documentElement.clientWidth;
+    var node = document.elementFromPoint(width / 2, 20);
+    var row = null;
+    for (var depth = 0; node && node !== document.body && depth < 15; depth++) {
+      var rect = node.getBoundingClientRect();
+      if (rect.height > 100) {
+        break;
+      }
+      if (rect.top <= 12 && rect.height >= 36 && rect.width >= width * 0.9) {
+        row = node;
+      }
+      node = node.parentElement;
+    }
+    if (row && !row.closest('#' + PROFILE_ID) && !row.querySelector('img, video')) {
+      row.setAttribute(TOP_ATTR, '');
     }
   }
 

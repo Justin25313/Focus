@@ -1122,11 +1122,6 @@ function FocusShell({ initial }: { initial: Loaded }) {
           onProcessTerminated={handleProcessTerminated}
           onOpenNative={openNative}
           onExternalLink={onExternalLink}
-          onChangeHomeFeed={feed =>
-            updateSettings({
-              controls: { ...settings.controls, homeFeed: feed },
-            })
-          }
         />
       </View>
 

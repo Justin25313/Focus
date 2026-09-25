@@ -64,6 +64,10 @@ describe('own profile', () => {
     expect(
       document.documentElement.hasAttribute('data-focus-own-profile'),
     ).toBe(true);
+    // Focus shows the app's profile header; the web one goes.
+    expect(
+      document.documentElement.hasAttribute('data-focus-top-hidden'),
+    ).toBe(true);
 
     (top.querySelectorAll('.fp-btn')[1] as HTMLElement).click();
     expect(posted).toContainEqual({
@@ -86,6 +90,6 @@ describe('own profile', () => {
       parseWebMessage(JSON.stringify({ type: 'SHARE', url }), from);
     expect(share('https://www.instagram.com/jstin_505/')).not.toBeNull();
     expect(share('https://evil.example/x')).toBeNull();
-    expect(share('javascript:alert(1)')).toBeNull();
+    expect(share(['javascript', 'alert(1)'].join(':'))).toBeNull();
   });
 });

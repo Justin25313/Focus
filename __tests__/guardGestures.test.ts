@@ -164,12 +164,11 @@ describe('navigation inside Instagram', () => {
 });
 
 describe('like the app', () => {
-  it('hides Instagram’s own header only where Focus shows one', () => {
-    const root = document.documentElement;
+  it('keeps Instagram’s own home header (it matches the app)', () => {
     history.pushState({}, '', '/');
-    expect(root.hasAttribute('data-focus-top-hidden')).toBe(true);
-    history.pushState({}, '', '/natgeo/');
-    expect(root.hasAttribute('data-focus-top-hidden')).toBe(false);
+    expect(
+      document.documentElement.hasAttribute('data-focus-top-hidden'),
+    ).toBe(false);
   });
 
   it('asks the app when posting or a story is tapped', () => {
