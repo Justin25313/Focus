@@ -12,8 +12,8 @@ const COPY: Record<BlockReason, { title: string; body: string }> = {
     body: 'Der Reels-Feed ist in Focus gesperrt, damit aus einem Video nicht zwanzig werden.',
   },
   sharedReel: {
-    title: 'Einzelne Reels folgen später',
-    body: 'Focus kann noch nicht garantieren, dass nach einem geteilten Reel Schluss ist. Deshalb bleibt es vorerst gesperrt.',
+    title: 'Nur dieses eine Reel',
+    body: 'Ein Reel, das dir jemand schickt, kannst du ansehen – weiterwischen geht nur in einem Reels-Zeitfenster.',
   },
   explore: {
     title: 'Explore ist aus',
@@ -33,7 +33,7 @@ const COPY: Record<BlockReason, { title: string; body: string }> = {
   },
   shorts: {
     title: 'Shorts sind aus',
-    body: 'Shorts ziehen dich von einem Video ins nächste. In Focus bleiben sie gesperrt.',
+    body: 'Shorts ziehen dich von einem Video ins nächste. Wenn du willst, öffne sie bewusst für ein paar Minuten – lange drücken auf YouTube im Focus-Menü.',
   },
   ytHome: {
     title: 'Was willst du sehen?',
@@ -75,23 +75,25 @@ export function BlockedOverlay({
   lockedUntil,
   onBack,
   onSearch,
-  onOpenNative,
 }: {
   reason: BlockReason;
-  /** Set right after a timed Reels window: Reels are locked until then. */
+  /** Set after a timed Reels (Shorts) window: locked until then. */
   lockedUntil?: number;
   onBack: () => void;
   onSearch: () => void;
-  onOpenNative: () => void;
 }) {
   const theme = useTheme();
-  const timeUp =
-    lockedUntil !== undefined &&
-    (reason === 'reels' || reason === 'sharedReel');
+  const kind =
+    reason === 'shorts'
+      ? 'Shorts'
+      : reason === 'reels' || reason === 'sharedReel'
+      ? 'Reels'
+      : null;
+  const timeUp = lockedUntil !== undefined && kind !== null;
   const copy = timeUp
     ? {
-        title: 'Reels-Zeit ist um',
-        body: `Reels sind jetzt gesperrt – wieder möglich ab ${formatTimestamp(
+        title: `${kind}-Zeit ist um`,
+        body: `${kind} sind jetzt gesperrt – wieder möglich ab ${formatTimestamp(
           lockedUntil,
         )}. Ein guter Moment, das Handy wegzulegen.`,
       }
@@ -122,13 +124,6 @@ export function BlockedOverlay({
           onPress={onBack}
           secondary={reason === 'explore' || SEARCHABLE.includes(reason)}
         />
-        {reason === 'sharedReel' && !timeUp ? (
-          <PrimaryButton
-            title="Einmal in der Instagram-App öffnen"
-            onPress={onOpenNative}
-            secondary
-          />
-        ) : null}
       </View>
     </View>
   );

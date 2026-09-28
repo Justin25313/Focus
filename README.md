@@ -18,7 +18,16 @@ Leiste führt immer dorthin zurück; jede App behält ihre WebView beim Wechsel.
 auch nach mindestens 5 Minuten Abwesenheit · **Tageslimit pro App** – danach bis morgen zu;
 weniger gilt sofort, mehr Zeit oder „Aus“ erst ab morgen.
 
-**YouTube:** Shorts gesperrt (Player, Kanal-Tabs, Regale, Links) · Start = Abos, „Nur Suche“
+**Zeitfenster (Reels und Shorts):** 5/10/15 Minuten bewusst freigeben – die Zeit läuft
+**nur, solange Reels bzw. Shorts auf dem Bildschirm sind**. Wechsel zu Nachrichten, ins
+Focus-Menü, in eine andere App oder Focus schließen pausiert sie; beim Zurückkommen geht es
+genau dort weiter (alle paar Sekunden gespeichert, auch nach einem Absturz). Countdown in
+der Leiste, harter Stopp, nicht verlängerbar, übrige Zeit verfällt um Mitternacht; danach
+mindestens 5 Minuten gesperrt (so lange wie das Fenster). Auch das Tageslimit zählt nur die
+Zeit, in der die App wirklich offen ist.
+
+**YouTube:** Shorts gesperrt (Player, Kanal-Tabs, Regale, Links) – oder per **Shorts-Zeitfenster**
+kurz frei (eigener Shorts-Tab mit Countdown) · Start = Abos, „Nur Suche“
 oder YouTube-Startseite · Trends/Erkunden/Gaming gesperrt · Empfehlungen unter Videos und
 Kommentare optional ausgeblendet · eigene Suche mit Vorschlägen beim Tippen · „Du“ als
 native Liste (Verlauf, Später ansehen, Playlists, Mag ich, Kanäle) · Google-Login bleibt in Focus.
@@ -40,10 +49,13 @@ Werbung ausgeblendet · Suche nach `r/name`, `u/name` oder Beiträgen.
   oben über „Für dich ⌄“ · nur Stories · aus
 - **Aussehen wie die App:** Startseite mit Instagrams eigener Kopfzeile (+, Für dich ⌄, ♥),
   Profil mit App-Kopfzeile (+, Name ⌄, Menü); dein Profil oben wie in der App (Bild mit +, Name über fetten Zahlen,
-  „Bearbeiten“, „Profil teilen“ über das iOS-Teilen-Menü); Videos im Feed mit durchsichtiger Kopfzeile; „+“ und „Deine Story“
+  „Bearbeiten“, „Profil teilen“ über das iOS-Teilen-Menü); Profil-Tabs als Symbolzeile mit
+  Strich unter dem aktiven Tab; Videos im Feed mit durchsichtiger Kopfzeile; „+“ und „Deine Story“
   fragen, ob die Instagram-App geöffnet werden soll (Posten geht nur dort)
-- **Gesperrt:** Reels-Feed, einzelne Reels, Profil-Reels, Explore; optional Stories und Gespeichert
-- **Reels-Zeitfenster:** 5/10/15 Minuten, Countdown in der Leiste, harter Stopp, nicht verlängerbar, danach mindestens 5 Minuten gesperrt
+- **Gesperrt:** Reels-Feed, Profil-Reels, Explore; optional Stories und Gespeichert
+- **Geteilte Reels:** ein Reel aus dem Chat öffnet sich einzeln – weiterwischen zum nächsten
+  geht nur in einem Reels-Zeitfenster (dann zählt die Zeit)
+- **Reels-Zeitfenster:** eigener Reels-Tab mit Countdown (siehe Zeitfenster oben)
 - **Ausgeblendet:** eindeutig markierte Werbung und Vorschläge, Reels-Einstiege, Instagrams eigene Leiste
 - **Suche:** eigene Profilsuche (Name, `@benutzername` oder Link) statt Explore
 - **Graustufen**, **Nutzungszeit** (nur lokal), **letzter Ort** nach Neustart
@@ -140,6 +152,5 @@ Nutzungszeit liegen ausschließlich auf dem iPhone.
 
 - Instagram Web ≠ Instagram-App: Kamera, Filter, manche Posting-Funktionen, Anrufe und
   Push-Benachrichtigungen fehlen. Dafür gibt es „Zum Posten: Instagram-App öffnen“.
-- Geteilte Reels sind vorerst gesperrt (lieber gesperrt als ein Schlupfloch in den Feed).
 - Die offizielle Instagram-App wird nicht gesperrt (kein Screen-Time-Shield ohne
   bezahlten Entwickler-Account).

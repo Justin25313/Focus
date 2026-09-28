@@ -45,6 +45,8 @@ type Props = {
   /** App-specific messages (e.g. Reddit's joined communities). */
   onAppMessage?: (message: WebMessage) => void;
   onExternalLink?: (url: string, userInitiated: boolean) => boolean;
+  /** Shorts are locked until then (after a timed window); 0 = not. */
+  lockedUntil?: number;
 };
 
 const LOADING_MAX_MS = 8000;
@@ -67,6 +69,7 @@ function ServiceBrowserImpl(
     onScrollState,
     onAppMessage,
     onExternalLink,
+    lockedUntil,
   }: Props,
   ref: React.Ref<ServiceBrowserHandle>,
 ) {
@@ -196,6 +199,7 @@ function ServiceBrowserImpl(
       {block ? (
         <BlockedOverlay
           reason={block.reason}
+          lockedUntil={lockedUntil || undefined}
           onBack={() => {
             if (block.navigated) {
               browser.current?.leaveBlocked();
@@ -207,7 +211,6 @@ function ServiceBrowserImpl(
             setBlock(null);
             onSearch();
           }}
-          onOpenNative={() => setBlock(null)}
         />
       ) : null}
     </View>

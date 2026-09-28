@@ -115,6 +115,11 @@ export type GuardConfig = {
   webAppId: string;
   /** Instagram: your profile gets the app's profile top (null = off). */
   ownProfilePath: string | null;
+  /**
+   * Instagram without a Reels window: a Reel someone sent you opens on
+   * its own, but swiping on to the next one is blocked.
+   */
+  singleReel: boolean;
 };
 
 export function buildGuardConfig(
@@ -172,6 +177,7 @@ export function buildGuardConfig(
     suggestedLabels: controls.hideSuggested ? SUGGESTED_LABELS : [],
     webAppId: INSTAGRAM_WEB_APP_ID,
     ownProfilePath,
+    singleReel: controls.blockReels,
   };
 }
 
@@ -214,6 +220,7 @@ function basicConfig(
     suggestedLabels: [],
     webAppId: '',
     ownProfilePath: null,
+    singleReel: false,
   };
 }
 
@@ -416,6 +423,13 @@ const GUARD_SOURCE = String.raw`
   var OVERLAY_HEAD_ATTR = 'data-focus-overlay-head';
   var PROFILE_ID = 'focus-profile-top';
   var OWN_PROFILE_ATTR = 'data-focus-own-profile';
+  var REEL_PATH = /^\/reels?\/([A-Za-z0-9_-]+)\/?$/i;
+  var PROFILE_ANY_PATH = /^\/([A-Za-z0-9._]{1,30})\/(?:(?:tagged|reels|saved|reposts)\/)?$/i;
+  var PROFILE_TABS_ATTR = 'data-focus-profile-tabs';
+  var TAB_ACTIVE_ATTR = 'data-focus-tab-active';
+  var SINGLE_REEL_ATTR = 'data-focus-single-reel';
+  var REEL_LOCK_ATTR = 'data-focus-reel-lock';
+  var singleReelId = null;
   var profile = null;
   var profileFor = null;
   var profileTriedAt = 0;
@@ -525,6 +539,28 @@ const GUARD_SOURCE = String.raw`
         P + ' .fp-buttons{display:flex;gap:6px;margin-top:14px;}' +
         P + ' .fp-btn{flex:1;height:34px;border-radius:9px;border:0;background:rgba(128,128,128,.16);' +
         'color:inherit;font:600 15px -apple-system,system-ui,sans-serif;}';
+    }
+    if (config.service === 'instagram') {
+      // Profile tabs like the app: icons only, evenly spread, a line
+      // under the one you are on.
+      var T = '[' + PROFILE_TABS_ATTR + ']';
+      css +=
+        T + '{display:flex!important;align-items:stretch!important;justify-content:space-around!important;' +
+        'gap:0!important;margin:0!important;padding:0!important;border-top:0!important;' +
+        'border-bottom:.5px solid rgba(128,128,128,.3)!important;}' +
+        T + '>*{flex:1 1 0!important;margin:0!important;min-width:0!important;}' +
+        T + ' a{display:flex!important;align-items:center!important;justify-content:center!important;' +
+        'width:100%!important;height:44px!important;margin:0!important;padding:0!important;border:0!important;' +
+        'font-size:0!important;letter-spacing:0!important;position:relative!important;opacity:.5;}' +
+        T + ' a svg{width:24px!important;height:24px!important;}' +
+        T + ' a[' + TAB_ACTIVE_ATTR + ']{opacity:1;}' +
+        T + ' a[' + TAB_ACTIVE_ATTR + ']::after{content:"";position:absolute;left:12%;right:12%;bottom:0;' +
+        'height:1.5px;background:currentColor;}';
+    }
+    if (config.singleReel) {
+      css +=
+        'html[' + SINGLE_REEL_ATTR + '] [' + REEL_LOCK_ATTR + ']{overflow:hidden!important;' +
+        'overscroll-behavior:none!important;scroll-snap-type:none!important;touch-action:pan-x!important;}';
     }
     if (config.overlayVideoHeaders) {
       css +=
@@ -1145,6 +1181,63 @@ const GUARD_SOURCE = String.raw`
     return top;
   }
 
+  // The row of profile tabs (posts, Reels, tagged, …): the smallest
+  // element that holds at least two of the profile's own tab links.
+  // Found by href, never by text.
+  function profileTabs() {
+    var match = PROFILE_ANY_PATH.exec(location.pathname || '');
+    if (!match || NOT_PROFILES.indexOf(match[1].toLowerCase()) !== -1) {
+      return;
+    }
+    var base = '/' + match[1].toLowerCase() + '/';
+    var suffixes = ['', 'reels/', 'tagged/', 'saved/', 'reposts/'];
+    var links = document.querySelectorAll('main a[href]');
+    var tabs = [];
+    for (var i = 0; i < links.length; i++) {
+      var href = (links[i].getAttribute('href') || '').toLowerCase();
+      if (href.indexOf(base) === 0 && suffixes.indexOf(href.slice(base.length)) !== -1) {
+        tabs.push(links[i]);
+      }
+    }
+    var row = null;
+    for (var j = 0; j < tabs.length && !row; j++) {
+      var href2 = (tabs[j].getAttribute('href') || '').toLowerCase();
+      if (href2 === base) {
+        continue;
+      }
+      for (var el = tabs[j].parentElement; el && el.tagName !== 'MAIN'; el = el.parentElement) {
+        var inside = 0;
+        for (var k = 0; k < tabs.length; k++) {
+          if (el.contains(tabs[k])) {
+            inside++;
+          }
+        }
+        if (inside >= 2) {
+          row = el;
+          break;
+        }
+      }
+    }
+    if (!row) {
+      return;
+    }
+    row.setAttribute(PROFILE_TABS_ATTR, '');
+    var here = (location.pathname || '').toLowerCase();
+    for (var m = 0; m < tabs.length; m++) {
+      if (!row.contains(tabs[m])) {
+        continue;
+      }
+      var active = (tabs[m].getAttribute('href') || '').toLowerCase() === here;
+      if (active !== tabs[m].hasAttribute(TAB_ACTIVE_ATTR)) {
+        if (active) {
+          tabs[m].setAttribute(TAB_ACTIVE_ATTR, '');
+        } else {
+          tabs[m].removeAttribute(TAB_ACTIVE_ATTR);
+        }
+      }
+    }
+  }
+
   // Only when Instagram's own profile header is there to replace (and
   // the numbers are known); otherwise the web version simply stays.
   function ownProfileTop() {
@@ -1427,6 +1520,68 @@ const GUARD_SOURCE = String.raw`
     }
   }
 
+  // A Reel someone sent you: that one Reel, but no swiping on to the
+  // next. Only a direct /reel/<id> page starts it; any other Reel reached
+  // from there is blocked.
+  function reelReason(path, reason) {
+    if (!config.singleReel) {
+      singleReelId = null;
+      return reason;
+    }
+    var match = REEL_PATH.exec(path);
+    if (!match) {
+      singleReelId = null;
+      return reason;
+    }
+    var fromReel = lastRoutePath !== null && REEL_PATH.test(lastRoutePath);
+    if (!fromReel || singleReelId === null) {
+      if (reason || !/^\/reel\//i.test(path)) {
+        return reason || 'sharedReel';
+      }
+      singleReelId = match[1];
+      return null;
+    }
+    return match[1] === singleReelId ? null : 'sharedReel';
+  }
+
+  // Stops the Reel viewer from scrolling to the next Reel at all: its
+  // scroller (the element around the video that scrolls vertically) is
+  // frozen. Taps, sound and the comments sheet keep working.
+  function lockReelScroller(on) {
+    var root = document.documentElement;
+    if (!root) {
+      return;
+    }
+    if (!on) {
+      root.removeAttribute(SINGLE_REEL_ATTR);
+      root.removeAttribute(REEL_LOCK_ATTR);
+      return;
+    }
+    root.setAttribute(SINGLE_REEL_ATTR, '');
+    var video = document.querySelector('video');
+    for (var el = video && video.parentElement; el && el !== root; el = el.parentElement) {
+      if (el.hasAttribute(REEL_LOCK_ATTR)) {
+        return;
+      }
+      var style = w.getComputedStyle(el);
+      if (
+        (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
+        el.scrollHeight > el.clientHeight * 1.4
+      ) {
+        el.setAttribute(REEL_LOCK_ATTR, '');
+        return;
+      }
+    }
+    var page = document.scrollingElement;
+    if (
+      page &&
+      document.querySelectorAll('video').length > 1 &&
+      page.scrollHeight > w.innerHeight * 1.4
+    ) {
+      root.setAttribute(REEL_LOCK_ATTR, '');
+    }
+  }
+
   function check() {
     if (!isGuardedHost()) {
       return;
@@ -1437,6 +1592,7 @@ const GUARD_SOURCE = String.raw`
     overlayVideoHeaders();
     if (config.service === 'instagram') {
       ownProfileTop();
+      profileTabs();
     }
     if (config.service === 'instagram') {
       hideFollowingBackLink();
@@ -1453,7 +1609,10 @@ const GUARD_SOURCE = String.raw`
         root.removeAttribute(ROUTE_ATTR);
       }
     }
-    var reason = reasonFor(path);
+    var reason = reelReason(path, reasonFor(path));
+    if (config.service === 'instagram') {
+      lockReelScroller(singleReelId !== null && !reason);
+    }
     var redirect = reason ? config.redirects[reason] : null;
     if (redirect) {
       // E.g. "Messages only" (Instagram home → inbox) or YouTube home →

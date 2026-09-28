@@ -55,7 +55,6 @@ type Props = {
   onLoadError: (code: number) => void;
   onProcessTerminated: () => void;
   onSearch: () => void;
-  onOpenNative: (path: string) => void;
   onExternalLink: (url: string, userInitiated: boolean) => boolean;
 };
 
@@ -77,7 +76,6 @@ function InstagramPageImpl(
     onLoadError,
     onProcessTerminated,
     onSearch,
-    onOpenNative,
     onExternalLink,
   }: Props,
   ref: React.Ref<InstagramPageHandle>,
@@ -296,14 +294,6 @@ function InstagramPageImpl(
           onSearch={() => {
             setBlock(null);
             onSearch();
-          }}
-          onOpenNative={() => {
-            onOpenNative(block.path);
-            if (block.navigated) {
-              browser.current?.leaveBlocked();
-            } else {
-              setBlock(null);
-            }
           }}
         />
       ) : null}

@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ReelsStatus, formatCountdown } from '../controls/reelsSession';
+import { WindowStatus, formatCountdown } from '../controls/timeWindow';
 import { SERVICE_IDS, SERVICE_INFO, ServiceId } from '../services/services';
 import { Diagnostics } from '../storage/diagnostics';
 import {
@@ -44,9 +44,12 @@ type Props = {
   onResetDiagnostics: () => void;
   usageLog: UsageLog;
   onResetUsage: () => void;
-  reels: ReelsStatus;
+  reels: WindowStatus;
   onStartReels: (minutes: number) => void;
   onEndReels: () => void;
+  shorts: WindowStatus;
+  onStartShorts: (minutes: number) => void;
+  onEndShorts: () => void;
 };
 
 /**
@@ -72,6 +75,9 @@ export function SettingsScreen({
   reels,
   onStartReels,
   onEndReels,
+  shorts,
+  onStartShorts,
+  onEndShorts,
 }: Props) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -122,6 +128,8 @@ export function SettingsScreen({
               badge={
                 id === 'instagram' && reels.state === 'active'
                   ? `Reels ${formatCountdown(reels.remainingMs)}`
+                  : id === 'youtube' && shorts.state === 'active'
+                  ? `Shorts ${formatCountdown(shorts.remainingMs)}`
                   : appBadges[id]
               }
               onPress={() => (editMode ? setEditingApp(id) : onOpenApp(id))}
@@ -194,7 +202,7 @@ export function SettingsScreen({
         </GroupedSection>
 
         <Text style={[styles.about, { color: theme.tertiaryLabel }]}>
-          Focus 0.16 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
+          Focus 0.17 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
           Deine Einstellungen bleiben auf diesem iPhone.
         </Text>
       </ScrollView>
@@ -217,6 +225,11 @@ export function SettingsScreen({
         reels={reels}
         onStartReels={minutes => closeSheetThen(() => onStartReels(minutes))()}
         onEndReels={onEndReels}
+        shorts={shorts}
+        onStartShorts={minutes =>
+          closeSheetThen(() => onStartShorts(minutes))()
+        }
+        onEndShorts={onEndShorts}
         onRestartApp={app => closeSheetThen(() => onRestartApp(app))()}
         onOpenInstagramApp={onOpenInstagramApp}
         onLogoutApp={onLogoutApp}

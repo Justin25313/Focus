@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 import { STORAGE_KEYS, removeKeys, writeJson } from '../storage/kv';
 import { UsageLog, addInterval, dayKey, pruneLog } from './usage';
 
-const FLUSH_MS = 30 * 1000;
+const FLUSH_MS = 10 * 1000;
 
 /**
  * Counts foreground time while `counting` is true (an app visible).

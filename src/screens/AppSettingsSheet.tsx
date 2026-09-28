@@ -18,11 +18,11 @@ import {
   modeOf,
 } from '../controls/controls';
 import {
-  REELS_WINDOWS_MIN,
-  ReelsStatus,
+  WINDOW_MINUTES,
+  WindowStatus,
   formatCountdown,
   lockoutMinutes,
-} from '../controls/reelsSession';
+} from '../controls/timeWindow';
 import {
   DailyLimit,
   LIMIT_OPTIONS_MIN,
@@ -115,9 +115,12 @@ type Props = {
   onClose: () => void;
   settings: FocusSettings;
   onChange: (patch: Partial<FocusSettings>) => void;
-  reels: ReelsStatus;
+  reels: WindowStatus;
   onStartReels: (minutes: number) => void;
   onEndReels: () => void;
+  shorts: WindowStatus;
+  onStartShorts: (minutes: number) => void;
+  onEndShorts: () => void;
   onRestartApp: (app: ServiceId) => void;
   onOpenInstagramApp: () => void;
   onLogoutApp: (app: ServiceId) => void;
@@ -169,6 +172,9 @@ export function AppSettingsSheet({ app, onClose, ...props }: Props) {
           {shown === 'youtube' ? (
             <YouTubeSettings
               youtube={props.settings.youtube}
+              shorts={props.shorts}
+              onStartShorts={props.onStartShorts}
+              onEndShorts={props.onEndShorts}
               onChange={patch =>
                 props.onChange({
                   youtube: { ...props.settings.youtube, ...patch },
@@ -261,57 +267,20 @@ function InstagramSettings({
   onEndReels,
   onOpenInstagramApp,
 }: Omit<Props, 'app' | 'onClose'>) {
-  const theme = useTheme();
   const controls = settings.controls;
   const mode = modeOf(controls);
   const setControls = (patch: Partial<Controls>) =>
     onChange({ controls: { ...controls, ...patch } });
 
-  const confirmReels = (minutes: number) => {
-    const lockout = lockoutMinutes(minutes);
-    Alert.alert(
-      `Reels für ${minutes} Minuten?`,
-      `Danach stoppen Reels sofort und sind ${lockout} Minuten gesperrt. Verlängern geht nicht.`,
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        { text: 'Starten', onPress: () => onStartReels(minutes) },
-      ],
-    );
-  };
-
   return (
     <>
       {controls.blockReels ? (
-        <GroupedSection
-          title="Reels-Zeitfenster"
-          footer="Nicht verlängerbar. Danach sind Reels mindestens 5 Minuten gesperrt – so lange wie das Zeitfenster."
-        >
-          {reels.state === 'active' ? (
-            <ValueRow
-              label="Reels offen"
-              value={`noch ${formatCountdown(reels.remainingMs)}`}
-              valueColor={theme.accent}
-            />
-          ) : null}
-          {reels.state === 'active' ? (
-            <ButtonRow label="Jetzt beenden" onPress={onEndReels} destructive />
-          ) : null}
-          {reels.state === 'locked' ? (
-            <ValueRow
-              label="Gesperrt bis"
-              value={formatTimestamp(reels.until)}
-            />
-          ) : null}
-          {reels.state === 'idle'
-            ? REELS_WINDOWS_MIN.map(minutes => (
-                <ButtonRow
-                  key={minutes}
-                  label={`Reels für ${minutes} Minuten`}
-                  onPress={() => confirmReels(minutes)}
-                />
-              ))
-            : null}
-        </GroupedSection>
+        <TimeWindowSection
+          kind="Reels"
+          status={reels}
+          onStart={onStartReels}
+          onEnd={onEndReels}
+        />
       ) : null}
 
       <GroupedSection
@@ -411,15 +380,89 @@ function InstagramSettings({
   );
 }
 
+/**
+ * Reels (Shorts) on purpose, for a few minutes. The time only runs while
+ * you watch them; it pauses everywhere else and when Focus is closed.
+ */
+function TimeWindowSection({
+  kind,
+  status,
+  onStart,
+  onEnd,
+}: {
+  kind: 'Reels' | 'Shorts';
+  status: WindowStatus;
+  onStart: (minutes: number) => void;
+  onEnd: () => void;
+}) {
+  const theme = useTheme();
+  const confirm = (minutes: number) => {
+    Alert.alert(
+      `${kind} für ${minutes} Minuten?`,
+      `Die Zeit läuft nur, solange du ${kind} ansiehst. Ist sie um, stoppen ${kind} sofort und sind ${lockoutMinutes(
+        minutes,
+      )} Minuten gesperrt. Verlängern geht nicht.`,
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        { text: 'Starten', onPress: () => onStart(minutes) },
+      ],
+    );
+  };
+  return (
+    <GroupedSection
+      title={`${kind}-Zeitfenster`}
+      footer={`Die Zeit läuft nur, während ${kind} auf dem Bildschirm sind – woanders in der App oder bei geschlossenem Focus pausiert sie. Nicht verlängerbar, übrige Zeit verfällt um Mitternacht. Danach sind ${kind} mindestens 5 Minuten gesperrt – so lange wie das Zeitfenster.`}
+    >
+      {status.state === 'active' ? (
+        <ValueRow
+          label={`${kind} offen`}
+          detail={status.running ? undefined : 'Pausiert'}
+          value={`noch ${formatCountdown(status.remainingMs)}`}
+          valueColor={theme.accent}
+        />
+      ) : null}
+      {status.state === 'active' ? (
+        <ButtonRow label="Jetzt beenden" onPress={onEnd} destructive />
+      ) : null}
+      {status.state === 'locked' ? (
+        <ValueRow label="Gesperrt bis" value={formatTimestamp(status.until)} />
+      ) : null}
+      {status.state === 'idle'
+        ? WINDOW_MINUTES.map(minutes => (
+            <ButtonRow
+              key={minutes}
+              label={`${kind} für ${minutes} Minuten`}
+              onPress={() => confirm(minutes)}
+            />
+          ))
+        : null}
+    </GroupedSection>
+  );
+}
+
 function YouTubeSettings({
   youtube,
+  shorts,
+  onStartShorts,
+  onEndShorts,
   onChange,
 }: {
   youtube: YouTubeControls;
+  shorts: WindowStatus;
+  onStartShorts: (minutes: number) => void;
+  onEndShorts: () => void;
   onChange: (patch: Partial<YouTubeControls>) => void;
 }) {
   return (
     <>
+      {youtube.blockShorts ? (
+        <TimeWindowSection
+          kind="Shorts"
+          status={shorts}
+          onStart={onStartShorts}
+          onEnd={onEndShorts}
+        />
+      ) : null}
       <GroupedSection
         title="Start"
         footer="Ohne Startseite gibt es keine Empfehlungs-Endlosliste – nur das, was du abonniert hast oder suchst."

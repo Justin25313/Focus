@@ -85,7 +85,9 @@ export function policyFor(controls: Controls): RoutePolicy {
   return {
     ...DEFAULT_POLICY,
     reels: controls.blockReels,
-    sharedReel: controls.blockReels,
+    // A Reel someone sent you opens on its own; the page guard stops
+    // swiping on to the next one (see GuardConfig.singleReel).
+    sharedReel: false,
     explore: controls.blockExplore,
     stories: controls.blockStories,
     saved: controls.blockSaved,

@@ -21,13 +21,11 @@ import {
 import { isSafeRouteToPersist } from '../filtering/engine/RouteGuard';
 import { Controls, policyFor } from '../controls/controls';
 import {
-  ReelsSession,
-  endReelsSession,
+  TimeWindow,
   formatCountdown,
-  parseReelsSession,
-  reelsStatus,
-  startReelsSession,
-} from '../controls/reelsSession';
+  parseWindow,
+} from '../controls/timeWindow';
+import { useTimeWindow } from '../controls/useTimeWindow';
 import { LimitStatus, limitStatus, settleLimit } from '../controls/limits';
 import { WebMessage } from '../filtering/engine/messages';
 import {
@@ -40,6 +38,7 @@ import {
 import { youtubeHomePathFor } from '../controls/youtube';
 import {
   YOUTUBE_ORIGIN,
+  YOUTUBE_SHORTS_PATH,
   YOUTUBE_SERVICE_RULES,
 } from '../filtering/youtube/routes';
 import { LinkItem, LinkListScreen } from '../screens/LinkListScreen';
@@ -194,7 +193,8 @@ type Loaded = {
   appUsage: Record<ServiceId, UsageLog>;
   communities: string[];
   subscriptions: string[];
-  reelsSession: ReelsSession | null;
+  reelsWindow: TimeWindow | null;
+  shortsWindow: TimeWindow | null;
 };
 
 async function loadState(): Promise<Loaded> {
@@ -212,6 +212,7 @@ async function loadState(): Promise<Loaded> {
     rawUsageReddit,
     rawCommunities,
     rawSubscriptions,
+    rawShorts,
   ] = await Promise.all([
     readJson(STORAGE_KEYS.settings),
     readJson(STORAGE_KEYS.lastRoute),
@@ -226,6 +227,7 @@ async function loadState(): Promise<Loaded> {
     readJson(STORAGE_KEYS.usageReddit),
     readJson(STORAGE_KEYS.redditCommunities),
     readJson(STORAGE_KEYS.redditSubscriptions),
+    readJson(STORAGE_KEYS.shortsSession),
   ]);
   const parsedSettings = parseSettings(rawSettings);
   const now = Date.now();
@@ -261,7 +263,8 @@ async function loadState(): Promise<Loaded> {
     },
     communities: parseCommunities(rawCommunities),
     subscriptions: parseCommunities(rawSubscriptions),
-    reelsSession: parseReelsSession(rawReels, Date.now()),
+    reelsWindow: parseWindow(rawReels, now),
+    shortsWindow: parseWindow(rawShorts, now),
   };
 }
 
@@ -305,28 +308,6 @@ function FocusShell({ initial }: { initial: Loaded }) {
   const [clearing, setClearing] = useState(false);
   // Scrolling down makes the tab bar a little smaller (like the apps).
   const [compactBar, setCompactBar] = useState(false);
-
-  // ---- timed Reels ---------------------------------------------------
-  const [reelsSession, setReelsSession] = useState(initial.reelsSession);
-  const [now, setNow] = useState(() => Date.now());
-  const reels = reelsStatus(reelsSession, now);
-  const reelsOpen = reels.state === 'active' && settings.controls.blockReels;
-  const lockedUntil = reels.state === 'locked' ? reels.until : 0;
-  // The controls Instagram actually runs with: Reels unblocked only while
-  // a window is open. The stored controls never change.
-  const effectiveControls = useMemo(
-    () =>
-      reelsOpen
-        ? { ...settings.controls, blockReels: false }
-        : settings.controls,
-    [reelsOpen, settings.controls],
-  );
-
-  const instagramGuardConfig = useMemo(
-    () =>
-      buildGuardConfig(effectiveControls, settings.grayscale, ownProfilePath),
-    [effectiveControls, settings.grayscale, ownProfilePath],
-  );
 
   // ---- other apps ------------------------------------------------------
   const [activeService, setActiveService] = useState<ServiceId>(
@@ -385,14 +366,6 @@ function FocusShell({ initial }: { initial: Loaded }) {
       return message.names;
     });
   }, []);
-  const webGuardConfigs = useMemo<Record<WebAppId, GuardConfig>>(
-    () => ({
-      youtube: buildYouTubeGuardConfig(settings.youtube, settings.grayscale),
-      x: buildXGuardConfig(settings.x, settings.grayscale),
-      reddit: buildRedditGuardConfig(settings.grayscale, redditHomePath),
-    }),
-    [settings.youtube, settings.x, settings.grayscale, redditHomePath],
-  );
   const [recentQueries, setRecentQueries] = useState<
     Record<WebAppId, string[]>
   >({ youtube: [], x: [], reddit: [] });
@@ -413,40 +386,6 @@ function FocusShell({ initial }: { initial: Loaded }) {
       }
     };
     return { youtube: make('youtube'), x: make('x'), reddit: make('reddit') };
-  }, []);
-
-  // Tick every second while a window runs (countdown + exact stop); wake up
-  // once when a lockout ends; re-check whenever the app comes back.
-  useEffect(() => {
-    if (reels.state === 'active') {
-      const timer = setInterval(() => setNow(Date.now()), 1000);
-      return () => clearInterval(timer);
-    }
-    if (lockedUntil) {
-      const timer = setTimeout(
-        () => setNow(Date.now()),
-        lockedUntil - Date.now() + 50,
-      );
-      return () => clearTimeout(timer);
-    }
-  }, [reels.state, lockedUntil]);
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', state => {
-      if (state === 'active') {
-        setNow(Date.now());
-      }
-    });
-    return () => subscription.remove();
-  }, []);
-
-  const saveReelsSession = useCallback((next: ReelsSession | null) => {
-    setReelsSession(next);
-    setNow(Date.now());
-    if (next) {
-      writeJson(STORAGE_KEYS.reelsSession, next);
-    } else {
-      removeKeys([STORAGE_KEYS.reelsSession]);
-    }
   }, []);
 
   // ---- pause before opening, daily limits -----------------------------
@@ -502,6 +441,66 @@ function FocusShell({ initial }: { initial: Loaded }) {
     x: xUsage,
     reddit: redditUsage,
   };
+
+  // ---- timed Reels and Shorts ----------------------------------------
+  // A window's budget only runs while Reels (Shorts) are on screen: not
+  // in Messages, not in the Focus hub, not while Focus is closed.
+  const igActivePath = igPaths[igTab] ?? '';
+  const reelsWindow = useTimeWindow(
+    initial.reelsWindow,
+    STORAGE_KEYS.reelsSession,
+    inApp &&
+      activeService === 'instagram' &&
+      (igTab === 'reels' || /^\/reels?\//i.test(igActivePath)),
+  );
+  const reels = reelsWindow.status;
+  const reelsOpen = reels.state === 'active' && settings.controls.blockReels;
+  const lockedUntil = reels.state === 'locked' ? reels.until : 0;
+  const shortsWindow = useTimeWindow(
+    initial.shortsWindow,
+    STORAGE_KEYS.shortsSession,
+    inApp &&
+      activeService === 'youtube' &&
+      /^\/shorts(?:\/|$)/i.test(webPaths.youtube),
+  );
+  const shorts = shortsWindow.status;
+  const shortsOpen = shorts.state === 'active' && settings.youtube.blockShorts;
+  const shortsLockedUntil = shorts.state === 'locked' ? shorts.until : 0;
+
+  // The controls the apps actually run with: Reels (Shorts) unblocked
+  // only while a window is open. The stored controls never change.
+  const effectiveControls = useMemo(
+    () =>
+      reelsOpen
+        ? { ...settings.controls, blockReels: false }
+        : settings.controls,
+    [reelsOpen, settings.controls],
+  );
+  const instagramGuardConfig = useMemo(
+    () =>
+      buildGuardConfig(effectiveControls, settings.grayscale, ownProfilePath),
+    [effectiveControls, settings.grayscale, ownProfilePath],
+  );
+  const webGuardConfigs = useMemo<Record<WebAppId, GuardConfig>>(
+    () => ({
+      youtube: buildYouTubeGuardConfig(
+        shortsOpen
+          ? { ...settings.youtube, blockShorts: false }
+          : settings.youtube,
+        settings.grayscale,
+      ),
+      x: buildXGuardConfig(settings.x, settings.grayscale),
+      reddit: buildRedditGuardConfig(settings.grayscale, redditHomePath),
+    }),
+    [
+      shortsOpen,
+      settings.youtube,
+      settings.x,
+      settings.grayscale,
+      redditHomePath,
+    ],
+  );
+
   const appLimit = (app: ServiceId, time = Date.now()): LimitStatus =>
     limitStatus(settings.limits[app], appUsage[app].todaySeconds(time), time);
   // For timers and listeners, which must not restart on every render.
@@ -671,21 +670,6 @@ function FocusShell({ initial }: { initial: Loaded }) {
   }, [updateDiagnostics]);
 
   // ---- actions -------------------------------------------------------
-
-  // Opening Reels: the Reels tab appears (and opens) with the window.
-  const startReels = useCallback(
-    (minutes: number) => {
-      const next = startReelsSession(reelsSession, minutes, Date.now());
-      if (next) {
-        saveReelsSession(next);
-      }
-    },
-    [reelsSession, saveReelsSession],
-  );
-
-  const endReels = useCallback(() => {
-    saveReelsSession(endReelsSession(reelsSession, Date.now()));
-  }, [reelsSession, saveReelsSession]);
 
   const rememberSearched = useCallback((username: string) => {
     setSearchHistory(prev => {
@@ -865,6 +849,20 @@ function FocusShell({ initial }: { initial: Loaded }) {
     [screen, webPaths],
   );
 
+  // A Shorts window opens: YouTube goes to Shorts (like the Reels tab).
+  const wasShortsOpen = useRef(shortsOpen);
+  useEffect(() => {
+    if (shortsOpen && !wasShortsOpen.current) {
+      const youtube = webRefs.current.youtube;
+      if (youtube) {
+        youtube.navigate(YOUTUBE_SHORTS_PATH);
+      } else {
+        webInitialUrls.current.youtube = YOUTUBE_ORIGIN + YOUTUBE_SHORTS_PATH;
+      }
+    }
+    wasShortsOpen.current = shortsOpen;
+  }, [shortsOpen]);
+
   const onWebTab = useCallback(
     (tab: TabId) => {
       switch (tab) {
@@ -874,6 +872,9 @@ function FocusShell({ initial }: { initial: Loaded }) {
           } else {
             goWeb('youtube', youtubeHomePathFor(settings.youtube));
           }
+          break;
+        case 'ytShorts':
+          goWeb('youtube', YOUTUBE_SHORTS_PATH);
           break;
         case 'ytYou':
         case 'rProfile':
@@ -914,11 +915,6 @@ function FocusShell({ initial }: { initial: Loaded }) {
     Linking.openURL('instagram://app').catch(() =>
       Linking.openURL(INSTAGRAM_ORIGIN).catch(() => {}),
     );
-  }, []);
-
-  // "Open once in the Instagram app" (shared Reels).
-  const openNative = useCallback((path: string) => {
-    Linking.openURL(INSTAGRAM_ORIGIN + path).catch(() => {});
   }, []);
 
   /** Back to the app's start page, signed in as before. */
@@ -1112,6 +1108,9 @@ function FocusShell({ initial }: { initial: Loaded }) {
         if (screen === 'search') {
           return 'ytSearch';
         }
+        if (/^\/shorts(?:\/|$)/.test(path)) {
+          return 'ytShorts';
+        }
         return screen === 'library' ||
           /^\/(?:feed\/(?:you|library|history|playlists|channels)|playlist)/.test(
             path,
@@ -1175,7 +1174,6 @@ function FocusShell({ initial }: { initial: Loaded }) {
           onLoadEnd={handleIgLoadEnd}
           onLoadError={handleIgLoadError}
           onProcessTerminated={handleProcessTerminated}
-          onOpenNative={openNative}
           onExternalLink={onExternalLink}
         />
       </View>
@@ -1214,6 +1212,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
               onSearch={() => setScreen('search')}
               onScrollState={setCompactBar}
               onAppMessage={id === 'reddit' ? onRedditMessage : undefined}
+              lockedUntil={id === 'youtube' ? shortsLockedUntil : 0}
               onExternalLink={onExternalLink}
             />
           </View>
@@ -1276,9 +1275,15 @@ function FocusShell({ initial }: { initial: Loaded }) {
           reels={reels}
           onStartReels={minutes => {
             selectService('instagram');
-            startReels(minutes);
+            reelsWindow.open(minutes);
           }}
-          onEndReels={endReels}
+          onEndReels={reelsWindow.close}
+          shorts={shorts}
+          onStartShorts={minutes => {
+            selectService('youtube');
+            shortsWindow.open(minutes);
+          }}
+          onEndShorts={shortsWindow.close}
           onResetUsage={() =>
             Alert.alert('Nutzungszeit zurücksetzen?', undefined, [
               { text: 'Abbrechen', style: 'cancel' },
@@ -1298,6 +1303,12 @@ function FocusShell({ initial }: { initial: Loaded }) {
           active={webTab(activeService)}
           onPress={onWebTab}
           compact={compactBar && screen === 'browser'}
+          countdown={
+            activeService === 'youtube' && shorts.state === 'active'
+              ? { tab: 'ytShorts', text: formatCountdown(shorts.remainingMs) }
+              : undefined
+          }
+          hiddenTabs={shortsOpen ? [] : ['ytShorts']}
         />
       ) : null}
       {showTabBar && onInstagram ? (
@@ -1306,9 +1317,9 @@ function FocusShell({ initial }: { initial: Loaded }) {
           active={instagramTab}
           onPress={onTab}
           compact={compactBar && screen === 'browser'}
-          reelsCountdown={
+          countdown={
             reels.state === 'active'
-              ? formatCountdown(reels.remainingMs)
+              ? { tab: 'reels', text: formatCountdown(reels.remainingMs) }
               : undefined
           }
           hiddenTabs={[

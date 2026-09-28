@@ -39,6 +39,8 @@ export const INSTAGRAM_TABS: TabItem[] = [
 /** YouTube: start (subscriptions), search, your library. No Shorts. */
 export const YOUTUBE_TABS: TabItem[] = [
   { id: 'ytHome', label: 'YouTube', icon: 'home' },
+  // Only while a Shorts window is open.
+  { id: 'ytShorts', label: 'Shorts', icon: 'reels' },
   { id: 'ytSearch', label: 'Suche', icon: 'search' },
   { id: 'ytYou', label: 'Du', icon: 'profile' },
 ];
@@ -145,7 +147,7 @@ export function TabBar({
   active,
   onPress,
   hiddenTabs = [],
-  reelsCountdown,
+  countdown,
   compact = false,
 }: {
   /** The current app's buttons; empty for apps that bring their own UI. */
@@ -154,8 +156,8 @@ export function TabBar({
   onPress: (tab: TabId) => void;
   /** Tabs that do not apply right now (e.g. no profile before login). */
   hiddenTabs?: TabId[];
-  /** Remaining Reels time, shown under the Reels icon. */
-  reelsCountdown?: string;
+  /** Remaining Reels (Shorts) time, shown under that tab's icon. */
+  countdown?: { tab: TabId; text: string };
   /** While scrolling down the bar gets a little smaller, like the app's. */
   compact?: boolean;
 }) {
@@ -217,7 +219,7 @@ export function TabBar({
                         selected ? styles.selected : null,
                       ]}
                     >
-                      {id === 'reels' && reelsCountdown ? (
+                      {countdown && id === countdown.tab ? (
                         <>
                           <TabIcon
                             name={icon}
@@ -227,9 +229,9 @@ export function TabBar({
                           />
                           <Text
                             style={styles.countdown}
-                            accessibilityLabel={`Noch ${reelsCountdown}`}
+                            accessibilityLabel={`Noch ${countdown.text}`}
                           >
-                            {reelsCountdown}
+                            {countdown.text}
                           </Text>
                         </>
                       ) : (

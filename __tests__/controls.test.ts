@@ -6,6 +6,7 @@ import {
   policyFor,
 } from '../src/controls/controls';
 import { blockReasonForPath } from '../src/filtering/engine/RouteGuard';
+import { buildGuardConfig } from '../src/filtering/instagram/scripts';
 
 describe('modes', () => {
   it('Balanced is the default', () => {
@@ -21,7 +22,10 @@ describe('modes', () => {
   it('every preset blocks Reels and Explore', () => {
     for (const controls of Object.values(PRESETS)) {
       const policy = policyFor(controls);
-      expect(policy.reels && policy.sharedReel && policy.explore).toBe(true);
+      expect(policy.reels && policy.explore).toBe(true);
+      // A Reel sent to you opens alone; the page guard stops swiping on.
+      expect(policy.sharedReel).toBe(false);
+      expect(buildGuardConfig(controls).singleReel).toBe(true);
     }
   });
 });

@@ -79,7 +79,6 @@ type Props = {
   onLoadEnd: () => void;
   onLoadError: (code: number) => void;
   onProcessTerminated: () => void;
-  onOpenNative: (path: string) => void;
   onExternalLink: (url: string, userInitiated: boolean) => boolean;
 };
 
@@ -133,7 +132,6 @@ function InstagramAppImpl(
     onLoadEnd,
     onLoadError,
     onProcessTerminated,
-    onOpenNative,
     onExternalLink,
   }: Props,
   ref: React.Ref<InstagramAppHandle>,
@@ -212,6 +210,15 @@ function InstagramAppImpl(
   useEffect(() => {
     onTabChange(active);
   }, [active, onTabChange]);
+
+  // Nothing keeps playing in the tab you left (a Reel in Messages, say).
+  const previousTab = useRef(active);
+  useEffect(() => {
+    if (previousTab.current !== active) {
+      pages.current[previousTab.current]?.pauseMedia();
+      previousTab.current = active;
+    }
+  }, [active]);
 
   // Preload the other tabs once the first is up: then switching is instant.
   useEffect(() => {
@@ -510,7 +517,6 @@ function InstagramAppImpl(
                 onLoadError={onLoadError}
                 onProcessTerminated={onProcessTerminated}
                 onSearch={handlers[tab].onSearch}
-                onOpenNative={onOpenNative}
                 onExternalLink={onExternalLink}
               />
             ) : null}
@@ -536,7 +542,6 @@ function InstagramAppImpl(
           lockedUntil={lockedUntil || undefined}
           onBack={() => setTimeUp(false)}
           onSearch={() => setTimeUp(false)}
-          onOpenNative={() => setTimeUp(false)}
         />
       ) : null}
     </>

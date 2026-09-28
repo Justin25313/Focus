@@ -142,8 +142,11 @@ describe('injected guard script', () => {
     });
     expect(location.pathname).toBe('/natgeo/');
 
-    click('https://www.instagram.com/reel/XYZ/');
-    expect(lastMessage()).toMatchObject({ reason: 'sharedReel' });
+    // A single Reel someone sent you may open.
+    posted.length = 0;
+    const reel = click('https://www.instagram.com/reel/XYZ/');
+    expect(reel.defaultPrevented).toBe(true); // by the test's own listener
+    expect(messagesOfType('BLOCKED_ROUTE')).toHaveLength(0);
 
     document.body.removeEventListener('click', seenByPage);
   });
@@ -274,6 +277,65 @@ describe('injected guard script', () => {
     await waitFor(() => bar.hasAttribute('data-focus-ig-nav'), 600);
     expect(bar.hasAttribute('data-focus-ig-nav')).toBe(true);
     bar.remove();
+  });
+
+  describe('a Reel sent to you', () => {
+    const configure = (...args: Parameters<typeof buildGuardConfig>) =>
+      // eslint-disable-next-line no-eval
+      (0, eval)(configureScript(buildGuardConfig(...args)));
+    afterEach(() => {
+      configure(FOLLOWING);
+      history.pushState({}, '', '/natgeo/');
+    });
+
+    it('opens alone, but swiping on to the next Reel is blocked', () => {
+      history.pushState({}, '', '/direct/t/123/');
+      history.pushState({}, '', '/reel/AAA/');
+      expect(lastOfType('ROUTE_CHANGED')).toEqual({
+        type: 'ROUTE_CHANGED',
+        path: '/reel/AAA/',
+      });
+      expect(
+        document.documentElement.hasAttribute('data-focus-single-reel'),
+      ).toBe(true);
+      // Instagram's viewer moves on to the next Reel …
+      history.replaceState({}, '', '/reels/BBB/');
+      expect(lastMessage()).toMatchObject({
+        type: 'BLOCKED_ROUTE',
+        path: '/reels/BBB/',
+        reason: 'sharedReel',
+      });
+      history.replaceState({}, '', '/reel/CCC/');
+      expect(lastMessage()).toMatchObject({ reason: 'sharedReel' });
+      // … back to the one that was sent is fine.
+      history.replaceState({}, '', '/reel/AAA/');
+      expect(lastMessage()).toMatchObject({ type: 'ROUTE_CHANGED' });
+      // The Reels feed itself stays blocked.
+      history.pushState({}, '', '/reels/');
+      expect(lastMessage()).toMatchObject({ reason: 'reels' });
+      // Leaving and opening another shared Reel starts over.
+      history.pushState({}, '', '/direct/t/123/');
+      history.pushState({}, '', '/reel/DDD/');
+      expect(lastMessage()).toEqual({
+        type: 'ROUTE_CHANGED',
+        path: '/reel/DDD/',
+      });
+      history.pushState({}, '', '/direct/t/123/');
+      expect(
+        document.documentElement.hasAttribute('data-focus-single-reel'),
+      ).toBe(false);
+    });
+
+    it('swipes freely while a Reels window is open', () => {
+      configure({ ...FOLLOWING, blockReels: false });
+      history.pushState({}, '', '/reel/AAA/');
+      history.replaceState({}, '', '/reels/BBB/');
+      expect(lastMessage()).toEqual({
+        type: 'ROUTE_CHANGED',
+        path: '/reels/BBB/',
+      });
+      expect(messagesOfType('BLOCKED_ROUTE')).toHaveLength(0);
+    });
   });
 
   describe('modes', () => {

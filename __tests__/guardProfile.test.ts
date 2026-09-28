@@ -2,7 +2,7 @@
  * Your own profile gets the app's profile top.
  *
  * @jest-environment jsdom
- * @jest-environment-options {"url": "https://www.instagram.com/jstin_505/"}
+ * @jest-environment-options {"url": "https://www.instagram.com/focus_user/"}
  */
 /// <reference lib="dom" />
 import {
@@ -48,7 +48,7 @@ beforeAll(() => {
     '<main><div><header>web header</header></div></main>';
   // eslint-disable-next-line no-eval
   (0, eval)(
-    buildGuardScript(buildGuardConfig(PRESETS.balanced, false, '/jstin_505/')),
+    buildGuardScript(buildGuardConfig(PRESETS.balanced, false, '/focus_user/')),
   );
 });
 
@@ -65,15 +65,31 @@ describe('own profile', () => {
       document.documentElement.hasAttribute('data-focus-own-profile'),
     ).toBe(true);
     // Focus shows the app's profile header; the web one goes.
-    expect(
-      document.documentElement.hasAttribute('data-focus-top-hidden'),
-    ).toBe(true);
+    expect(document.documentElement.hasAttribute('data-focus-top-hidden')).toBe(
+      true,
+    );
 
     (top.querySelectorAll('.fp-btn')[1] as HTMLElement).click();
     expect(posted).toContainEqual({
       type: 'SHARE',
-      url: 'https://www.instagram.com/jstin_505/',
+      url: 'https://www.instagram.com/focus_user/',
     });
+  });
+
+  it('turns the profile tabs into the app icon row', async () => {
+    const row = document.createElement('div');
+    row.innerHTML =
+      '<a href="/focus_user/"><svg></svg>Beiträge</a>' +
+      '<a href="/focus_user/tagged/"><svg></svg>Markiert</a>';
+    document.querySelector('main')!.appendChild(row);
+    await waitFor(() => row.hasAttribute('data-focus-profile-tabs'));
+    const [posts, tagged] = Array.from(row.querySelectorAll('a'));
+    expect(posts.hasAttribute('data-focus-tab-active')).toBe(true);
+    expect(tagged.hasAttribute('data-focus-tab-active')).toBe(false);
+    history.pushState({}, '', '/focus_user/tagged/');
+    await waitFor(() => tagged.hasAttribute('data-focus-tab-active'));
+    expect(posts.hasAttribute('data-focus-tab-active')).toBe(false);
+    history.pushState({}, '', '/focus_user/');
   });
 
   it('leaves other profiles alone', async () => {
@@ -88,7 +104,7 @@ describe('own profile', () => {
     const from = 'https://www.instagram.com/';
     const share = (url: string) =>
       parseWebMessage(JSON.stringify({ type: 'SHARE', url }), from);
-    expect(share('https://www.instagram.com/jstin_505/')).not.toBeNull();
+    expect(share('https://www.instagram.com/focus_user/')).not.toBeNull();
     expect(share('https://evil.example/x')).toBeNull();
     expect(share(['javascript', 'alert(1)'].join(':'))).toBeNull();
   });

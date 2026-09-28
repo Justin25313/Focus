@@ -13,6 +13,8 @@ import { RouteRule, ServiceRules } from '../engine/types';
 export const YOUTUBE_ORIGIN = 'https://m.youtube.com';
 export const YOUTUBE_SUBSCRIPTIONS_PATH = '/feed/subscriptions';
 export const YOUTUBE_YOU_PATH = '/feed/you';
+/** The Shorts player (YouTube picks the first Short). */
+export const YOUTUBE_SHORTS_PATH = '/shorts';
 
 export const YOUTUBE_ROUTE_RULES: readonly RouteRule[] = [
   { id: 'yt-home', pattern: '^/$', effect: 'block', reason: 'ytHome' },
