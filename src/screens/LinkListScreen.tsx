@@ -32,9 +32,7 @@ export function LinkListScreen({
       <ScrollView
         contentContainerStyle={{ paddingBottom: tabBarSpace(insets.bottom) }}
       >
-        <Text style={[styles.largeTitle, { color: theme.label }]}>
-          {title}
-        </Text>
+        <Text style={[styles.largeTitle, { color: theme.label }]}>{title}</Text>
         {items.map((item, index) => (
           <Pressable
             key={item.key}

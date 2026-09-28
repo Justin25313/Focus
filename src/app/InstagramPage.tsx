@@ -56,7 +56,7 @@ type Props = {
   onProcessTerminated: () => void;
   onSearch: () => void;
   onOpenNative: (path: string) => void;
-  onExternalLink: (url: string) => boolean;
+  onExternalLink: (url: string, userInitiated: boolean) => boolean;
 };
 
 /**

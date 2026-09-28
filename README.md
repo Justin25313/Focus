@@ -50,7 +50,10 @@ Werbung ausgeblendet · Suche nach `r/name`, `u/name` oder Beiträgen.
 - **Tabs wie in der App:** jeder Tab (Home, Reels, Nachrichten, Suche, Profil) hat eine eigene
   Seite, die ihren Stand behält; seitlich wischen wechselt den Tab, die anderen Tabs laden im
   Hintergrund vor – Wechseln ohne Nachladen
-- **Links zu Instagram, YouTube, X oder Reddit** öffnen in Focus, nie in den echten Apps
+- **Links zu Instagram, YouTube, X oder Reddit** öffnen in Focus, nie in den echten Apps –
+  aber nur nach einem Tipp; Seiten, die von selbst weiterleiten, holen dich nicht heraus
+- **Pro App (gedrückt halten):** „Neu starten“ (zur Startseite, angemeldet bleiben) und
+  „Abmelden“ (löscht nur die Daten dieser App)
 - **Leiste wird beim Runterscrollen etwas kleiner**, beim Hochscrollen wieder normal (alle Apps)
 - **Schnell:** Seitenwechsel ohne Neuladen, die Ladefläche geht, sobald Inhalte da sind
 - **Kein Neuladen** bei App-Wechsel, Sperren oder Kontrollzentrum; Lade-Skeletons statt Springen

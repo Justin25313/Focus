@@ -71,6 +71,7 @@ import {
 import { ServiceRules } from '../filtering/engine/types';
 import {
   SERVICE_IDS,
+  SERVICE_INFO,
   ServiceId,
   WEB_APP_IDS,
   WebAppId,
@@ -114,6 +115,23 @@ import { tabBarSpace, useTheme } from '../ui/theme';
 /** Keys shared with AppDelegate.swift (NSUserDefaults). */
 const CLEAR_REQUEST_KEY = 'FocusClearWebsiteDataRequest';
 const CLEAR_DONE_KEY = 'FocusClearWebsiteDataDoneAt';
+const CLEAR_DOMAINS_KEY = 'FocusClearWebsiteDataDomains';
+
+/** The sites an app's login and data live on (for "Abmelden"). */
+const APP_DOMAINS: Record<ServiceId, string[]> = {
+  instagram: ['instagram.com', 'cdninstagram.com', 'facebook.com', 'fbcdn.net'],
+  youtube: [
+    'youtube.com',
+    'ytimg.com',
+    'googlevideo.com',
+    'google.com',
+    'google.de',
+    'google.at',
+    'google.ch',
+  ],
+  x: ['x.com', 'twitter.com', 'twimg.com'],
+  reddit: ['reddit.com', 'redd.it', 'redditmedia.com', 'redditstatic.com'],
+};
 
 const FILTER_TIMEOUT_MS = 5000;
 
@@ -761,12 +779,16 @@ function FocusShell({ initial }: { initial: Loaded }) {
       webRefs.current[app]?.navigate(path);
     }
   };
-  const onExternalLink = useCallback((url: string) => {
+  const onExternalLink = useCallback((url: string, userInitiated: boolean) => {
     const target = focusAppForUrl(url);
     if (!target) {
       return false;
     }
-    openLinkRef.current(target.app, target.path);
+    // Only a tap switches apps. A page that keeps redirecting (e.g. a
+    // Reddit link to Instagram) must not pull you out every time.
+    if (userInitiated) {
+      openLinkRef.current(target.app, target.path);
+    }
     return true;
   }, []);
 
@@ -899,20 +921,49 @@ function FocusShell({ initial }: { initial: Loaded }) {
     Linking.openURL(INSTAGRAM_ORIGIN + path).catch(() => {});
   }, []);
 
-  const clearWebsiteData = useCallback(() => {
+  /** Back to the app's start page, signed in as before. */
+  const restartApp = useCallback(
+    (app: ServiceId) => {
+      if (app === 'instagram') {
+        igApp.current?.restartAll();
+        return;
+      }
+      const start =
+        app === 'youtube'
+          ? YOUTUBE_ORIGIN + youtubeHomePathFor(settingsRef.current.youtube)
+          : app === 'x'
+          ? X_ORIGIN + X_HOME_PATH
+          : REDDIT_ORIGIN + (redditHomePath ?? REDDIT_NOTIFICATIONS_PATH);
+      webRefs.current[app]?.restart(start);
+    },
+    [redditHomePath],
+  );
+
+  /** Signs out of one app: its cookies and website data only. */
+  const logoutApp = useCallback((app: ServiceId) => {
+    const name = SERVICE_INFO[app].name;
     Alert.alert(
-      'Instagram-Websitedaten löschen?',
-      'Cookies, Cache und dein Login in Focus werden entfernt. Deine Focus-Einstellungen bleiben.',
+      `Von ${name} abmelden?`,
+      `Login, Cookies und Verlauf von ${name} in Focus werden gelöscht. Andere Apps bleiben angemeldet, deine Focus-Einstellungen auch.`,
       [
         { text: 'Abbrechen', style: 'cancel' },
         {
-          text: 'Löschen',
+          text: 'Abmelden',
           style: 'destructive',
           onPress: () => {
             setClearing(true);
-            igApp.current?.clearCaches();
-            removeKeys([STORAGE_KEYS.lastRoute, STORAGE_KEYS.ownProfile]);
-            setOwnProfilePath(null);
+            if (app === 'instagram') {
+              removeKeys([STORAGE_KEYS.lastRoute, STORAGE_KEYS.ownProfile]);
+              setOwnProfilePath(null);
+            }
+            if (app === 'reddit') {
+              removeKeys([
+                STORAGE_KEYS.redditSubscriptions,
+                STORAGE_KEYS.redditCommunities,
+              ]);
+              setSubscriptions([]);
+              setCommunities([]);
+            }
 
             let finished = false;
             const finish = (complete: boolean) => {
@@ -923,24 +974,28 @@ function FocusShell({ initial }: { initial: Loaded }) {
               Settings.clearWatch(watchId);
               clearTimeout(timeout);
               setClearing(false);
-              igApp.current?.restartAll();
+              restartRef.current(app);
               Alert.alert(
-                complete ? 'Gelöscht' : 'Teilweise gelöscht',
+                complete ? 'Abgemeldet' : 'Teilweise abgemeldet',
                 complete
-                  ? 'Instagram startet neu. Melde dich wieder an.'
-                  : 'Der Cache wurde geleert, Cookies eventuell nicht. Starte Focus neu, um das Löschen abzuschließen.',
+                  ? `${name} startet neu. Melde dich wieder an, wenn du willst.`
+                  : 'Starte Focus neu, um das Abmelden abzuschließen.',
               );
             };
             const watchId = Settings.watchKeys([CLEAR_DONE_KEY], () =>
               finish(true),
             );
             const timeout = setTimeout(() => finish(false), 8000);
+            // Which sites first, then the request the app is watching.
+            Settings.set({ [CLEAR_DOMAINS_KEY]: APP_DOMAINS[app] });
             Settings.set({ [CLEAR_REQUEST_KEY]: true });
           },
         },
       ],
     );
   }, []);
+  const restartRef = useRef(restartApp);
+  restartRef.current = restartApp;
 
   const resetSettings = useCallback(() => {
     Alert.alert(
@@ -1209,12 +1264,12 @@ function FocusShell({ initial }: { initial: Loaded }) {
           health={health}
           diagnostics={diagnostics}
           clearingWebsiteData={clearing}
-          onReloadInstagram={() => {
-            selectService('instagram');
-            igApp.current?.reloadActive();
+          onRestartApp={app => {
+            restartApp(app);
+            selectService(app);
           }}
           onOpenInstagramApp={openInstagramApp}
-          onClearWebsiteData={clearWebsiteData}
+          onLogoutApp={logoutApp}
           onResetSettings={resetSettings}
           onResetDiagnostics={resetDiagnostics}
           usageLog={usage.log}

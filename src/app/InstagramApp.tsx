@@ -80,7 +80,7 @@ type Props = {
   onLoadError: (code: number) => void;
   onProcessTerminated: () => void;
   onOpenNative: (path: string) => void;
-  onExternalLink: (url: string) => boolean;
+  onExternalLink: (url: string, userInitiated: boolean) => boolean;
 };
 
 /** Posting and stories: only in the real app – asked, never silent. */

@@ -26,6 +26,8 @@ export type ServiceBrowserHandle = {
   pauseMedia: () => void;
   reload: () => void;
   goBack: () => void;
+  /** Start over at `url` (after signing out, or when stuck). */
+  restart: (url: string) => void;
 };
 
 type Props = {
@@ -42,7 +44,7 @@ type Props = {
   onScrollState: (compact: boolean) => void;
   /** App-specific messages (e.g. Reddit's joined communities). */
   onAppMessage?: (message: WebMessage) => void;
-  onExternalLink?: (url: string) => boolean;
+  onExternalLink?: (url: string, userInitiated: boolean) => boolean;
 };
 
 const LOADING_MAX_MS = 8000;
@@ -95,6 +97,11 @@ function ServiceBrowserImpl(
       pauseMedia: () => browser.current?.pauseMedia(),
       reload: () => browser.current?.reload(),
       goBack: () => browser.current?.goBack(),
+      restart: url => {
+        setBlock(null);
+        setOffline(false);
+        browser.current?.replaceWith(url);
+      },
     }),
     [],
   );

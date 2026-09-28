@@ -37,9 +37,9 @@ type Props = {
   health: FilterHealth;
   diagnostics: Diagnostics;
   clearingWebsiteData: boolean;
-  onReloadInstagram: () => void;
+  onRestartApp: (id: ServiceId) => void;
   onOpenInstagramApp: () => void;
-  onClearWebsiteData: () => void;
+  onLogoutApp: (id: ServiceId) => void;
   onResetSettings: () => void;
   onResetDiagnostics: () => void;
   usageLog: UsageLog;
@@ -62,9 +62,9 @@ export function SettingsScreen({
   health,
   diagnostics,
   clearingWebsiteData,
-  onReloadInstagram,
+  onRestartApp,
   onOpenInstagramApp,
-  onClearWebsiteData,
+  onLogoutApp,
   onResetSettings,
   onResetDiagnostics,
   usageLog,
@@ -194,7 +194,7 @@ export function SettingsScreen({
         </GroupedSection>
 
         <Text style={[styles.about, { color: theme.tertiaryLabel }]}>
-          Focus 0.15 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
+          Focus 0.16 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
           Deine Einstellungen bleiben auf diesem iPhone.
         </Text>
       </ScrollView>
@@ -217,9 +217,9 @@ export function SettingsScreen({
         reels={reels}
         onStartReels={minutes => closeSheetThen(() => onStartReels(minutes))()}
         onEndReels={onEndReels}
-        onReloadInstagram={closeSheetThen(onReloadInstagram)}
+        onRestartApp={app => closeSheetThen(() => onRestartApp(app))()}
         onOpenInstagramApp={onOpenInstagramApp}
-        onClearWebsiteData={onClearWebsiteData}
+        onLogoutApp={onLogoutApp}
         clearingWebsiteData={clearingWebsiteData}
       />
     </View>

@@ -118,9 +118,9 @@ type Props = {
   reels: ReelsStatus;
   onStartReels: (minutes: number) => void;
   onEndReels: () => void;
-  onReloadInstagram: () => void;
+  onRestartApp: (app: ServiceId) => void;
   onOpenInstagramApp: () => void;
-  onClearWebsiteData: () => void;
+  onLogoutApp: (app: ServiceId) => void;
   clearingWebsiteData: boolean;
 };
 
@@ -185,6 +185,21 @@ export function AppSettingsSheet({ app, onClose, ...props }: Props) {
             />
           ) : null}
           {shown === 'reddit' ? <RedditSettings /> : null}
+          <GroupedSection
+            footer={`„Neu starten“ bringt ${SERVICE_INFO[shown].name} zur Startseite zurück – hilft, wenn eine Seite hängt oder dich woandershin schickt. „Abmelden“ löscht nur die Daten dieser App.`}
+          >
+            <ButtonRow
+              label="Neu starten"
+              onPress={() => props.onRestartApp(shown)}
+            />
+            <ButtonRow
+              label="Abmelden"
+              detail="Login, Cookies und Verlauf dieser App löschen"
+              onPress={() => props.onLogoutApp(shown)}
+              busy={props.clearingWebsiteData}
+              destructive
+            />
+          </GroupedSection>
         </ScrollView>
       </View>
     </Modal>
@@ -244,10 +259,7 @@ function InstagramSettings({
   reels,
   onStartReels,
   onEndReels,
-  onReloadInstagram,
   onOpenInstagramApp,
-  onClearWebsiteData,
-  clearingWebsiteData,
 }: Omit<Props, 'app' | 'onClose'>) {
   const theme = useTheme();
   const controls = settings.controls;
@@ -390,20 +402,9 @@ function InstagramSettings({
       </GroupedSection>
 
       <GroupedSection footer="Kamera, Filter und manche Posting-Funktionen gibt es nur in der offiziellen App.">
-        <ButtonRow label="Instagram neu laden" onPress={onReloadInstagram} />
         <ButtonRow
           label="Zum Posten: Instagram-App öffnen"
           onPress={onOpenInstagramApp}
-        />
-      </GroupedSection>
-
-      <GroupedSection>
-        <ButtonRow
-          label="Instagram-Websitedaten löschen"
-          detail="Löscht Cookies, Cache und Login. Du musst dich neu anmelden."
-          onPress={onClearWebsiteData}
-          busy={clearingWebsiteData}
-          destructive
         />
       </GroupedSection>
     </>

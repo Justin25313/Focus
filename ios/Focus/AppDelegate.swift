@@ -59,10 +59,13 @@ class ReactNativeDelegate: RCTDefaultReactNativeFactoryDelegate {
 /// gone we write `FocusClearWebsiteDataDoneAt`, which JS is watching.
 /// This avoids a custom native module while keeping cookie removal native
 /// (Instagram's session cookie is HttpOnly and unreachable from JS).
+/// With `FocusClearWebsiteDataDomains` set, only those sites are cleared
+/// (e.g. "Abmelden" for one app); without it, everything.
 @MainActor
 final class WebsiteDataJanitor {
   static let requestKey = "FocusClearWebsiteDataRequest"
   static let doneKey = "FocusClearWebsiteDataDoneAt"
+  static let domainsKey = "FocusClearWebsiteDataDomains"
 
   private var observer: NSObjectProtocol?
   private var inProgress = false
@@ -85,11 +88,25 @@ final class WebsiteDataJanitor {
     guard !inProgress, UserDefaults.standard.bool(forKey: Self.requestKey) else { return }
     inProgress = true
 
+    let domains = UserDefaults.standard.stringArray(forKey: Self.domainsKey) ?? []
+
     Task { @MainActor in
-      await WKWebsiteDataStore.default().removeData(
-        ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(),
-        modifiedSince: .distantPast
-      )
+      let store = WKWebsiteDataStore.default()
+      let types = WKWebsiteDataStore.allWebsiteDataTypes()
+      if domains.isEmpty {
+        await store.removeData(ofTypes: types, modifiedSince: .distantPast)
+      } else {
+        // Records are grouped by site ("reddit.com"); match it and its
+        // subdomains.
+        let records = await store.dataRecords(ofTypes: types)
+        let matching = records.filter { record in
+          domains.contains { domain in
+            record.displayName == domain || record.displayName.hasSuffix("." + domain)
+          }
+        }
+        await store.removeData(ofTypes: types, for: matching)
+      }
+      UserDefaults.standard.removeObject(forKey: Self.domainsKey)
       UserDefaults.standard.set(false, forKey: Self.requestKey)
       UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: Self.doneKey)
       self.inProgress = false

@@ -93,8 +93,10 @@ type Props = BrowserEvents & {
   /**
    * A link leaving this app. Return true when Focus handled it (e.g. an
    * Instagram link opened in Focus's Instagram); otherwise iOS opens it.
+   * `userInitiated`: a tap, or a redirect right after one – not a page
+   * sending you somewhere by itself.
    */
-  onExternalLink?: (url: string) => boolean;
+  onExternalLink?: (url: string, userInitiated: boolean) => boolean;
 };
 
 /**
@@ -103,6 +105,9 @@ type Props = BrowserEvents & {
  * locking the phone never reloads it. `initialUrl` is only read on first
  * mount.
  */
+/** A redirect this soon after a tapped link still counts as that tap. */
+const USER_NAVIGATION_MS = 3000;
+
 function BrowserViewImpl(
   {
     initialUrl,
@@ -173,6 +178,7 @@ function BrowserViewImpl(
     [inject],
   );
 
+  const lastTapAt = useRef(0);
   const openExternal = useCallback((url: string) => {
     const now = Date.now();
     const last = lastExternal.current;
@@ -180,7 +186,12 @@ function BrowserViewImpl(
       return;
     }
     lastExternal.current = { url, at: now };
-    if (onExternalLinkRef.current?.(url)) {
+    const userInitiated = now - lastTapAt.current < USER_NAVIGATION_MS;
+    if (onExternalLinkRef.current?.(url, userInitiated)) {
+      return;
+    }
+    if (!userInitiated) {
+      // Pages may not send you out of Focus by themselves.
       return;
     }
     Linking.openURL(url).catch(() => {});
@@ -188,6 +199,9 @@ function BrowserViewImpl(
 
   const onShouldStartLoadWithRequest = useCallback(
     (request: ShouldStartLoadRequest) => {
+      if (request.navigationType === 'click') {
+        lastTapAt.current = Date.now();
+      }
       const decision = decideNavigation(
         { url: request.url, isTopFrame: request.isTopFrame },
         policyRef.current,
