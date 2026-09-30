@@ -20,7 +20,7 @@ weniger gilt sofort, mehr Zeit oder „Aus“ erst ab morgen.
 
 **Zeitfenster (Reels und Shorts):** 5/10/15 Minuten bewusst freigeben – die Zeit läuft
 **nur, solange Reels bzw. Shorts auf dem Bildschirm sind**. Wechsel zu Nachrichten, ins
-Focus-Menü, in eine andere App oder Focus schließen pausiert sie; beim Zurückkommen geht es
+Loopweg-Menü, in eine andere App oder Loopweg schließen pausiert sie; beim Zurückkommen geht es
 genau dort weiter (alle paar Sekunden gespeichert, auch nach einem Absturz). Countdown in
 der Leiste, harter Stopp, nicht verlängerbar, übrige Zeit verfällt um Mitternacht; danach
 mindestens 5 Minuten gesperrt (so lange wie das Fenster). Auch das Tageslimit zählt nur die
