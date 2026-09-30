@@ -940,7 +940,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
     const name = SERVICE_INFO[app].name;
     Alert.alert(
       `Von ${name} abmelden?`,
-      `Login, Cookies und Verlauf von ${name} in Focus werden gelöscht. Andere Apps bleiben angemeldet, deine Focus-Einstellungen auch.`,
+      `Login, Cookies und Verlauf von ${name} in Loopweg werden gelöscht. Andere Apps bleiben angemeldet, deine Loopweg-Einstellungen auch.`,
       [
         { text: 'Abbrechen', style: 'cancel' },
         {
@@ -975,7 +975,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
                 complete ? 'Abgemeldet' : 'Teilweise abgemeldet',
                 complete
                   ? `${name} startet neu. Melde dich wieder an, wenn du willst.`
-                  : 'Starte Focus neu, um das Abmelden abzuschließen.',
+                  : 'Starte Loopweg neu, um das Abmelden abzuschließen.',
               );
             };
             const watchId = Settings.watchKeys([CLEAR_DONE_KEY], () =>
@@ -995,8 +995,8 @@ function FocusShell({ initial }: { initial: Loaded }) {
 
   const resetSettings = useCallback(() => {
     Alert.alert(
-      'Focus zurücksetzen?',
-      'Alle Focus-Einstellungen, der Suchverlauf und der gemerkte Ort werden zurückgesetzt. Dein Instagram-Login bleibt.',
+      'Loopweg zurücksetzen?',
+      'Alle Loopweg-Einstellungen, der Suchverlauf und der gemerkte Ort werden zurückgesetzt. Dein Instagram-Login bleibt.',
       [
         { text: 'Abbrechen', style: 'cancel' },
         {
@@ -1030,7 +1030,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
         <OnboardingScreen
           onContinue={(controls: Controls) => {
             updateSettings({ onboardingComplete: true, controls });
-            setScreen('browser');
+            setScreen('settings');
           }}
         />
       </>

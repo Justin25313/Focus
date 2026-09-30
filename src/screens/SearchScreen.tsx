@@ -163,7 +163,7 @@ export function SearchScreen({
         ) : null}
         {parsed.kind === 'blocked' ? (
           <Text style={[styles.note, { color: theme.secondaryLabel }]}>
-            Dieser Link führt zu Reels oder Explore und bleibt in Focus
+            Dieser Link führt zu Reels oder Explore und bleibt in Loopweg
             gesperrt.
           </Text>
         ) : null}

@@ -584,7 +584,7 @@ const GUARD_SOURCE = String.raw`
     if (config.homeFeed === 'hidden') {
       css +=
         'html[' + ROUTE_ATTR + '="home"] main article{display:none!important;}' +
-        'html[' + ROUTE_ATTR + '="home"] main::after{content:"Feed ausgeblendet – Stories oben, Nachrichten über Focus.";' +
+        'html[' + ROUTE_ATTR + '="home"] main::after{content:"Feed ausgeblendet – Stories oben, Nachrichten über Loopweg.";' +
         'display:block;text-align:center;padding:48px 32px;color:#8e8e8e;' +
         'font:15px/1.4 -apple-system,system-ui,sans-serif;}';
     }

@@ -47,8 +47,8 @@ const ICONS = {
     `<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.8h-15z" ${stroke(filled ? 2.1 : 1.9)} fill="${filled ? '#000' : 'none'}"/>` +
     `<path d="M10 20.5a2.2 2.2 0 0 0 4 0" ${stroke(filled ? 2.1 : 1.9)}/>`,
   focus: filled =>
-    `<circle cx="12" cy="12" r="8.3" ${stroke(filled ? 2.5 : 1.9)}/>` +
-    '<circle cx="12" cy="12" r="2.9" fill="#000"/>',
+    `<path d="M17.9 17.8A8.2 8.2 0 1 1 17.9 6.2" ${stroke(filled ? 2.7 : 2.1)}/>` +
+    `<circle cx="20.2" cy="12" r="${filled ? 1.7 : 1.4}" fill="#000"/>`,
 };
 
 /** Points; the tab bar draws the icons at this size. */

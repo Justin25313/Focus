@@ -24,9 +24,9 @@ export function SubPage({
           onPress={onBack}
           hitSlop={12}
           accessibilityRole="button"
-          accessibilityLabel="Zurück zu Focus"
+          accessibilityLabel="Zurück zu Loopweg"
         >
-          <Text style={[styles.back, { color: theme.accent }]}>‹ Focus</Text>
+          <Text style={[styles.back, { color: theme.accent }]}>‹ Loopweg</Text>
         </Pressable>
       </View>
       <ScrollView

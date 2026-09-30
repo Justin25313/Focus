@@ -1,17 +1,17 @@
-# Focus
+# Loopweg
 
 Instagram, YouTube, X und Reddit ohne Endlos-Feeds – als private iPhone-App.
 Kein Konto, kein Backend, kein Tracking, kein Abo.
 
-Focus lädt Instagram (mobile Web) in einer dauerhaften WebView und legt eine
+Loopweg lädt Instagram (mobile Web) in einer dauerhaften WebView und legt eine
 Schutzschicht darüber. Nachrichten, Profile, Stories und Beiträge funktionieren
 normal; Reels-Feed, Explore und Vorschläge bleiben draußen.
 
 ## Funktionen
 
-**Focus-Start:** Deine Apps als Icons wie auf dem Home-Bildschirm – antippen öffnet,
-gedrückt halten (oder *Bearbeiten*) zeigt, was Focus in der App sperrt. Darunter, was für
-alle Apps gilt: Nutzungszeit, Graustufen, Verhalten. Der runde Focus-Knopf rechts in der
+**Loopweg-Start:** Deine Apps als versetzte, zweispaltige Karten mit einer kurzen Beschreibung – antippen öffnet,
+gedrückt halten (oder *Bearbeiten*) zeigt, was Loopweg in der App sperrt. Darunter, was für
+alle Apps gilt: Nutzungszeit, Graustufen, Verhalten. Der runde Loopweg-Knopf rechts in der
 Leiste führt immer dorthin zurück; jede App behält ihre WebView beim Wechsel.
 
 **Gegen das Öffnen aus Gewohnheit:** kurze Pause (3/5/10 s, Atem-Animation) vor jeder App,
@@ -30,15 +30,15 @@ Zeit, in der die App wirklich offen ist.
 kurz frei (eigener Shorts-Tab mit Countdown) · Start = Abos, „Nur Suche“
 oder YouTube-Startseite · Trends/Erkunden/Gaming gesperrt · Empfehlungen unter Videos und
 Kommentare optional ausgeblendet · eigene Suche mit Vorschlägen beim Tippen · „Du“ als
-native Liste (Verlauf, Später ansehen, Playlists, Mag ich, Kanäle) · Google-Login bleibt in Focus.
+native Liste (Verlauf, Später ansehen, Playlists, Mag ich, Kanäle) · Google-Login bleibt in Loopweg.
 
-**X:** nur „Folge ich“ (Focus hält den Tab ausgewählt, „Für dich“ und Themen-Tabs wie News
+**X:** nur „Folge ich“ (Loopweg hält den Tab ausgewählt, „Für dich“ und Themen-Tabs wie News
 verschwinden; solange das nicht sicher ist, bleibt die Timeline verborgen) · kein Premium-Upsell · Erkunden und Trends gesperrt · eigene
 Suche mit `@name` · Leiste: Start, Suche, Mitteilungen, Nachrichten.
 
 **Reddit:** wie die App – eigene Kopfzeile (Communities/Zurück, Suchfeld, +), Leiste Home,
 Posteingang, Du · **Home = dein eigener Feed**: nur Beiträge aus den Communities, denen du
-beigetreten bist (Focus liest die Liste mit deinem Login bei Reddit; vorher: die zuletzt
+beigetreten bist (Loopweg liest die Liste mit deinem Login bei Reddit; vorher: die zuletzt
 geöffneten) – ohne Vorschläge · Reddits Startseite, Popular, All und Erkunden gesperrt ·
 Werbung ausgeblendet · Suche nach `r/name`, `u/name` oder Beiträgen.
 
@@ -62,20 +62,24 @@ Werbung ausgeblendet · Suche nach `r/name`, `u/name` oder Beiträgen.
 - **Tabs wie in der App:** jeder Tab (Home, Reels, Nachrichten, Suche, Profil) hat eine eigene
   Seite, die ihren Stand behält; seitlich wischen wechselt den Tab, die anderen Tabs laden im
   Hintergrund vor – Wechseln ohne Nachladen
-- **Links zu Instagram, YouTube, X oder Reddit** öffnen in Focus, nie in den echten Apps –
+- **Links zu Instagram, YouTube, X oder Reddit** öffnen in Loopweg, nie in den echten Apps –
   aber nur nach einem Tipp; Seiten, die von selbst weiterleiten, holen dich nicht heraus
 - **Pro App (gedrückt halten):** „Neu starten“ (zur Startseite, angemeldet bleiben) und
   „Abmelden“ (löscht nur die Daten dieser App)
 - **Leiste wird beim Runterscrollen etwas kleiner**, beim Hochscrollen wieder normal (alle Apps)
 - **Schnell:** Seitenwechsel ohne Neuladen, die Ladefläche geht, sobald Inhalte da sind
 - **Kein Neuladen** bei App-Wechsel, Sperren oder Kontrollzentrum; Lade-Skeletons statt Springen
-- Login direkt bei Instagram – Focus sieht und speichert kein Passwort
+- Login direkt bei Instagram – Loopweg sieht und speichert kein Passwort
 
 ## Installieren & aktualisieren (SideStore)
 
 Jeder Push baut per GitHub Action eine unsignierte `Focus.ipa` und veröffentlicht sie
 als Release. SideStore signiert sie mit deiner Apple-ID und erneuert die 7-Tage-Signatur
 selbst (LocalDevVPN, Einrichtung: [docs.sidestore.io](https://docs.sidestore.io)).
+
+Der sichtbare App-Name ist Loopweg. Paketname, Bundle-ID, IPA-Dateiname und
+SideStore-Quelle behalten ihre bisherigen technischen Kennungen, damit Updates
+und lokale Daten erhalten bleiben.
 
 In SideStore unter **Sources → +** einmal hinzufügen:
 
@@ -94,7 +98,7 @@ npm run ipa        # Release-ipa lokal bauen → dist/Focus.ipa
 ```
 
 **Live auf dem iPhone testen:** einmal `npm run ipa:dev` → `dist/FocusDev.ipa` per
-AirDrop an SideStore. „Focus Dev“ ist eine eigene App, die ihren Code live vom Mac lädt:
+AirDrop an SideStore. „Loopweg Dev“ ist eine eigene App, die ihren Code live vom Mac lädt:
 `npm start`, gleiches WLAN, lokales Netzwerk erlauben – Änderungen erscheinen sofort.
 Neu bauen nur bei nativen Änderungen (Pakete, `ios/`).
 
@@ -119,7 +123,7 @@ src/
     engine/messages.ts      Validierung der WebView-Bridge
   search/youtubeSuggest.ts  Suchvorschläge für YouTube
   usage/usage.ts            Lokale Nutzungszeit
-  screens/                  WebView, Suche, Focus-Tab, Sperr-/Ladeflächen
+  screens/                  WebView, Suche, Loopweg-Tab, Sperr-/Ladeflächen
   storage/                  Einstellungen, Diagnose, Verlauf (AsyncStorage)
   ui/, ui/skeleton/         Theme, Icons, Listen, Tab-Leiste, Skeleton-Bausteine
   ui/tabIcons/              Leisten-Icons als Vorlagen-PNGs (scripts/render-tab-icons.mjs)
@@ -138,7 +142,7 @@ ios/Focus/AppDelegate.swift + WebsiteDataJanitor (löscht WebKit-Daten auf Anfra
 - Die Leisten-Icons sind PNG-Vorlagen, eingefärbt mit der Systemfarbe `labelColor` –
   nur so wechseln sie mit dem Liquid Glass zwischen hell und dunkel. Nach Änderungen an
   den Formen `node scripts/render-tab-icons.mjs` ausführen.
-- Instagram ändert sein Web: unbekannte Routen zeigt der Focus-Tab unter *Filterstatus*;
+- Instagram ändert sein Web: unbekannte Routen zeigt der Loopweg-Tab unter *Filterstatus*;
   Regeln in `routes.ts` anpassen und die Regelversion erhöhen.
 
 ## Sicherheit

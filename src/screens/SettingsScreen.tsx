@@ -101,11 +101,14 @@ export function SettingsScreen({
           paddingBottom: tabBarSpace(insets.bottom) + 12,
         }}
       >
-        <Text style={[styles.largeTitle, { color: theme.label }]}>Focus</Text>
+        <Text style={[styles.largeTitle, { color: theme.label }]}>Loopweg</Text>
+        <Text style={[styles.intro, { color: theme.secondaryLabel }]}>
+          Social ohne Sog.
+        </Text>
 
         <View style={styles.appsHeader}>
           <Text style={[styles.sectionTitle, { color: theme.secondaryLabel }]}>
-            APPS
+            WOHIN MÖCHTEST DU?
           </Text>
           <Pressable
             onPress={() => setEditMode(value => !value)}
@@ -120,10 +123,11 @@ export function SettingsScreen({
           </Pressable>
         </View>
         <View style={styles.grid}>
-          {SERVICE_IDS.map(id => (
+          {SERVICE_IDS.map((id, index) => (
             <AppTile
               key={id}
               id={id}
+              staggered={index % 2 === 1}
               editing={editMode}
               badge={
                 id === 'instagram' && reels.state === 'active'
@@ -163,7 +167,7 @@ export function SettingsScreen({
           />
           <SwitchRow
             label="Zuletzt genutzte App direkt öffnen"
-            detail="Sonst startet Focus hier bei deinen Apps."
+            detail="Sonst startet Loopweg hier bei deinen Apps."
             value={settings.openLastAppOnLaunch}
             onValueChange={value => onChange({ openLastAppOnLaunch: value })}
           />
@@ -195,14 +199,14 @@ export function SettingsScreen({
             destructive
           />
           <ButtonRow
-            label="Focus-Einstellungen zurücksetzen"
+            label="Loopweg-Einstellungen zurücksetzen"
             onPress={onResetSettings}
             destructive
           />
         </GroupedSection>
 
         <Text style={[styles.about, { color: theme.tertiaryLabel }]}>
-          Focus 0.17 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
+          Loopweg 0.17 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
           Deine Einstellungen bleiben auf diesem iPhone.
         </Text>
       </ScrollView>
@@ -266,22 +270,32 @@ function pickPause(
   );
 }
 
-/** One app, like on the home screen. */
+const CARD_COLORS: Record<ServiceId, { light: string; dark: string }> = {
+  instagram: { light: '#FCECE7', dark: '#382522' },
+  youtube: { light: '#FBE8E8', dark: '#392326' },
+  x: { light: '#E8EDF0', dark: '#262C32' },
+  reddit: { light: '#FBEDE3', dark: '#3A2B22' },
+};
+
+/** A roomy destination card that also works as the app's edit affordance. */
 function AppTile({
   id,
   editing,
   badge,
+  staggered,
   onPress,
   onLongPress,
 }: {
   id: ServiceId;
   editing: boolean;
   badge?: string;
+  staggered: boolean;
   onPress: () => void;
   onLongPress: () => void;
 }) {
   const theme = useTheme();
   const name = SERVICE_INFO[id].name;
+  const surface = CARD_COLORS[id][theme.dark ? 'dark' : 'light'];
   return (
     <Pressable
       onPress={onPress}
@@ -289,13 +303,25 @@ function AppTile({
       delayLongPress={350}
       accessibilityRole="button"
       accessibilityLabel={editing ? `${name} bearbeiten` : `${name} öffnen`}
-      accessibilityHint={SERVICE_INFO[id].tagline}
+      accessibilityHint={`${SERVICE_INFO[id].tagline}. Gedrückt halten zum Bearbeiten.`}
       accessibilityActions={[{ name: 'longpress', label: 'Bearbeiten' }]}
       onAccessibilityAction={onLongPress}
-      style={({ pressed }) => [styles.tile, pressed ? styles.pressed : null]}
+      style={({ pressed }) => [
+        styles.tile,
+        staggered ? styles.staggered : null,
+        { backgroundColor: surface },
+        pressed ? styles.pressed : null,
+      ]}
     >
-      <View>
-        <AppIcon id={id} size={62} />
+      <View
+        pointerEvents="none"
+        style={[
+          styles.decoration,
+          theme.dark ? styles.decorationDark : styles.decorationLight,
+        ]}
+      />
+      <View style={styles.iconRow}>
+        <AppIcon id={id} size={56} />
         {editing ? (
           <View
             style={[
@@ -305,17 +331,32 @@ function AppTile({
           >
             <PencilIcon color={theme.label} size={13} />
           </View>
+        ) : (
+          <Text style={[styles.arrow, { color: theme.label }]}>↗</Text>
+        )}
+      </View>
+      <View style={styles.cardCopy}>
+        <Text
+          style={[styles.tileLabel, { color: theme.label }]}
+          numberOfLines={1}
+        >
+          {name}
+        </Text>
+        <Text
+          style={[styles.tagline, { color: theme.secondaryLabel }]}
+          numberOfLines={2}
+        >
+          {SERVICE_INFO[id].tagline}
+        </Text>
+        {badge ? (
+          <Text
+            style={[styles.tileBadge, { color: theme.accent }]}
+            numberOfLines={1}
+          >
+            {badge}
+          </Text>
         ) : null}
       </View>
-      <Text
-        style={[styles.tileLabel, { color: theme.label }]}
-        numberOfLines={1}
-      >
-        {name}
-      </Text>
-      {badge ? (
-        <Text style={[styles.tileBadge, { color: theme.accent }]}>{badge}</Text>
-      ) : null}
     </Pressable>
   );
 }
@@ -329,17 +370,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.3,
     marginHorizontal: 20,
-    marginBottom: 18,
+  },
+  intro: {
+    fontSize: 16,
+    marginHorizontal: 20,
+    marginTop: 4,
+    marginBottom: 24,
   },
   appsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginHorizontal: 32,
-    marginBottom: 12,
+    marginHorizontal: 22,
+    marginBottom: 8,
   },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.4,
   },
   editButton: {
     flexDirection: 'row',
@@ -352,14 +400,49 @@ const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    gap: 8,
-    marginBottom: 28,
+    rowGap: 12,
+    marginBottom: 32,
   },
   tile: {
-    width: 80,
-    alignItems: 'center',
-    gap: 6,
+    width: '47%',
+    minHeight: 178,
+    padding: 15,
+    borderRadius: 25,
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+  },
+  staggered: {
+    marginTop: 18,
+  },
+  decoration: {
+    position: 'absolute',
+    width: 128,
+    height: 128,
+    borderRadius: 64,
+    borderWidth: 20,
+    top: -57,
+    right: -53,
+  },
+  decorationLight: {
+    borderColor: '#FFFFFF99',
+  },
+  decorationDark: {
+    borderColor: '#FFFFFF18',
+  },
+  iconRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  arrow: {
+    fontSize: 22,
+    lineHeight: 25,
+    opacity: 0.65,
+  },
+  cardCopy: {
+    gap: 3,
   },
   pressed: {
     opacity: 0.6,
@@ -367,8 +450,8 @@ const styles = StyleSheet.create({
   },
   editBadge: {
     position: 'absolute',
-    top: -7,
-    left: -7,
+    top: 1,
+    left: 1,
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -377,14 +460,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tileLabel: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  tagline: {
     fontSize: 12,
-    fontWeight: '500',
+    lineHeight: 16,
   },
   tileBadge: {
     fontSize: 11,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
-    marginTop: -3,
+    marginTop: 3,
   },
   about: {
     fontSize: 13,
