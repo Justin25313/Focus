@@ -85,18 +85,16 @@ export function ProfileIcon({ color, size = 26, filled }: IconProps) {
   );
 }
 
-/** The Focus mark: a ring with a centred point. */
+/** A broken loop and a small point of light, echoing the app icon. */
 export function FocusIcon({ color, size = 26, filled }: IconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Circle
-        cx={12}
-        cy={12}
-        r={8.3}
+      <Path
+        d="M17.9 17.8A8.2 8.2 0 1 1 17.9 6.2"
         {...stroke(color)}
-        strokeWidth={filled ? 2.5 : 1.9}
+        strokeWidth={filled ? 2.7 : 2.1}
       />
-      <Circle cx={12} cy={12} r={2.9} fill={color} />
+      <Circle cx={20.2} cy={12} r={filled ? 1.7 : 1.4} fill={color} />
     </Svg>
   );
 }

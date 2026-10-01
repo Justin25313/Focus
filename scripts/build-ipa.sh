@@ -80,7 +80,7 @@ if [ "$MODE" = dev ]; then
   # on the Mac. Changed after the build: the app is unsigned anyway.
   PLIST="$APP/Info.plist"
   /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.justin25313.focus.dev" "$PLIST"
-  /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Focus Dev" "$PLIST"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Loopweg Dev" "$PLIST"
 fi
 
 echo "→ Packe $IPA_NAME.ipa …"

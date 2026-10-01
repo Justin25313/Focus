@@ -15,15 +15,15 @@ import { useTheme } from '../ui/theme';
 const POINTS: { title: string; body: string }[] = [
   {
     title: 'Was bleibt',
-    body: 'Nachrichten, Profile, Stories und Beiträge von Leuten, denen du folgst.',
+    body: 'Nachrichten, Profile, Abos und deine Communities.',
   },
   {
     title: 'Was draußen bleibt',
-    body: 'Reels-Feed und Explore. Kein Video zieht dich ins nächste.',
+    body: 'Reels, Shorts und endlose Empfehlungen. Ein Inhalt zieht dich nicht in den nächsten.',
   },
   {
     title: 'Nur auf deinem iPhone',
-    body: 'Kein Konto, keine Cloud, kein Tracking. Dein Instagram-Login bleibt bei Instagram.',
+    body: 'Kein Loopweg-Konto, keine Cloud, kein Tracking. Deine Logins bleiben bei den jeweiligen Diensten.',
   },
 ];
 
@@ -62,9 +62,9 @@ export function OnboardingScreen({
         <View style={[styles.mark, { backgroundColor: theme.accent }]}>
           <FocusIcon color={theme.onAccent} size={44} />
         </View>
-        <Text style={[styles.title, { color: theme.label }]}>Focus</Text>
+        <Text style={[styles.title, { color: theme.label }]}>Loopweg</Text>
         <Text style={[styles.subtitle, { color: theme.secondaryLabel }]}>
-          Instagram ohne Reels, Explore und algorithmischen Ballast.
+          Deine Apps. Weniger Sog. Mehr von dem, wofür du sie geöffnet hast.
         </Text>
 
         <View style={styles.points}>
@@ -86,10 +86,10 @@ export function OnboardingScreen({
         </View>
 
         <Text style={[styles.modeTitle, { color: theme.label }]}>
-          Wähle deinen Modus
+          Instagram: Wähle deinen Modus
         </Text>
         <View style={styles.modes}>
-          <GroupedSection footer="Jederzeit änderbar im Focus-Tab.">
+          <GroupedSection footer="Jederzeit über die Instagram-Karte änderbar.">
             {PRESET_ORDER.map(id => (
               <CheckRow
                 key={id}
@@ -103,13 +103,13 @@ export function OnboardingScreen({
         </View>
 
         <Text style={[styles.tip, { color: theme.secondaryLabel }]}>
-          Tipp: Leg Focus auf den Platz der Instagram-App und verschiebe
-          Instagram in die App-Mediathek.
+          Tipp: Leg Loopweg auf deinen Home-Bildschirm und verschiebe die
+          anderen Social-Apps in die App-Mediathek.
         </Text>
       </ScrollView>
       <View style={styles.footer}>
         <PrimaryButton
-          title="Instagram öffnen"
+          title="Zu meinen Apps"
           onPress={() => onContinue(PRESETS[preset])}
         />
       </View>

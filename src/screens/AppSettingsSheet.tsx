@@ -76,7 +76,7 @@ const HOME_FEEDS: { id: HomeFeed; label: string; detail: string }[] = [
     label: 'Nur Stories',
     detail: 'Stories oben, keine Beiträge.',
   },
-  { id: 'off', label: 'Aus', detail: 'Focus öffnet direkt die Nachrichten.' },
+  { id: 'off', label: 'Aus', detail: 'Loopweg öffnet direkt die Nachrichten.' },
 ];
 
 const YOUTUBE_HOMES: { id: YouTubeHome; label: string; detail: string }[] = [
@@ -101,7 +101,7 @@ const YOUTUBE_HOMES: { id: YouTubeHome; label: string; detail: string }[] = [
 function confirmUnblock(what: string, onConfirm: () => void) {
   Alert.alert(
     `${what} wirklich erlauben?`,
-    `Damit ist der ${what}-Feed in Focus wieder erreichbar – genau das, wovor Focus schützt.`,
+    `Damit ist der ${what}-Feed in Loopweg wieder erreichbar – genau das, wovor Loopweg schützt.`,
     [
       { text: 'Gesperrt lassen', style: 'cancel' },
       { text: 'Erlauben', style: 'destructive', onPress: onConfirm },
@@ -538,7 +538,7 @@ function RedditSettings() {
   return (
     <GroupedSection
       title="Inhalte"
-      footer="Reddit startet in Focus bei deinen Communities: Jede, die du öffnest, landet dort. Die Suche findet Communities (r/name), Leute (u/name) und Beiträge."
+      footer="Reddit startet in Loopweg bei deinen Communities: Jede, die du öffnest, landet dort. Die Suche findet Communities (r/name), Leute (u/name) und Beiträge."
     >
       <ValueRow label="Startseite" value="Gesperrt" />
       <ValueRow label="Popular, All, Erkunden" value="Gesperrt" />

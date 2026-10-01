@@ -9,7 +9,7 @@ import { useTheme } from '../ui/theme';
 const COPY: Record<BlockReason, { title: string; body: string }> = {
   reels: {
     title: 'Reels sind aus',
-    body: 'Der Reels-Feed ist in Focus gesperrt, damit aus einem Video nicht zwanzig werden.',
+    body: 'Der Reels-Feed ist in Loopweg gesperrt, damit aus einem Video nicht zwanzig werden.',
   },
   sharedReel: {
     title: 'Nur dieses eine Reel',
@@ -17,23 +17,23 @@ const COPY: Record<BlockReason, { title: string; body: string }> = {
   },
   explore: {
     title: 'Explore ist aus',
-    body: 'Algorithmische Vorschläge bleiben draußen. Suchst du jemand Bestimmtes? Die Focus-Suche findet Profile direkt.',
+    body: 'Algorithmische Vorschläge bleiben draußen. Suchst du jemand Bestimmtes? Die Loopweg-Suche findet Profile direkt.',
   },
   feed: {
     title: 'Der Feed ist aus',
-    body: 'In diesem Modus gibt es nur Nachrichten. Den Modus änderst du im Focus-Tab.',
+    body: 'In diesem Modus gibt es nur Nachrichten. Den Modus änderst du über die Instagram-Karte auf dem Startbildschirm.',
   },
   stories: {
     title: 'Stories sind aus',
-    body: 'Stories hast du in Focus ausgeschaltet. Den Modus änderst du im Focus-Tab.',
+    body: 'Stories hast du in Loopweg ausgeschaltet. Den Modus änderst du über die Instagram-Karte auf dem Startbildschirm.',
   },
   saved: {
     title: 'Gespeichert ist aus',
-    body: 'Gespeicherte Beiträge sind in Focus ausgeschaltet – sie werden schnell zur eigenen Endlosliste.',
+    body: 'Gespeicherte Beiträge sind in Loopweg ausgeschaltet – sie werden schnell zur eigenen Endlosliste.',
   },
   shorts: {
     title: 'Shorts sind aus',
-    body: 'Shorts ziehen dich von einem Video ins nächste. Wenn du willst, öffne sie bewusst für ein paar Minuten – lange drücken auf YouTube im Focus-Menü.',
+    body: 'Shorts ziehen dich von einem Video ins nächste. Wenn du willst, öffne sie bewusst für ein paar Minuten – lange drücken auf YouTube im Loopweg-Menü.',
   },
   ytHome: {
     title: 'Was willst du sehen?',
@@ -41,7 +41,7 @@ const COPY: Record<BlockReason, { title: string; body: string }> = {
   },
   ytSubs: {
     title: 'Nur Suche',
-    body: 'In diesem Modus gibt es kein Abo-Feed – nur gezielte Suche. Den Modus änderst du im Focus-Tab.',
+    body: 'In diesem Modus gibt es kein Abo-Feed – nur gezielte Suche. Den Modus änderst du über die YouTube-Karte auf dem Startbildschirm.',
   },
   ytExplore: {
     title: 'Trends sind aus',
@@ -57,7 +57,7 @@ const COPY: Record<BlockReason, { title: string; body: string }> = {
   },
   rPopular: {
     title: 'Popular ist aus',
-    body: 'Popular, All und Erkunden sind Reddits Endlos-Feeds. Deine Communities erreichst du über die Focus-Suche.',
+    body: 'Popular, All und Erkunden sind Reddits Endlos-Feeds. Deine Communities erreichst du über die Loopweg-Suche.',
   },
 };
 
