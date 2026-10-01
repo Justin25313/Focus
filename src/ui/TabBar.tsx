@@ -255,8 +255,8 @@ export function TabBar({
         <Glass style={styles.circle}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Loopweg"
-            accessibilityHint="Zurück zu Loopweg"
+            accessibilityLabel="Unscroll"
+            accessibilityHint="Zurück zu Unscroll"
             accessibilityState={{ selected: focusSelected }}
             onPress={() => onPress('focus')}
             style={[styles.circleInner, focusSelected ? styles.selected : null]}

@@ -34,14 +34,14 @@ const privacy = Object.fromEntries(
 );
 
 const source = {
-  name: 'Loopweg',
+  name: 'Unscroll',
   identifier: 'com.justin25313.focus.source',
   subtitle: 'Private Builds',
   iconURL: `${base}/icon.png`,
   tintColor: '#1E6B57',
   apps: [
     {
-      name: 'Loopweg',
+      name: 'Unscroll',
       bundleIdentifier: 'com.justin25313.focus',
       developerName: 'Justin',
       subtitle: 'Instagram, YouTube, X und Reddit ohne Endlos-Feeds',

@@ -101,7 +101,7 @@ export function SettingsScreen({
           paddingBottom: tabBarSpace(insets.bottom) + 12,
         }}
       >
-        <Text style={[styles.largeTitle, { color: theme.label }]}>Loopweg</Text>
+        <Text style={[styles.largeTitle, { color: theme.label }]}>Unscroll</Text>
         <Text style={[styles.intro, { color: theme.secondaryLabel }]}>
           Social ohne Sog.
         </Text>
@@ -167,7 +167,7 @@ export function SettingsScreen({
           />
           <SwitchRow
             label="Zuletzt genutzte App direkt öffnen"
-            detail="Sonst startet Loopweg hier bei deinen Apps."
+            detail="Sonst startet Unscroll hier bei deinen Apps."
             value={settings.openLastAppOnLaunch}
             onValueChange={value => onChange({ openLastAppOnLaunch: value })}
           />
@@ -199,14 +199,14 @@ export function SettingsScreen({
             destructive
           />
           <ButtonRow
-            label="Loopweg-Einstellungen zurücksetzen"
+            label="Unscroll-Einstellungen zurücksetzen"
             onPress={onResetSettings}
             destructive
           />
         </GroupedSection>
 
         <Text style={[styles.about, { color: theme.tertiaryLabel }]}>
-          Loopweg 0.17 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
+          Unscroll 0.18 · Kein Konto, keine Cloud, kein Tracking.{'\n'}
           Deine Einstellungen bleiben auf diesem iPhone.
         </Text>
       </ScrollView>

@@ -60,6 +60,7 @@ import {
   xSearchPath,
 } from '../filtering/x/routes';
 import {
+  REDDIT_HOME_PATH,
   REDDIT_NOTIFICATIONS_PATH,
   REDDIT_ORIGIN,
   REDDIT_SERVICE_RULES,
@@ -341,19 +342,24 @@ function FocusShell({ initial }: { initial: Loaded }) {
     x: X_ORIGIN + X_HOME_PATH,
     reddit:
       REDDIT_ORIGIN +
-      (redditFeedPath(
-        initial.subscriptions.length
-          ? initial.subscriptions
-          : initial.communities,
-      ) ?? REDDIT_NOTIFICATIONS_PATH),
+      ((initial.settings.reddit.home === 'reddit'
+        ? REDDIT_HOME_PATH
+        : redditFeedPath(
+            initial.subscriptions.length
+              ? initial.subscriptions
+              : initial.communities,
+          )) ?? REDDIT_NOTIFICATIONS_PATH),
   });
   const [communities, setCommunities] = useState(initial.communities);
   const [subscriptions, setSubscriptions] = useState(initial.subscriptions);
   // Reddit's home in Focus: the combined feed of the communities you
   // joined (or, until Reddit told us, the ones you opened) – no suggestions.
-  const redditHomePath = redditFeedPath(
+  const redditFeed = redditFeedPath(
     subscriptions.length ? subscriptions : communities,
   );
+  // Or Reddit's own start page, if you chose it.
+  const redditHomePath =
+    settings.reddit.home === 'reddit' ? REDDIT_HOME_PATH : redditFeed;
   const onRedditMessage = useCallback((message: WebMessage) => {
     if (message.type !== 'SUBSCRIPTIONS') {
       return;
@@ -490,14 +496,19 @@ function FocusShell({ initial }: { initial: Loaded }) {
         settings.grayscale,
       ),
       x: buildXGuardConfig(settings.x, settings.grayscale),
-      reddit: buildRedditGuardConfig(settings.grayscale, redditHomePath),
+      reddit: buildRedditGuardConfig(
+        settings.grayscale,
+        redditFeed,
+        settings.reddit,
+      ),
     }),
     [
       shortsOpen,
       settings.youtube,
       settings.x,
       settings.grayscale,
-      redditHomePath,
+      redditFeed,
+      settings.reddit,
     ],
   );
 
@@ -940,7 +951,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
     const name = SERVICE_INFO[app].name;
     Alert.alert(
       `Von ${name} abmelden?`,
-      `Login, Cookies und Verlauf von ${name} in Loopweg werden gelöscht. Andere Apps bleiben angemeldet, deine Loopweg-Einstellungen auch.`,
+      `Login, Cookies und Verlauf von ${name} in Unscroll werden gelöscht. Andere Apps bleiben angemeldet, deine Unscroll-Einstellungen auch.`,
       [
         { text: 'Abbrechen', style: 'cancel' },
         {
@@ -975,7 +986,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
                 complete ? 'Abgemeldet' : 'Teilweise abgemeldet',
                 complete
                   ? `${name} startet neu. Melde dich wieder an, wenn du willst.`
-                  : 'Starte Loopweg neu, um das Abmelden abzuschließen.',
+                  : 'Starte Unscroll neu, um das Abmelden abzuschließen.',
               );
             };
             const watchId = Settings.watchKeys([CLEAR_DONE_KEY], () =>
@@ -995,8 +1006,8 @@ function FocusShell({ initial }: { initial: Loaded }) {
 
   const resetSettings = useCallback(() => {
     Alert.alert(
-      'Loopweg zurücksetzen?',
-      'Alle Loopweg-Einstellungen, der Suchverlauf und der gemerkte Ort werden zurückgesetzt. Dein Instagram-Login bleibt.',
+      'Unscroll zurücksetzen?',
+      'Alle Unscroll-Einstellungen, der Suchverlauf und der gemerkte Ort werden zurückgesetzt. Dein Instagram-Login bleibt.',
       [
         { text: 'Abbrechen', style: 'cancel' },
         {

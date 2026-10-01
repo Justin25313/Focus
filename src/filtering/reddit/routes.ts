@@ -12,6 +12,8 @@ import { RouteRule, ServiceRules } from '../engine/types';
  */
 export const REDDIT_ORIGIN = 'https://www.reddit.com';
 export const REDDIT_NOTIFICATIONS_PATH = '/notifications';
+/** Reddit's own start page (only if you chose it). */
+export const REDDIT_HOME_PATH = '/';
 
 export const REDDIT_ROUTE_RULES: readonly RouteRule[] = [
   {

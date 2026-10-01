@@ -14,6 +14,11 @@ import { DEFAULT_X_CONTROLS, XControls, xPolicyFor } from '../../controls/x';
 import { X_HOME_PATH, X_ORIGIN, X_SERVICE_RULES } from '../x/routes';
 import { REDDIT_ORIGIN, REDDIT_SERVICE_RULES } from '../reddit/routes';
 import {
+  DEFAULT_REDDIT_CONTROLS,
+  RedditControls,
+  redditPolicyFor,
+} from '../../controls/reddit';
+import {
   YOUTUBE_ORIGIN,
   YOUTUBE_SERVICE_RULES,
   YOUTUBE_SUBSCRIPTIONS_PATH,
@@ -454,24 +459,28 @@ export function buildRedditGuardConfig(
   grayscale = false,
   /** Your communities' combined feed; "/" goes there instead. */
   homePath: string | null = null,
+  controls: RedditControls = DEFAULT_REDDIT_CONTROLS,
 ): GuardConfig {
   const config = basicConfig(
     'reddit',
     REDDIT_ORIGIN,
     REDDIT_SERVICE_RULES,
-    { rHome: true, rPopular: true },
+    redditPolicyFor(controls),
     grayscale,
   );
   return {
     ...config,
-    hiddenLinkSelectors: [
-      'a[href^="/r/popular"]',
-      'a[href^="/r/all"]',
-      'a[href^="/explore"]',
-      'a[href^="https://www.reddit.com/r/popular"]',
-      'a[href^="https://www.reddit.com/r/all"]',
-    ],
-    redirects: homePath ? { rHome: homePath } : {},
+    hiddenLinkSelectors: controls.blockPopular
+      ? [
+          'a[href^="/r/popular"]',
+          'a[href^="/r/all"]',
+          'a[href^="/explore"]',
+          'a[href^="https://www.reddit.com/r/popular"]',
+          'a[href^="https://www.reddit.com/r/all"]',
+        ]
+      : [],
+    redirects:
+      homePath && controls.home === 'communities' ? { rHome: homePath } : {},
     fetchSubscriptions: true,
     // Focus shows an app-style header instead of the web one.
     hideAppNav: true,
@@ -711,7 +720,7 @@ const GUARD_SOURCE = String.raw`
     if (config.homeFeed === 'hidden') {
       css +=
         'html[' + ROUTE_ATTR + '="home"] main article{display:none!important;}' +
-        'html[' + ROUTE_ATTR + '="home"] main::after{content:"Feed ausgeblendet – Stories oben, Nachrichten über Loopweg.";' +
+        'html[' + ROUTE_ATTR + '="home"] main::after{content:"Feed ausgeblendet – Stories oben, Nachrichten über Unscroll.";' +
         'display:block;text-align:center;padding:48px 32px;color:#8e8e8e;' +
         'font:15px/1.4 -apple-system,system-ui,sans-serif;}';
     }

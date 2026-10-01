@@ -23,7 +23,7 @@ const POINTS: { title: string; body: string }[] = [
   },
   {
     title: 'Nur auf deinem iPhone',
-    body: 'Kein Loopweg-Konto, keine Cloud, kein Tracking. Deine Logins bleiben bei den jeweiligen Diensten.',
+    body: 'Kein Unscroll-Konto, keine Cloud, kein Tracking. Deine Logins bleiben bei den jeweiligen Diensten.',
   },
 ];
 
@@ -62,7 +62,7 @@ export function OnboardingScreen({
         <View style={[styles.mark, { backgroundColor: theme.accent }]}>
           <FocusIcon color={theme.onAccent} size={44} />
         </View>
-        <Text style={[styles.title, { color: theme.label }]}>Loopweg</Text>
+        <Text style={[styles.title, { color: theme.label }]}>Unscroll</Text>
         <Text style={[styles.subtitle, { color: theme.secondaryLabel }]}>
           Deine Apps. Weniger Sog. Mehr von dem, wofür du sie geöffnet hast.
         </Text>
@@ -103,7 +103,7 @@ export function OnboardingScreen({
         </View>
 
         <Text style={[styles.tip, { color: theme.secondaryLabel }]}>
-          Tipp: Leg Loopweg auf deinen Home-Bildschirm und verschiebe die
+          Tipp: Leg Unscroll auf deinen Home-Bildschirm und verschiebe die
           anderen Social-Apps in die App-Mediathek.
         </Text>
       </ScrollView>

@@ -30,6 +30,7 @@ import {
   formatLimit,
   limitMinutesAt,
 } from '../controls/limits';
+import { RedditControls } from '../controls/reddit';
 import { XControls } from '../controls/x';
 import { YouTubeControls, YouTubeHome } from '../controls/youtube';
 import { SERVICE_INFO, ServiceId } from '../services/services';
@@ -76,7 +77,11 @@ const HOME_FEEDS: { id: HomeFeed; label: string; detail: string }[] = [
     label: 'Nur Stories',
     detail: 'Stories oben, keine Beiträge.',
   },
-  { id: 'off', label: 'Aus', detail: 'Loopweg öffnet direkt die Nachrichten.' },
+  {
+    id: 'off',
+    label: 'Aus',
+    detail: 'Unscroll öffnet direkt die Nachrichten.',
+  },
 ];
 
 const YOUTUBE_HOMES: { id: YouTubeHome; label: string; detail: string }[] = [
@@ -101,7 +106,7 @@ const YOUTUBE_HOMES: { id: YouTubeHome; label: string; detail: string }[] = [
 function confirmUnblock(what: string, onConfirm: () => void) {
   Alert.alert(
     `${what} wirklich erlauben?`,
-    `Damit ist der ${what}-Feed in Loopweg wieder erreichbar – genau das, wovor Loopweg schützt.`,
+    `Damit ist der ${what}-Feed in Unscroll wieder erreichbar – genau das, wovor Unscroll schützt.`,
     [
       { text: 'Gesperrt lassen', style: 'cancel' },
       { text: 'Erlauben', style: 'destructive', onPress: onConfirm },
@@ -190,7 +195,16 @@ export function AppSettingsSheet({ app, onClose, ...props }: Props) {
               }
             />
           ) : null}
-          {shown === 'reddit' ? <RedditSettings /> : null}
+          {shown === 'reddit' ? (
+            <RedditSettings
+              reddit={props.settings.reddit}
+              onChange={patch =>
+                props.onChange({
+                  reddit: { ...props.settings.reddit, ...patch },
+                })
+              }
+            />
+          ) : null}
           <GroupedSection
             footer={`„Neu starten“ bringt ${SERVICE_INFO[shown].name} zur Startseite zurück – hilft, wenn eine Seite hängt oder dich woandershin schickt. „Abmelden“ löscht nur die Daten dieser App.`}
           >
@@ -534,16 +548,50 @@ function XSettings({
   );
 }
 
-function RedditSettings() {
+function RedditSettings({
+  reddit,
+  onChange,
+}: {
+  reddit: RedditControls;
+  onChange: (patch: Partial<RedditControls>) => void;
+}) {
   return (
-    <GroupedSection
-      title="Inhalte"
-      footer="Reddit startet in Loopweg bei deinen Communities: Jede, die du öffnest, landet dort. Die Suche findet Communities (r/name), Leute (u/name) und Beiträge."
-    >
-      <ValueRow label="Startseite" value="Gesperrt" />
-      <ValueRow label="Popular, All, Erkunden" value="Gesperrt" />
-      <ValueRow label="Werbung" value="Ausgeblendet" />
-    </GroupedSection>
+    <>
+      <GroupedSection
+        title="Start"
+        footer="„Deine Communities“ zeigt nur Beiträge aus Communities, denen du beigetreten bist – ohne Vorschläge. Reddits Startseite mischt Empfehlungen dazu."
+      >
+        <CheckRow
+          label="Deine Communities"
+          detail="Nur, was du abonniert hast"
+          checked={reddit.home === 'communities'}
+          onPress={() => onChange({ home: 'communities' })}
+        />
+        <CheckRow
+          label="Reddit-Startseite"
+          detail="Wie in der App, mit Empfehlungen"
+          checked={reddit.home === 'reddit'}
+          onPress={() => onChange({ home: 'reddit' })}
+        />
+      </GroupedSection>
+      <GroupedSection
+        title="Inhalte"
+        footer="Die Suche findet Communities (r/name), Leute (u/name) und Beiträge. Werbung bleibt immer ausgeblendet."
+      >
+        <SwitchRow
+          label="Popular, All und Erkunden sperren"
+          detail="Reddits Endlos-Feeds"
+          value={reddit.blockPopular}
+          onValueChange={value =>
+            value
+              ? onChange({ blockPopular: true })
+              : confirmUnblock('Popular', () =>
+                  onChange({ blockPopular: false }),
+                )
+          }
+        />
+      </GroupedSection>
+    </>
   );
 }
 

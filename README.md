@@ -1,17 +1,17 @@
-# Loopweg
+# Unscroll
 
 Instagram, YouTube, X und Reddit ohne Endlos-Feeds – als private iPhone-App.
 Kein Konto, kein Backend, kein Tracking, kein Abo.
 
-Loopweg lädt Instagram (mobile Web) in einer dauerhaften WebView und legt eine
+Unscroll lädt Instagram (mobile Web) in einer dauerhaften WebView und legt eine
 Schutzschicht darüber. Nachrichten, Profile, Stories und Beiträge funktionieren
 normal; Reels-Feed, Explore und Vorschläge bleiben draußen.
 
 ## Funktionen
 
-**Loopweg-Start:** Deine Apps als versetzte, zweispaltige Karten mit einer kurzen Beschreibung – antippen öffnet,
-gedrückt halten (oder *Bearbeiten*) zeigt, was Loopweg in der App sperrt. Darunter, was für
-alle Apps gilt: Nutzungszeit, Graustufen, Verhalten. Der runde Loopweg-Knopf rechts in der
+**Unscroll-Start:** Deine Apps als versetzte, zweispaltige Karten mit einer kurzen Beschreibung – antippen öffnet,
+gedrückt halten (oder *Bearbeiten*) zeigt, was Unscroll in der App sperrt. Darunter, was für
+alle Apps gilt: Nutzungszeit, Graustufen, Verhalten. Der runde Unscroll-Knopf rechts in der
 Leiste führt immer dorthin zurück; jede App behält ihre WebView beim Wechsel.
 
 **Gegen das Öffnen aus Gewohnheit:** kurze Pause (3/5/10 s, Atem-Animation) vor jeder App,
@@ -20,7 +20,7 @@ weniger gilt sofort, mehr Zeit oder „Aus“ erst ab morgen.
 
 **Zeitfenster (Reels und Shorts):** 5/10/15 Minuten bewusst freigeben – die Zeit läuft
 **nur, solange Reels bzw. Shorts auf dem Bildschirm sind**. Wechsel zu Nachrichten, ins
-Loopweg-Menü, in eine andere App oder Loopweg schließen pausiert sie; beim Zurückkommen geht es
+Unscroll-Menü, in eine andere App oder Unscroll schließen pausiert sie; beim Zurückkommen geht es
 genau dort weiter (alle paar Sekunden gespeichert, auch nach einem Absturz). Countdown in
 der Leiste, harter Stopp, nicht verlängerbar, übrige Zeit verfällt um Mitternacht; danach
 mindestens 5 Minuten gesperrt (so lange wie das Fenster). Auch das Tageslimit zählt nur die
@@ -30,16 +30,16 @@ Zeit, in der die App wirklich offen ist.
 kurz frei (eigener Shorts-Tab mit Countdown) · Start = Abos, „Nur Suche“
 oder YouTube-Startseite · Trends/Erkunden/Gaming gesperrt · Empfehlungen unter Videos und
 Kommentare optional ausgeblendet · eigene Suche mit Vorschlägen beim Tippen · „Du“ als
-native Liste (Verlauf, Später ansehen, Playlists, Mag ich, Kanäle) · Google-Login bleibt in Loopweg.
+native Liste (Verlauf, Später ansehen, Playlists, Mag ich, Kanäle) · Google-Login bleibt in Unscroll.
 
-**X:** nur „Folge ich“ (Loopweg hält den Tab ausgewählt, „Für dich“ und Themen-Tabs wie News
+**X:** nur „Folge ich“ (Unscroll hält den Tab ausgewählt, „Für dich“ und Themen-Tabs wie News
 verschwinden; solange das nicht sicher ist, bleibt die Timeline verborgen) · kein Premium-Upsell · Erkunden und Trends gesperrt · eigene
 Suche mit `@name` · Leiste: Start, Suche, Mitteilungen, Nachrichten.
 
 **Reddit:** wie die App – eigene Kopfzeile (Communities/Zurück, Suchfeld, +), Leiste Home,
 Posteingang, Du · **Home = dein eigener Feed**: nur Beiträge aus den Communities, denen du
-beigetreten bist (Loopweg liest die Liste mit deinem Login bei Reddit; vorher: die zuletzt
-geöffneten) – ohne Vorschläge · Reddits Startseite, Popular, All und Erkunden gesperrt ·
+beigetreten bist (Unscroll liest die Liste mit deinem Login bei Reddit; vorher: die zuletzt
+geöffneten) – ohne Vorschläge; wahlweise Reddits eigene Startseite · Popular, All und Erkunden gesperrt (abschaltbar) ·
 Werbung ausgeblendet · Suche nach `r/name`, `u/name` oder Beiträgen.
 
 **Instagram:**
@@ -62,7 +62,7 @@ Werbung ausgeblendet · Suche nach `r/name`, `u/name` oder Beiträgen.
 - **Tabs wie in der App:** jeder Tab (Home, Reels, Nachrichten, Suche, Profil) hat eine eigene
   Seite, die ihren Stand behält; seitlich wischen wechselt den Tab, die anderen Tabs laden im
   Hintergrund vor – Wechseln ohne Nachladen
-- **Links zu Instagram, YouTube, X oder Reddit** öffnen in Loopweg, nie in den echten Apps –
+- **Links zu Instagram, YouTube, X oder Reddit** öffnen in Unscroll, nie in den echten Apps –
   aber nur nach einem Tipp; Seiten, die von selbst weiterleiten, holen dich nicht heraus
 - **Pro App (gedrückt halten):** „Neu starten“ (zur Startseite, angemeldet bleiben) und
   „Abmelden“ (löscht nur die Daten dieser App)
@@ -72,7 +72,7 @@ Werbung ausgeblendet · Suche nach `r/name`, `u/name` oder Beiträgen.
   jetzt“ (oder blendet sie aus), „App öffnen“-Buttons und -Leisten verschwinden; Links und
   Weiterleitungen öffnen nie die echten Apps (Universal Links sind in Focus' WebViews aus)
 - **Kein Neuladen** bei App-Wechsel, Sperren oder Kontrollzentrum; Lade-Skeletons statt Springen
-- Login direkt bei Instagram – Loopweg sieht und speichert kein Passwort
+- Login direkt bei Instagram – Unscroll sieht und speichert kein Passwort
 
 ## Installieren & aktualisieren (SideStore)
 
@@ -80,7 +80,7 @@ Jeder Push baut per GitHub Action eine unsignierte `Focus.ipa` und veröffentlic
 als Release. SideStore signiert sie mit deiner Apple-ID und erneuert die 7-Tage-Signatur
 selbst (LocalDevVPN, Einrichtung: [docs.sidestore.io](https://docs.sidestore.io)).
 
-Der sichtbare App-Name ist Loopweg. Paketname, Bundle-ID, IPA-Dateiname und
+Der sichtbare App-Name ist Unscroll. Paketname, Bundle-ID, IPA-Dateiname und
 SideStore-Quelle behalten ihre bisherigen technischen Kennungen, damit Updates
 und lokale Daten erhalten bleiben.
 
@@ -101,7 +101,7 @@ npm run ipa        # Release-ipa lokal bauen → dist/Focus.ipa
 ```
 
 **Live auf dem iPhone testen:** einmal `npm run ipa:dev` → `dist/FocusDev.ipa` per
-AirDrop an SideStore. „Loopweg Dev“ ist eine eigene App, die ihren Code live vom Mac lädt:
+AirDrop an SideStore. „Unscroll Dev“ ist eine eigene App, die ihren Code live vom Mac lädt:
 `npm start`, gleiches WLAN, lokales Netzwerk erlauben – Änderungen erscheinen sofort.
 Neu bauen nur bei nativen Änderungen (Pakete, `ios/`).
 
@@ -126,7 +126,7 @@ src/
     engine/messages.ts      Validierung der WebView-Bridge
   search/youtubeSuggest.ts  Suchvorschläge für YouTube
   usage/usage.ts            Lokale Nutzungszeit
-  screens/                  WebView, Suche, Loopweg-Tab, Sperr-/Ladeflächen
+  screens/                  WebView, Suche, Unscroll-Tab, Sperr-/Ladeflächen
   storage/                  Einstellungen, Diagnose, Verlauf (AsyncStorage)
   ui/, ui/skeleton/         Theme, Icons, Listen, Tab-Leiste, Skeleton-Bausteine
   ui/tabIcons/              Leisten-Icons als Vorlagen-PNGs (scripts/render-tab-icons.mjs)
@@ -145,7 +145,7 @@ ios/Focus/AppDelegate.swift + WebsiteDataJanitor (löscht WebKit-Daten auf Anfra
 - Die Leisten-Icons sind PNG-Vorlagen, eingefärbt mit der Systemfarbe `labelColor` –
   nur so wechseln sie mit dem Liquid Glass zwischen hell und dunkel. Nach Änderungen an
   den Formen `node scripts/render-tab-icons.mjs` ausführen.
-- Instagram ändert sein Web: unbekannte Routen zeigt der Loopweg-Tab unter *Filterstatus*;
+- Instagram ändert sein Web: unbekannte Routen zeigt der Unscroll-Tab unter *Filterstatus*;
   Regeln in `routes.ts` anpassen und die Regelversion erhöhen.
 
 ## Sicherheit

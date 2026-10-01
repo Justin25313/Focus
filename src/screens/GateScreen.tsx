@@ -115,7 +115,7 @@ export function GateScreen({
           style={styles.secondary}
         >
           <Text style={[styles.secondaryLabel, { color: theme.accent }]}>
-            {mode === 'pause' ? 'Doch nicht' : 'Zurück zu Loopweg'}
+            {mode === 'pause' ? 'Doch nicht' : 'Zurück zu Unscroll'}
           </Text>
         </Pressable>
       </View>

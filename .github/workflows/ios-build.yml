@@ -69,6 +69,6 @@ jobs:
           gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
           gh release create "$TAG" dist/Focus.ipa dist/source.json dist/icon.png \
             --target "$GITHUB_SHA" \
-            --title "Loopweg $VERSION ($BUILD)" \
+            --title "Unscroll $VERSION ($BUILD)" \
             --notes "$NOTES" \
             --latest

@@ -8,7 +8,7 @@ const CHART_HEIGHT = 64;
 const MIN_SCALE_SECONDS = 30 * 60;
 
 /**
- * Today's time in Loopweg as the headline, the last 7 days as a small bar
+ * Today's time in Unscroll as the headline, the last 7 days as a small bar
  * chart underneath. Tapping a day shows its value. Local data only.
  */
 export function UsageCard({ log, now }: { log: UsageLog; now: number }) {
@@ -24,7 +24,7 @@ export function UsageCard({ log, now }: { log: UsageLog; now: number }) {
   return (
     <View style={[styles.card, { backgroundColor: theme.cell }]}>
       <Text style={[styles.caption, { color: theme.secondaryLabel }]}>
-        {day.isToday ? 'Heute in Loopweg' : `${day.label} in Loopweg`}
+        {day.isToday ? 'Heute in Unscroll' : `${day.label} in Unscroll`}
       </Text>
       <Text style={[styles.hero, { color: theme.label }]}>
         {formatDuration(day.seconds)}

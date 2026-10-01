@@ -2,16 +2,14 @@
 
 ## Name
 
-**Loopweg** ist die aktuelle Markenrichtung: kurz, eigenständig und doppeldeutig.
-Der endlose Loop ist weg; gleichzeitig gibt es einen bewussten Weg hinein und
-wieder heraus. Als kurze Zeile dazu: **Social ohne Sog.**
+**Unscroll** – das Gegenteil von Doomscrolling: Social Media ohne den Sog,
+endlose Feeds sind aus. Kurz, englisch, als Verb lesbar („unscroll your day“).
 
-Weitere Richtungen: **Kurzfrei** (weniger Kurzvideos, mehr freie Zeit) und
-**Sogfrei** (direkter, sachlicher). Sichtbare Texte und der iOS-Anzeigename
-verwenden Loopweg. Projektname, Bundle-ID, Paketname und Datenschlüssel
-bleiben für Updates und bestehende Installationen technisch bei Focus.
+Sichtbare Texte und der iOS-Anzeigename verwenden Unscroll. Projektname,
+Bundle-ID, Paketname und Datenschlüssel bleiben für Updates und bestehende
+Installationen technisch bei Focus.
 
-Dies ist eine kreative Vorauswahl, keine Marken- oder Verfügbarkeitsprüfung.
+Dies ist keine Marken- oder Verfügbarkeitsprüfung.
 
 ## Icon
 

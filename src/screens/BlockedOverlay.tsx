@@ -9,7 +9,7 @@ import { useTheme } from '../ui/theme';
 const COPY: Record<BlockReason, { title: string; body: string }> = {
   reels: {
     title: 'Reels sind aus',
-    body: 'Der Reels-Feed ist in Loopweg gesperrt, damit aus einem Video nicht zwanzig werden.',
+    body: 'Der Reels-Feed ist in Unscroll gesperrt, damit aus einem Video nicht zwanzig werden.',
   },
   sharedReel: {
     title: 'Nur dieses eine Reel',
@@ -17,7 +17,7 @@ const COPY: Record<BlockReason, { title: string; body: string }> = {
   },
   explore: {
     title: 'Explore ist aus',
-    body: 'Algorithmische Vorschläge bleiben draußen. Suchst du jemand Bestimmtes? Die Loopweg-Suche findet Profile direkt.',
+    body: 'Algorithmische Vorschläge bleiben draußen. Suchst du jemand Bestimmtes? Die Unscroll-Suche findet Profile direkt.',
   },
   feed: {
     title: 'Der Feed ist aus',
@@ -25,15 +25,15 @@ const COPY: Record<BlockReason, { title: string; body: string }> = {
   },
   stories: {
     title: 'Stories sind aus',
-    body: 'Stories hast du in Loopweg ausgeschaltet. Den Modus änderst du über die Instagram-Karte auf dem Startbildschirm.',
+    body: 'Stories hast du in Unscroll ausgeschaltet. Den Modus änderst du über die Instagram-Karte auf dem Startbildschirm.',
   },
   saved: {
     title: 'Gespeichert ist aus',
-    body: 'Gespeicherte Beiträge sind in Loopweg ausgeschaltet – sie werden schnell zur eigenen Endlosliste.',
+    body: 'Gespeicherte Beiträge sind in Unscroll ausgeschaltet – sie werden schnell zur eigenen Endlosliste.',
   },
   shorts: {
     title: 'Shorts sind aus',
-    body: 'Shorts ziehen dich von einem Video ins nächste. Wenn du willst, öffne sie bewusst für ein paar Minuten – lange drücken auf YouTube im Loopweg-Menü.',
+    body: 'Shorts ziehen dich von einem Video ins nächste. Wenn du willst, öffne sie bewusst für ein paar Minuten – lange drücken auf YouTube im Unscroll-Menü.',
   },
   ytHome: {
     title: 'Was willst du sehen?',
@@ -53,11 +53,11 @@ const COPY: Record<BlockReason, { title: string; body: string }> = {
   },
   rHome: {
     title: 'Die Reddit-Startseite ist aus',
-    body: 'Sie mischt Empfehlungen unter deine Communities. Öffne eine Community gezielt oder such danach.',
+    body: 'Sie mischt Empfehlungen unter deine Communities. Öffne eine Community gezielt, such danach – oder schalte sie im Reddit-Menü ein (lange drücken).',
   },
   rPopular: {
     title: 'Popular ist aus',
-    body: 'Popular, All und Erkunden sind Reddits Endlos-Feeds. Deine Communities erreichst du über die Loopweg-Suche.',
+    body: 'Popular, All und Erkunden sind Reddits Endlos-Feeds. Deine Communities erreichst du über die Unscroll-Suche.',
   },
 };
 

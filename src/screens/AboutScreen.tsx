@@ -8,14 +8,14 @@ const SECTIONS: { title: string; points: string[] }[] = [
   {
     title: 'Was auf deinem iPhone bleibt',
     points: [
-      'Deine Logins bei Instagram, YouTube, X und Reddit, Cookies und Verlauf – Loopweg speichert kein Passwort.',
+      'Deine Logins bei Instagram, YouTube, X und Reddit, Cookies und Verlauf – Unscroll speichert kein Passwort.',
       'Einstellungen, Suchverlauf, Nutzungszeit und Diagnose.',
-      'Es gibt keinen Loopweg-Server, kein Konto und kein Tracking.',
-      'Beim Tippen in der YouTube-Suche fragt Loopweg Google nach Vorschlägen – ohne dein Login, nur mit dem getippten Text.',
+      'Es gibt keinen Unscroll-Server, kein Konto und kein Tracking.',
+      'Beim Tippen in der YouTube-Suche fragt Unscroll Google nach Vorschlägen – ohne dein Login, nur mit dem getippten Text.',
     ],
   },
   {
-    title: 'Was Loopweg nie tut',
+    title: 'Was Unscroll nie tut',
     points: [
       'Nachrichten, Beiträge, Seiteninhalte oder Screenshots hochladen.',
       'Analyse- oder Werbe-Code in die Apps einschleusen.',
@@ -25,7 +25,7 @@ const SECTIONS: { title: string; points: string[] }[] = [
   {
     title: 'Grenzen',
     points: [
-      'Loopweg nutzt Instagram im Web. Kamera, Filter, manche Posting-Funktionen, Anrufe und Push-Mitteilungen gibt es nur in der Instagram-App.',
+      'Unscroll nutzt Instagram im Web. Kamera, Filter, manche Posting-Funktionen, Anrufe und Push-Mitteilungen gibt es nur in der Instagram-App.',
       'Geteilte Reels bleiben vorerst gesperrt – lieber gesperrt als ein Schlupfloch in den Reels-Feed.',
       'Werbung und Vorschläge werden nur bei eindeutiger Kennzeichnung ausgeblendet; einzelne können durchrutschen.',
       'Instagram ändert sein Web regelmäßig. Taucht etwas Neues auf, zeigt der Filterstatus „Unbekannte Route“.',

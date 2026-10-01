@@ -40,7 +40,7 @@ describe('parseSettings', () => {
       openInstagramOnLaunch: true,
       keepLastLocation: false,
     });
-    expect(migrated.schemaVersion).toBe(8);
+    expect(migrated.schemaVersion).toBe(9);
     expect(migrated.x.followingOnly).toBe(true);
     expect(migrated.limits.reddit.minutes).toBeNull();
     expect(migrated.pauseSeconds).toBe(5);
