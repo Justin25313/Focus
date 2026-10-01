@@ -237,6 +237,12 @@ export type GuardConfig = {
   singleReel: boolean;
   /** "Open the app" dialogs, bars and buttons (null = leave them). */
   appPrompts: AppPrompts | null;
+  /**
+   * Instagram: Reels fill the whole screen like in the app, under the
+   * status bar (`top`) and behind Focus's tab bar (`bottom`); their
+   * controls are moved out of the way. null = off.
+   */
+  reelInsets: { top: number; bottom: number } | null;
 };
 
 export function buildGuardConfig(
@@ -244,6 +250,8 @@ export function buildGuardConfig(
   grayscale = false,
   /** The signed-in profile: Focus shows the app's header there. */
   ownProfilePath: string | null = null,
+  /** Status bar and tab bar height, for full-screen Reels. */
+  reelInsets: { top: number; bottom: number } | null = null,
 ): GuardConfig {
   const policy = policyFor(controls);
   const hidden: string[] = [];
@@ -296,6 +304,7 @@ export function buildGuardConfig(
     ownProfilePath,
     singleReel: controls.blockReels,
     appPrompts: APP_PROMPTS,
+    reelInsets,
   };
 }
 
@@ -340,6 +349,7 @@ function basicConfig(
     ownProfilePath: null,
     singleReel: false,
     appPrompts: APP_PROMPTS,
+    reelInsets: null,
   };
 }
 
@@ -557,6 +567,15 @@ const GUARD_SOURCE = String.raw`
   var PROMPT_STATE_ATTR = 'data-focus-prompt';
   var UNLOCK_ATTR = 'data-focus-unlock';
   var DISMISS_WAIT_MS = 1200;
+  var REEL_PAGE = /^\/reels?\//i;
+  var REEL_ATTR = 'data-focus-reel';
+  var REEL_TOP_ATTR = 'data-focus-reel-top';
+  var REEL_LIFT_ATTR = 'data-focus-reel-lift';
+  var REEL_DONE_ATTR = 'data-focus-reel-done';
+  var REEL_SCANS_ATTR = 'data-focus-reel-scans';
+  var REEL_GIVE_UP_MS = 2500;
+  var reelSince = 0;
+  var reelReported = null;
   var profile = null;
   var profileFor = null;
   var profileTriedAt = 0;
@@ -692,6 +711,14 @@ const GUARD_SOURCE = String.raw`
         '{display:none!important;}' +
         // A hidden prompt may have locked the page's scrolling.
         'html[' + UNLOCK_ATTR + '],html[' + UNLOCK_ATTR + '] body{overflow:auto!important;}';
+    }
+    if (config.reelInsets) {
+      // Full-screen Reels: black behind everything, Instagram's controls
+      // moved below the status bar and above the tab bar.
+      css +=
+        'html[' + REEL_ATTR + '],html[' + REEL_ATTR + '] body{background:#000!important;}' +
+        'html[' + REEL_ATTR + '] [' + REEL_TOP_ATTR + ']{translate:0 var(--focus-reel-top,0px)!important;}' +
+        'html[' + REEL_ATTR + '] [' + REEL_LIFT_ATTR + ']{translate:0 calc(-1 * var(--focus-reel-lift,0px))!important;}';
     }
     if (config.singleReel) {
       css +=
@@ -1738,6 +1765,181 @@ const GUARD_SOURCE = String.raw`
     }
   }
 
+  // ---- Reels like the app ----------------------------------------------
+  //
+  // The page fills the whole screen: the video runs under the status bar
+  // and behind the tab bar. What sits on top of a Reel (the "Für dich"
+  // header; name, caption, buttons and progress at the bottom) is found
+  // by layout – small overlays near the top or bottom of the Reel – and
+  // moved into view. If none can be found, the app is told, and it shows
+  // the Reel between status bar and tab bar instead.
+
+  function isScroller(el) {
+    var style = w.getComputedStyle(el);
+    return (
+      (style.overflowY === 'auto' || style.overflowY === 'scroll') &&
+      el.scrollHeight > el.clientHeight * 1.4
+    );
+  }
+
+  // The Reel around a video: its largest ancestor inside the scroller.
+  function reelItemOf(video) {
+    var item = video;
+    for (var el = video.parentElement; el && el !== document.body; el = el.parentElement) {
+      if (isScroller(el) || el.getBoundingClientRect().height > w.innerHeight * 1.1) {
+        break;
+      }
+      item = el;
+    }
+    return item;
+  }
+
+  function markedAbove(el, item) {
+    for (var p = el.parentElement; p && p !== item; p = p.parentElement) {
+      if (p.hasAttribute(REEL_TOP_ATTR) || p.hasAttribute(REEL_LIFT_ATTR)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Marks the overlays of one Reel; returns how many sit at the bottom.
+  function markReelOverlays(item, video) {
+    var box = item.getBoundingClientRect();
+    var limit = w.innerHeight * 0.5;
+    var nodes = item.querySelectorAll('*');
+    var bottom = 0;
+    for (var i = 0; i < nodes.length && i < 500; i++) {
+      var el = nodes[i];
+      if (el.hasAttribute(REEL_LIFT_ATTR)) {
+        bottom++;
+        continue;
+      }
+      if (el === video || el.contains(video) || el.hasAttribute(REEL_TOP_ATTR) || markedAbove(el, item)) {
+        continue;
+      }
+      var r = el.getBoundingClientRect();
+      if (!r.height || r.height > limit) {
+        continue;
+      }
+      var position = w.getComputedStyle(el).position;
+      var overlay = position === 'absolute' || position === 'fixed';
+      if (!overlay && el.parentElement && el.parentElement !== item) {
+        // A child of a full-size layer laid over the video.
+        var layer = el.parentElement;
+        var lr = layer.getBoundingClientRect();
+        overlay =
+          lr.height >= box.height * 0.8 &&
+          !layer.contains(video) &&
+          w.getComputedStyle(layer).position === 'absolute';
+      }
+      if (!overlay) {
+        continue;
+      }
+      if (box.bottom - r.bottom < 170) {
+        el.setAttribute(REEL_LIFT_ATTR, '');
+        bottom++;
+      } else if (r.top - box.top < 110) {
+        el.setAttribute(REEL_TOP_ATTR, '');
+      }
+    }
+    return bottom;
+  }
+
+  // A header fixed at the top of the viewer, outside the Reels.
+  function markReelHeader() {
+    var xs = [0.2, 0.5];
+    for (var i = 0; i < xs.length; i++) {
+      var hits = document.elementsFromPoint
+        ? document.elementsFromPoint(w.innerWidth * xs[i], 24)
+        : [];
+      for (var j = 0; j < hits.length; j++) {
+        var el = hits[j];
+        if (el.tagName === 'VIDEO' || el === document.body || el === document.documentElement) {
+          break;
+        }
+        for (var up = el; up && up !== document.body; up = up.parentElement) {
+          if (up.hasAttribute(REEL_TOP_ATTR) || up.hasAttribute(REEL_LIFT_ATTR)) {
+            break;
+          }
+          var position = w.getComputedStyle(up).position;
+          var r = up.getBoundingClientRect();
+          if ((position === 'fixed' || position === 'absolute') && r.height < 120 && !up.querySelector('video')) {
+            up.setAttribute(REEL_TOP_ATTR, '');
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  function reportReel(ok) {
+    if (reelReported !== ok) {
+      reelReported = ok;
+      post({ type: 'REEL_LAYOUT', ok: ok });
+    }
+  }
+
+  function layoutReel(on) {
+    var root = document.documentElement;
+    if (!root) {
+      return;
+    }
+    if (!on) {
+      if (root.hasAttribute(REEL_ATTR)) {
+        root.removeAttribute(REEL_ATTR);
+      }
+      reelSince = 0;
+      reelReported = null;
+      return;
+    }
+    if (!root.hasAttribute(REEL_ATTR)) {
+      root.setAttribute(REEL_ATTR, '');
+      reelSince = Date.now();
+    }
+    var videos = document.querySelectorAll('video');
+    if (!videos.length) {
+      return;
+    }
+    var vh = w.innerHeight;
+    var insets = config.reelInsets;
+    var best = null;
+    var bestSeen = 0;
+    var anyBottom = false;
+    for (var i = 0; i < videos.length && i < 8; i++) {
+      var video = videos[i];
+      var item = reelItemOf(video);
+      var scans = Number(item.getAttribute(REEL_SCANS_ATTR) || 0);
+      if (!item.hasAttribute(REEL_DONE_ATTR) && scans < MAX_SCANS) {
+        item.setAttribute(REEL_SCANS_ATTR, String(scans + 1));
+        if (markReelOverlays(item, video) > 0) {
+          item.setAttribute(REEL_DONE_ATTR, '');
+        }
+      }
+      if (item.hasAttribute(REEL_DONE_ATTR)) {
+        anyBottom = true;
+      }
+      var r = item.getBoundingClientRect();
+      var seen = Math.min(r.bottom, vh) - Math.max(r.top, 0);
+      if (seen > bestSeen) {
+        bestSeen = seen;
+        best = r;
+      }
+    }
+    markReelHeader();
+    if (best) {
+      var lift = Math.max(0, Math.min(best.bottom, vh) - (vh - insets.bottom));
+      var top = Math.max(0, insets.top - Math.max(best.top, 0));
+      root.style.setProperty('--focus-reel-lift', Math.round(lift) + 'px');
+      root.style.setProperty('--focus-reel-top', Math.round(top) + 'px');
+    }
+    if (anyBottom) {
+      reportReel(true);
+    } else if (Date.now() - reelSince > REEL_GIVE_UP_MS) {
+      reportReel(false);
+    }
+  }
+
   // ---- "open the app" prompts ---------------------------------------
 
   function normText(node) {
@@ -1906,6 +2108,9 @@ const GUARD_SOURCE = String.raw`
     var reason = reelReason(path, reasonFor(path));
     if (config.service === 'instagram') {
       lockReelScroller(singleReelId !== null && !reason);
+    }
+    if (config.reelInsets || document.documentElement.hasAttribute(REEL_ATTR)) {
+      layoutReel(!!config.reelInsets && !reason && REEL_PAGE.test(path));
     }
     var redirect = reason ? config.redirects[reason] : null;
     if (redirect) {

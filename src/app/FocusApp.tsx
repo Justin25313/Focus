@@ -134,8 +134,6 @@ const APP_DOMAINS: Record<ServiceId, string[]> = {
 };
 
 const FILTER_TIMEOUT_MS = 5000;
-/** Around Reels, like the app. */
-const REEL_BACKGROUND = '#000';
 
 const WEB_APP_ORIGINS: Record<WebAppId, string> = {
   youtube: YOUTUBE_ORIGIN,
@@ -484,10 +482,21 @@ function FocusShell({ initial }: { initial: Loaded }) {
         : settings.controls,
     [reelsOpen, settings.controls],
   );
+  // Full-screen Reels: their controls go below the status bar and above
+  // the tab bar.
+  const reelInsets = useMemo(
+    () => ({ top: insets.top, bottom: tabBarSpace(insets.bottom) }),
+    [insets.top, insets.bottom],
+  );
   const instagramGuardConfig = useMemo(
     () =>
-      buildGuardConfig(effectiveControls, settings.grayscale, ownProfilePath),
-    [effectiveControls, settings.grayscale, ownProfilePath],
+      buildGuardConfig(
+        effectiveControls,
+        settings.grayscale,
+        ownProfilePath,
+        reelInsets,
+      ),
+    [effectiveControls, settings.grayscale, ownProfilePath, reelInsets],
   );
   const webGuardConfigs = useMemo<Record<WebAppId, GuardConfig>>(
     () => ({
@@ -1161,12 +1170,7 @@ function FocusShell({ initial }: { initial: Loaded }) {
     (igTab === 'reels' || /^\/reels?\//i.test(igActivePath));
 
   return (
-    <View
-      style={[
-        styles.fill,
-        { backgroundColor: onReel ? REEL_BACKGROUND : theme.webBackground },
-      ]}
-    >
+    <View style={[styles.fill, { backgroundColor: theme.webBackground }]}>
       <StatusBar
         barStyle={theme.dark || onReel ? 'light-content' : 'dark-content'}
       />
@@ -1176,13 +1180,15 @@ function FocusShell({ initial }: { initial: Loaded }) {
         pointerEvents={onInstagram ? 'auto' : 'none'}
         style={[
           styles.browser,
-          // Full height: the page scrolls underneath the floating tab bar.
-          { top: insets.top },
+          // Full screen: each page keeps clear of the status bar itself
+          // (Reels run underneath it) and scrolls under the tab bar.
+          styles.top,
           onInstagram ? null : styles.hidden,
         ]}
       >
         <InstagramApp
           ref={igApp}
+          topInset={insets.top}
           visible={onInstagram && screen !== 'settings'}
           guardConfig={instagramGuardConfig}
           controls={settings.controls}
@@ -1378,6 +1384,9 @@ function FocusShell({ initial }: { initial: Loaded }) {
 const styles = StyleSheet.create({
   fill: {
     flex: 1,
+  },
+  top: {
+    top: 0,
   },
   browser: {
     position: 'absolute',

@@ -1,6 +1,6 @@
 {
   "name": "Focus",
-  "version": "0.18.1",
+  "version": "0.18.2",
   "private": true,
   "scripts": {
     "ios": "react-native run-ios",

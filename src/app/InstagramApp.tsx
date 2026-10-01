@@ -33,7 +33,12 @@ import { GuardConfig } from '../filtering/instagram/scripts';
 import { BlockedOverlay } from '../screens/BlockedOverlay';
 import { BlockState } from '../screens/BrowserView';
 import { SearchResult, SearchScreen } from '../screens/SearchScreen';
-import { InstagramPage, InstagramPageHandle } from './InstagramPage';
+import {
+  InstagramPage,
+  InstagramPageHandle,
+  PageLayout,
+} from './InstagramPage';
+import { useTheme } from '../ui/theme';
 import { ProfileHeader } from '../screens/InstagramHeaders';
 
 export type IgTab = 'feed' | 'reels' | 'messages' | 'search' | 'profile';
@@ -67,6 +72,8 @@ type Props = {
   reelsOpen: boolean;
   lockedUntil: number;
   tabBarSpace: number;
+  /** Status bar height: pages start below it, full-screen Reels do not. */
+  topInset: number;
   /** Where the user was last time (restored into its tab). */
   restorePath: string | null;
   searchHistory: string[];
@@ -121,6 +128,7 @@ function InstagramAppImpl(
     reelsOpen,
     lockedUntil,
     tabBarSpace,
+    topInset,
     restorePath,
     searchHistory,
     onProfileSearched,
@@ -206,6 +214,10 @@ function InstagramAppImpl(
   const [searchOverlay, setSearchOverlay] = useState(true);
   const [hScroll, setHScroll] = useState(false);
   const [timeUp, setTimeUp] = useState(false);
+  const [layouts, setLayouts] = useState<Partial<Record<IgTab, PageLayout>>>(
+    {},
+  );
+  const theme = useTheme();
 
   useEffect(() => {
     onTabChange(active);
@@ -407,6 +419,10 @@ function InstagramAppImpl(
       ref: (handle: InstagramPageHandle | null) => {
         pages.current[tab] = handle;
       },
+      onLayoutChange: (layout: PageLayout) =>
+        setLayouts(prev =>
+          prev[tab] === layout ? prev : { ...prev, [tab]: layout },
+        ),
     });
     return {
       feed: make('feed'),
@@ -501,38 +517,53 @@ function InstagramAppImpl(
         style={styles.fill}
       >
         {tabs.map(tab => (
-          <View key={tab} style={{ width, height: pageHeight }}>
-            {headerFor(tab)}
-            {mounted.includes(tab) ? (
-              <InstagramPage
-                ref={handlers[tab].ref}
-                initialUrl={urlFor(tab)}
-                guardConfig={guardConfig}
-                bottomInset={tab === 'messages' && inChat ? 0 : tabBarSpace}
-                lockedUntil={lockedUntil || undefined}
-                onRoute={handlers[tab].onRoute}
-                onMessage={handlers[tab].onMessage}
-                onBlocked={onBlocked}
-                onLoadEnd={onLoadEnd}
-                onLoadError={onLoadError}
-                onProcessTerminated={onProcessTerminated}
-                onSearch={handlers[tab].onSearch}
-                onExternalLink={onExternalLink}
-              />
-            ) : null}
-            {tab === 'search' && searchOverlay ? (
-              <SearchScreen
-                visible={visible && active === 'search'}
-                history={searchHistory}
-                runSearch={runSearch}
-                onOpenProfile={username => {
-                  onProfileSearched(username);
-                  openPath(profilePath(username));
-                }}
-                onOpenPath={openPath}
-                onClearHistory={onClearSearchHistory}
-              />
-            ) : null}
+          <View
+            key={tab}
+            style={{
+              width,
+              height: pageHeight,
+              // Full-screen Reels run under the status bar, like the app.
+              paddingTop: layouts[tab] === 'reelFull' ? NO_INSET : topInset,
+              backgroundColor:
+                (layouts[tab] ?? 'page') === 'page'
+                  ? theme.webBackground
+                  : REEL_BACKGROUND,
+            }}
+          >
+            <View style={styles.fill}>
+              {headerFor(tab)}
+              {mounted.includes(tab) ? (
+                <InstagramPage
+                  ref={handlers[tab].ref}
+                  initialUrl={urlFor(tab)}
+                  guardConfig={guardConfig}
+                  bottomInset={tab === 'messages' && inChat ? 0 : tabBarSpace}
+                  lockedUntil={lockedUntil || undefined}
+                  onRoute={handlers[tab].onRoute}
+                  onMessage={handlers[tab].onMessage}
+                  onBlocked={onBlocked}
+                  onLoadEnd={onLoadEnd}
+                  onLoadError={onLoadError}
+                  onProcessTerminated={onProcessTerminated}
+                  onSearch={handlers[tab].onSearch}
+                  onExternalLink={onExternalLink}
+                  onLayoutChange={handlers[tab].onLayoutChange}
+                />
+              ) : null}
+              {tab === 'search' && searchOverlay ? (
+                <SearchScreen
+                  visible={visible && active === 'search'}
+                  history={searchHistory}
+                  runSearch={runSearch}
+                  onOpenProfile={username => {
+                    onProfileSearched(username);
+                    openPath(profilePath(username));
+                  }}
+                  onOpenPath={openPath}
+                  onClearHistory={onClearSearchHistory}
+                />
+              ) : null}
+            </View>
           </View>
         ))}
       </ScrollView>
@@ -549,6 +580,10 @@ function InstagramAppImpl(
 }
 
 export const InstagramApp = forwardRef(InstagramAppImpl);
+
+/** Around Reels, like the app. */
+const REEL_BACKGROUND = '#000';
+const NO_INSET = 0;
 
 const styles = StyleSheet.create({
   fill: {

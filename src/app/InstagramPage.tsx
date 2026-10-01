@@ -1,6 +1,7 @@
 import React, {
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useRef,
   useState,
@@ -31,6 +32,13 @@ const LOADING_STALE_MS = 400;
 /** Reels (the feed viewer or a single Reel): full-screen video pages. */
 const REEL_PAGE = /^\/reels?\//i;
 
+/**
+ * How a page is laid out: a normal page, a Reel filling the whole screen
+ * (like the app), or – if its controls cannot be moved – a Reel between
+ * status bar and tab bar.
+ */
+export type PageLayout = 'page' | 'reelFull' | 'reelFit';
+
 export type InstagramPageHandle = {
   navigate: (path: string) => void;
   scrollToTop: () => void;
@@ -58,6 +66,7 @@ type Props = {
   onProcessTerminated: () => void;
   onSearch: () => void;
   onExternalLink: (url: string, userInitiated: boolean) => boolean;
+  onLayoutChange?: (layout: PageLayout) => void;
 };
 
 /**
@@ -79,15 +88,25 @@ function InstagramPageImpl(
     onProcessTerminated,
     onSearch,
     onExternalLink,
+    onLayoutChange,
   }: Props,
   ref: React.Ref<InstagramPageHandle>,
 ) {
   const browser = useRef<BrowserHandle>(null);
   const initialPath = useRef(instagramPathFromUrl(initialUrl) ?? '/').current;
   const pathRef = useRef(initialPath);
-  // On a Reel the video ends right above the tab bar (so name, "Folgen"
-  // and caption stay visible, like the app), on black.
+  // Reels fill the screen like the app; if the page cannot move its
+  // controls out of the way, the Reel ends above the tab bar instead.
   const [reelPage, setReelPage] = useState(REEL_PAGE.test(initialPath));
+  const [reelFit, setReelFit] = useState(false);
+  const layout: PageLayout = !reelPage
+    ? 'page'
+    : reelFit
+    ? 'reelFit'
+    : 'reelFull';
+  useEffect(() => {
+    onLayoutChange?.(layout);
+  }, [layout, onLayoutChange]);
   const [block, setBlock] = useState<BlockState | null>(null);
   const blockRef = useRef<BlockState | null>(null);
   blockRef.current = block;
@@ -162,7 +181,11 @@ function InstagramPageImpl(
   const handleRoute = useCallback(
     (path: string) => {
       pathRef.current = path;
-      setReelPage(REEL_PAGE.test(path));
+      const reel = REEL_PAGE.test(path);
+      setReelPage(reel);
+      if (!reel) {
+        setReelFit(false);
+      }
       setBlock(null);
       setOffline(false);
       onRoute(path);
@@ -223,6 +246,9 @@ function InstagramPageImpl(
         case 'OPEN_SEARCH':
           onSearch();
           break;
+        case 'REEL_LAYOUT':
+          setReelFit(!message.ok);
+          break;
         default:
           onMessage(message);
       }
@@ -241,7 +267,8 @@ function InstagramPageImpl(
     <View
       style={[
         styles.fill,
-        reelPage ? [styles.reel, { paddingBottom: bottomInset }] : null,
+        reelPage ? styles.reel : null,
+        reelFit ? { paddingBottom: bottomInset } : null,
       ]}
     >
       <BrowserView

@@ -51,7 +51,9 @@ export type WebMessage =
   /** Instagram: "Profil teilen" – the profile's own address only. */
   | { type: 'SHARE'; url: string }
   /** Reddit: the communities the signed-in user has joined. */
-  | { type: 'SUBSCRIPTIONS'; names: string[] };
+  | { type: 'SUBSCRIPTIONS'; names: string[] }
+  /** Instagram: whether a Reel's controls could be laid out full-screen. */
+  | { type: 'REEL_LAYOUT'; ok: boolean };
 
 const KNOWN_REASONS: ReadonlySet<string> = new Set(BLOCK_REASONS);
 const MAX_PATH = 512;
@@ -202,6 +204,10 @@ export function parseWebMessage(
       return typeof msg.url === 'string' &&
         /^https:\/\/www\.instagram\.com\/[A-Za-z0-9._]{1,30}\/$/.test(msg.url)
         ? { type: 'SHARE', url: msg.url }
+        : null;
+    case 'REEL_LAYOUT':
+      return typeof msg.ok === 'boolean'
+        ? { type: 'REEL_LAYOUT', ok: msg.ok }
         : null;
     case 'H_SCROLL':
       return typeof msg.active === 'boolean'
