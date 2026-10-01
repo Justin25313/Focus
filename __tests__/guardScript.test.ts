@@ -279,6 +279,72 @@ describe('injected guard script', () => {
     bar.remove();
   });
 
+  describe('"open the app" prompts', () => {
+    it('answers an app dialog with "Not now"', async () => {
+      const dialog = document.createElement('div');
+      dialog.setAttribute('role', 'dialog');
+      dialog.innerHTML =
+        '<p>Sieh dir mehr Reels in der Instagram-App an</p>' +
+        '<button>Instagram öffnen</button><button>Nicht jetzt</button>';
+      const notNow = dialog.querySelectorAll('button')[1];
+      const dismissed = jest.fn(() => dialog.remove());
+      notNow.addEventListener('click', dismissed);
+      document.body.appendChild(dialog);
+      await waitFor(() => dismissed.mock.calls.length > 0);
+      expect(dismissed).toHaveBeenCalledTimes(1);
+    });
+
+    it('hides an app dialog that cannot be answered', async () => {
+      const layer = document.createElement('div');
+      layer.style.position = 'fixed';
+      layer.innerHTML =
+        '<div role="dialog"><p>Use the app to watch more</p><a href="/">x</a></div>';
+      document.body.appendChild(layer);
+      await waitFor(() => layer.hasAttribute('data-focus-app-prompt'));
+      expect(document.documentElement.hasAttribute('data-focus-unlock')).toBe(
+        true,
+      );
+      layer.remove();
+      await waitFor(
+        () => !document.documentElement.hasAttribute('data-focus-unlock'),
+      );
+    });
+
+    it('leaves other dialogs and cookie banners alone', async () => {
+      const share = document.createElement('div');
+      share.setAttribute('role', 'dialog');
+      share.innerHTML =
+        '<button>Link kopieren</button><button>Abbrechen</button>';
+      const cookies = document.createElement('div');
+      cookies.setAttribute('role', 'dialog');
+      cookies.innerHTML =
+        '<p>Cookies in der App und im Web</p><button>Alle akzeptieren</button>';
+      document.body.append(share, cookies);
+      const cancel = jest.fn();
+      share.querySelectorAll('button')[1].addEventListener('click', cancel);
+      await flush();
+      await new Promise<void>(resolve => setTimeout(resolve, 300));
+      expect(cancel).not.toHaveBeenCalled();
+      expect(cookies.hasAttribute('data-focus-app-prompt')).toBe(false);
+      share.remove();
+      cookies.remove();
+    });
+
+    it('hides "Open app" buttons, but not ordinary ones', async () => {
+      const open = document.createElement('button');
+      open.textContent = '  App öffnen ';
+      const follow = document.createElement('button');
+      follow.textContent = 'Folgen';
+      document.body.append(open, follow);
+      await waitFor(() => open.hasAttribute('data-focus-app-prompt'));
+      expect(follow.hasAttribute('data-focus-app-prompt')).toBe(false);
+      const style = document.getElementById('focus-guard-style');
+      expect(style?.textContent).toContain('a[href^="instagram:"]');
+      open.remove();
+      follow.remove();
+    });
+  });
+
   describe('a Reel sent to you', () => {
     const configure = (...args: Parameters<typeof buildGuardConfig>) =>
       // eslint-disable-next-line no-eval

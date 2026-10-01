@@ -46,6 +46,116 @@ const SUGGESTED_LABELS = [
   'vorgeschlagene beiträge',
 ];
 
+/**
+ * "Open the app" prompts. Matched on the complete text of a button
+ * (exactly, or as its start), or for dialogs on these hints anywhere in
+ * a short dialog. Dialogs are answered with "Not now" where possible.
+ */
+export type AppPrompts = {
+  cta: string[];
+  hints: string[];
+  dismiss: string[];
+};
+
+export const APP_PROMPTS: AppPrompts = {
+  cta: [
+    'app öffnen',
+    'in app öffnen',
+    'in der app öffnen',
+    'app verwenden',
+    'app nutzen',
+    'app herunterladen',
+    'app holen',
+    'app laden',
+    'app installieren',
+    'zur app',
+    'zur app wechseln',
+    'in der app ansehen',
+    'in der app anschauen',
+    'in der app fortfahren',
+    'weiter in der app',
+    'instagram öffnen',
+    'instagram-app öffnen',
+    'youtube öffnen',
+    'youtube-app öffnen',
+    'reddit öffnen',
+    'reddit-app öffnen',
+    'open app',
+    'open in app',
+    'open the app',
+    'open instagram',
+    'open youtube',
+    'open reddit',
+    'use the app',
+    'use app',
+    'get the app',
+    'get app',
+    'download app',
+    'download the app',
+    'install app',
+    'install the app',
+    'watch in app',
+    'watch in the app',
+    'view in app',
+    'view in the app',
+    'continue in app',
+    'continue in the app',
+    'switch to the app',
+    'switch to app',
+  ],
+  hints: [
+    'in der app',
+    'in der instagram-app',
+    'in der youtube-app',
+    'in der reddit-app',
+    'instagram-app',
+    'instagram app',
+    'app öffnen',
+    'app verwenden',
+    'app herunterladen',
+    'zur app',
+    'in the app',
+    'open app',
+    'open the app',
+    'open instagram',
+    'instagram öffnen',
+    'use the app',
+    'get the app',
+    'download the app',
+  ],
+  dismiss: [
+    'nicht jetzt',
+    'jetzt nicht',
+    'später',
+    'vielleicht später',
+    'nein danke',
+    'nein, danke',
+    'abbrechen',
+    'schließen',
+    'weiter im browser',
+    'im browser bleiben',
+    'im browser fortfahren',
+    'weiter im web',
+    'im web bleiben',
+    'weiter auf der website',
+    'auf der website bleiben',
+    'not now',
+    'maybe later',
+    'no thanks',
+    'no, thanks',
+    'cancel',
+    'close',
+    'dismiss',
+    'continue in browser',
+    'stay in browser',
+    'continue on web',
+    'continue on the web',
+    'stay on web',
+    'continue to website',
+    'continue on website',
+  ],
+};
+
 export type GuardService = 'instagram' | 'youtube' | 'x' | 'reddit';
 
 /**
@@ -120,6 +230,8 @@ export type GuardConfig = {
    * its own, but swiping on to the next one is blocked.
    */
   singleReel: boolean;
+  /** "Open the app" dialogs, bars and buttons (null = leave them). */
+  appPrompts: AppPrompts | null;
 };
 
 export function buildGuardConfig(
@@ -178,6 +290,7 @@ export function buildGuardConfig(
     webAppId: INSTAGRAM_WEB_APP_ID,
     ownProfilePath,
     singleReel: controls.blockReels,
+    appPrompts: APP_PROMPTS,
   };
 }
 
@@ -221,6 +334,7 @@ function basicConfig(
     webAppId: '',
     ownProfilePath: null,
     singleReel: false,
+    appPrompts: APP_PROMPTS,
   };
 }
 
@@ -430,6 +544,10 @@ const GUARD_SOURCE = String.raw`
   var SINGLE_REEL_ATTR = 'data-focus-single-reel';
   var REEL_LOCK_ATTR = 'data-focus-reel-lock';
   var singleReelId = null;
+  var APP_PROMPT_ATTR = 'data-focus-app-prompt';
+  var PROMPT_STATE_ATTR = 'data-focus-prompt';
+  var UNLOCK_ATTR = 'data-focus-unlock';
+  var DISMISS_WAIT_MS = 1200;
   var profile = null;
   var profileFor = null;
   var profileTriedAt = 0;
@@ -556,6 +674,15 @@ const GUARD_SOURCE = String.raw`
         T + ' a[' + TAB_ACTIVE_ATTR + ']{opacity:1;}' +
         T + ' a[' + TAB_ACTIVE_ATTR + ']::after{content:"";position:absolute;left:12%;right:12%;bottom:0;' +
         'height:1.5px;background:currentColor;}';
+    }
+    if (config.appPrompts) {
+      css +=
+        '[' + APP_PROMPT_ATTR + '],' +
+        'a[href^="instagram:"],a[href^="youtube:"],a[href^="vnd.youtube:"],a[href^="reddit:"],' +
+        'a[href^="twitter:"],a[href^="intent:"],a[href*="apps.apple.com/"],a[href*="itunes.apple.com/"]' +
+        '{display:none!important;}' +
+        // A hidden prompt may have locked the page's scrolling.
+        'html[' + UNLOCK_ATTR + '],html[' + UNLOCK_ATTR + '] body{overflow:auto!important;}';
     }
     if (config.singleReel) {
       css +=
@@ -1582,7 +1709,145 @@ const GUARD_SOURCE = String.raw`
     }
   }
 
+  // ---- "open the app" prompts ---------------------------------------
+
+  function normText(node) {
+    return (node.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+
+  function isCta(text, labels) {
+    for (var i = 0; i < labels.length; i++) {
+      if (text === labels[i] || text.indexOf(labels[i] + ' ') === 0) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function hasHint(text, hints) {
+    for (var i = 0; i < hints.length; i++) {
+      if (text.indexOf(hints[i]) !== -1) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function dismissButton(dialog, labels) {
+    var nodes = dialog.querySelectorAll('button, [role="button"], a, [aria-label], span, div');
+    for (var i = 0; i < nodes.length && i < 400; i++) {
+      var node = nodes[i];
+      var aria = (node.getAttribute('aria-label') || '').trim().toLowerCase();
+      var text = node.childElementCount <= 2 ? normText(node) : '';
+      if (labels.indexOf(text) !== -1 || (aria && labels.indexOf(aria) !== -1)) {
+        return (node.closest && node.closest('button, [role="button"], a')) || node;
+      }
+    }
+    return null;
+  }
+
+  // The fixed layer a dialog sits in (its backdrop included).
+  function overlayOf(dialog) {
+    var host = dialog;
+    for (var el = dialog.parentElement; el && el !== document.body; el = el.parentElement) {
+      if (w.getComputedStyle(el).position === 'fixed') {
+        host = el;
+      }
+    }
+    return host;
+  }
+
+  // A slim fixed or sticky bar around an "Open app" button (like the one
+  // above Reels); never anything tall like the Reel viewer itself.
+  function barOf(button) {
+    var el = button.parentElement;
+    for (var depth = 0; el && depth < 8 && el !== document.body; depth++) {
+      var rect = el.getBoundingClientRect();
+      if (rect.height > 120) {
+        return null;
+      }
+      var position = w.getComputedStyle(el).position;
+      if ((position === 'fixed' || position === 'sticky') && rect.width >= w.innerWidth * 0.6) {
+        return el;
+      }
+      el = el.parentElement;
+    }
+    return null;
+  }
+
+  function handleAppPrompts() {
+    var prompts = config.appPrompts;
+    if (!prompts) {
+      return;
+    }
+    var locked = false;
+    var dialogs = document.querySelectorAll('[role="dialog"], [aria-modal="true"]');
+    for (var i = 0; i < dialogs.length; i++) {
+      var dialog = dialogs[i];
+      var state = dialog.getAttribute(PROMPT_STATE_ATTR);
+      if (state === 'hidden') {
+        locked = true;
+        continue;
+      }
+      if (state) {
+        // Answered with "Not now" but still there: hide it.
+        if (Date.now() - Number(state) > DISMISS_WAIT_MS) {
+          overlayOf(dialog).setAttribute(APP_PROMPT_ATTR, '');
+          dialog.setAttribute(PROMPT_STATE_ATTR, 'hidden');
+          locked = true;
+        }
+        continue;
+      }
+      var text = normText(dialog);
+      if (!text || text.length > 600 || !hasHint(text, prompts.hints)) {
+        continue;
+      }
+      var dismiss = dismissButton(dialog, prompts.dismiss);
+      if (dismiss) {
+        dialog.setAttribute(PROMPT_STATE_ATTR, String(Date.now()));
+        try {
+          dismiss.click();
+        } catch (e) {}
+      } else if (text.indexOf('cookie') === -1) {
+        overlayOf(dialog).setAttribute(APP_PROMPT_ATTR, '');
+        dialog.setAttribute(PROMPT_STATE_ATTR, 'hidden');
+        locked = true;
+      }
+    }
+    var root = document.documentElement;
+    if (root) {
+      if (locked) {
+        root.setAttribute(UNLOCK_ATTR, '');
+      } else {
+        root.removeAttribute(UNLOCK_ATTR);
+      }
+    }
+    var buttons = document.querySelectorAll(
+      'a:not([' + APP_PROMPT_ATTR + ']), button:not([' + APP_PROMPT_ATTR + ']), [role="button"]:not([' + APP_PROMPT_ATTR + '])'
+    );
+    for (var j = 0; j < buttons.length; j++) {
+      var button = buttons[j];
+      if (button.childElementCount > 6) {
+        continue;
+      }
+      var label = normText(button);
+      if (!label || label.length > 40 || !isCta(label, prompts.cta)) {
+        continue;
+      }
+      button.setAttribute(APP_PROMPT_ATTR, '');
+      var bar = barOf(button);
+      if (bar) {
+        bar.setAttribute(APP_PROMPT_ATTR, '');
+      }
+    }
+  }
+
   function check() {
+    if (config.appPrompts) {
+      try {
+        handleAppPrompts();
+      } catch (e) {}
+    }
     if (!isGuardedHost()) {
       return;
     }

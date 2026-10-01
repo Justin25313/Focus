@@ -68,6 +68,9 @@ Werbung ausgeblendet · Suche nach `r/name`, `u/name` oder Beiträgen.
   „Abmelden“ (löscht nur die Daten dieser App)
 - **Leiste wird beim Runterscrollen etwas kleiner**, beim Hochscrollen wieder normal (alle Apps)
 - **Schnell:** Seitenwechsel ohne Neuladen, die Ladefläche geht, sobald Inhalte da sind
+- **Keine „In der App öffnen“-Hinweise:** solche Dialoge beantwortet Focus selbst mit „Nicht
+  jetzt“ (oder blendet sie aus), „App öffnen“-Buttons und -Leisten verschwinden; Links und
+  Weiterleitungen öffnen nie die echten Apps (Universal Links sind in Focus' WebViews aus)
 - **Kein Neuladen** bei App-Wechsel, Sperren oder Kontrollzentrum; Lade-Skeletons statt Springen
 - Login direkt bei Instagram – Focus sieht und speichert kein Passwort
 
