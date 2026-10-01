@@ -28,6 +28,8 @@ const LOADING_MAX_MS = 8000;
 const LOADING_AFTER_LOAD_MS = 1500;
 /** PAGE_READY messages this soon after a new load began are leftovers. */
 const LOADING_STALE_MS = 400;
+/** Reels (the feed viewer or a single Reel): full-screen video pages. */
+const REEL_PAGE = /^\/reels?\//i;
 
 export type InstagramPageHandle = {
   navigate: (path: string) => void;
@@ -83,6 +85,9 @@ function InstagramPageImpl(
   const browser = useRef<BrowserHandle>(null);
   const initialPath = useRef(instagramPathFromUrl(initialUrl) ?? '/').current;
   const pathRef = useRef(initialPath);
+  // On a Reel the video ends right above the tab bar (so name, "Folgen"
+  // and caption stay visible, like the app), on black.
+  const [reelPage, setReelPage] = useState(REEL_PAGE.test(initialPath));
   const [block, setBlock] = useState<BlockState | null>(null);
   const blockRef = useRef<BlockState | null>(null);
   blockRef.current = block;
@@ -157,6 +162,7 @@ function InstagramPageImpl(
   const handleRoute = useCallback(
     (path: string) => {
       pathRef.current = path;
+      setReelPage(REEL_PAGE.test(path));
       setBlock(null);
       setOffline(false);
       onRoute(path);
@@ -232,13 +238,18 @@ function InstagramPageImpl(
   );
 
   return (
-    <View style={styles.fill}>
+    <View
+      style={[
+        styles.fill,
+        reelPage ? [styles.reel, { paddingBottom: bottomInset }] : null,
+      ]}
+    >
       <BrowserView
         ref={browser}
         initialUrl={initialUrl}
         service={INSTAGRAM_SERVICE_RULES}
         guardConfig={guardConfig}
-        bottomInset={bottomInset}
+        bottomInset={reelPage ? 0 : bottomInset}
         onExternalLink={onExternalLink}
         onRoute={handleRoute}
         onBlocked={handleBlocked}
@@ -306,5 +317,8 @@ export const InstagramPage = forwardRef(InstagramPageImpl);
 const styles = StyleSheet.create({
   fill: {
     flex: 1,
+  },
+  reel: {
+    backgroundColor: '#000',
   },
 });

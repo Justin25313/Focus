@@ -134,6 +134,8 @@ const APP_DOMAINS: Record<ServiceId, string[]> = {
 };
 
 const FILTER_TIMEOUT_MS = 5000;
+/** Around Reels, like the app. */
+const REEL_BACKGROUND = '#000';
 
 const WEB_APP_ORIGINS: Record<WebAppId, string> = {
   youtube: YOUTUBE_ORIGIN,
@@ -1150,10 +1152,24 @@ function FocusShell({ initial }: { initial: Loaded }) {
   };
 
   const instagramTab: TabId = screen === 'settings' ? 'focus' : igTab;
+  // Reels look like the app's: black around the video, light status bar,
+  // dark tab bar.
+  const onReel =
+    onInstagram &&
+    screen === 'browser' &&
+    gate === null &&
+    (igTab === 'reels' || /^\/reels?\//i.test(igActivePath));
 
   return (
-    <View style={[styles.fill, { backgroundColor: theme.webBackground }]}>
-      <StatusBar barStyle={theme.dark ? 'light-content' : 'dark-content'} />
+    <View
+      style={[
+        styles.fill,
+        { backgroundColor: onReel ? REEL_BACKGROUND : theme.webBackground },
+      ]}
+    >
+      <StatusBar
+        barStyle={theme.dark || onReel ? 'light-content' : 'dark-content'}
+      />
 
       {/* Every app's WebView stays mounted; only the active one is shown. */}
       <View
@@ -1327,7 +1343,8 @@ function FocusShell({ initial }: { initial: Loaded }) {
           tabs={INSTAGRAM_TABS}
           active={instagramTab}
           onPress={onTab}
-          compact={compactBar && screen === 'browser'}
+          compact={compactBar && screen === 'browser' && !onReel}
+          dark={onReel}
           countdown={
             reels.state === 'active'
               ? { tab: 'reels', text: formatCountdown(reels.remainingMs) }

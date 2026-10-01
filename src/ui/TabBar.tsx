@@ -79,6 +79,11 @@ const COMPACT_DROP = 8;
 const glassLabel: ColorValue = PlatformColor('labelColor');
 const glassSelected: ColorValue = PlatformColor('tertiarySystemFillColor');
 
+/** Over Reels the bar is dark glass with white icons, like the app's. */
+const DARK_LABEL = '#ffffff';
+const DARK_SELECTED = 'rgba(255,255,255,0.18)';
+const DARK_BORDER = 'rgba(255,255,255,0.12)';
+
 function TabIcon({
   name,
   filled,
@@ -105,33 +110,48 @@ function TabIcon({
  */
 function Glass({
   style,
+  dark = false,
   children,
 }: {
   style: StyleProp<ViewStyle>;
+  dark?: boolean;
   children: ReactNode;
 }) {
   const theme = useTheme();
   if (isLiquidGlassSupported) {
     return (
-      <LiquidGlassView style={style} effect="regular" interactive>
+      <LiquidGlassView
+        style={style}
+        effect="regular"
+        colorScheme={dark ? 'dark' : 'system'}
+        interactive
+      >
         {children}
       </LiquidGlassView>
     );
   }
   return (
-    <View style={[style, styles.fallback, { borderColor: theme.barBorder }]}>
+    <View
+      style={[
+        style,
+        styles.fallback,
+        { borderColor: dark ? DARK_BORDER : theme.barBorder },
+      ]}
+    >
       <BlurView
         style={StyleSheet.absoluteFill}
-        blurType="chromeMaterial"
+        blurType={dark ? 'dark' : 'chromeMaterial'}
         blurAmount={24}
-        reducedTransparencyFallbackColor={theme.cell}
+        reducedTransparencyFallbackColor={dark ? '#1c1c1e' : theme.cell}
       />
-      <View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: theme.barBackground },
-        ]}
-      />
+      {dark ? null : (
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            { backgroundColor: theme.barBackground },
+          ]}
+        />
+      )}
       {children}
     </View>
   );
@@ -149,6 +169,7 @@ export function TabBar({
   hiddenTabs = [],
   countdown,
   compact = false,
+  dark = false,
 }: {
   /** The current app's buttons; empty for apps that bring their own UI. */
   tabs: TabItem[];
@@ -160,7 +181,11 @@ export function TabBar({
   countdown?: { tab: TabId; text: string };
   /** While scrolling down the bar gets a little smaller, like the app's. */
   compact?: boolean;
+  /** Dark glass and white icons, over Reels (like the app). */
+  dark?: boolean;
 }) {
+  const iconColor = dark ? DARK_LABEL : glassLabel;
+  const selectedStyle = dark ? styles.selectedDark : styles.selected;
   const insets = useSafeAreaInsets();
   const focusSelected = active === 'focus';
   const visibleTabs = tabs.filter(tab => !hiddenTabs.includes(tab.id));
@@ -199,7 +224,7 @@ export function TabBar({
         style={styles.container}
       >
         {visibleTabs.length > 0 ? (
-          <Glass style={styles.pill}>
+          <Glass style={styles.pill} dark={dark}>
             <View accessibilityRole="tablist" style={styles.row}>
               {visibleTabs.map(({ id, label, icon }) => {
                 const selected = id === active;
@@ -216,19 +241,19 @@ export function TabBar({
                     <View
                       style={[
                         styles.itemInner,
-                        selected ? styles.selected : null,
+                        selected ? selectedStyle : null,
                       ]}
                     >
                       {countdown && id === countdown.tab ? (
                         <>
                           <TabIcon
                             name={icon}
-                            color={glassLabel}
+                            color={iconColor}
                             size={22}
                             filled={selected}
                           />
                           <Text
-                            style={styles.countdown}
+                            style={[styles.countdown, { color: iconColor }]}
                             accessibilityLabel={`Noch ${countdown.text}`}
                           >
                             {countdown.text}
@@ -237,7 +262,7 @@ export function TabBar({
                       ) : (
                         <TabIcon
                           name={icon}
-                          color={glassLabel}
+                          color={iconColor}
                           size={27}
                           filled={selected}
                         />
@@ -252,19 +277,19 @@ export function TabBar({
           <View style={styles.spacer} />
         )}
 
-        <Glass style={styles.circle}>
+        <Glass style={styles.circle} dark={dark}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Unscroll"
             accessibilityHint="Zurück zu Unscroll"
             accessibilityState={{ selected: focusSelected }}
             onPress={() => onPress('focus')}
-            style={[styles.circleInner, focusSelected ? styles.selected : null]}
+            style={[styles.circleInner, focusSelected ? selectedStyle : null]}
             hitSlop={6}
           >
             <TabIcon
               name="focus"
-              color={glassLabel}
+              color={iconColor}
               size={27}
               filled={focusSelected}
             />
@@ -322,6 +347,9 @@ const styles = StyleSheet.create({
   },
   selected: {
     backgroundColor: glassSelected,
+  },
+  selectedDark: {
+    backgroundColor: DARK_SELECTED,
   },
   countdown: {
     color: glassLabel,

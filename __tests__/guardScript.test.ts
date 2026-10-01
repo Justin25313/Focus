@@ -540,6 +540,24 @@ describe('injected guard script', () => {
       return el;
     };
 
+    it('hiding a post above you keeps the feed from jumping', async () => {
+      const ad = article('brand', 'Gesponsert');
+      // 400 px tall, scrolled past (above the top of the screen).
+      ad.getBoundingClientRect = () =>
+        ({
+          top: -600,
+          height: ad.hasAttribute('data-focus-hidden') ? 0 : 400,
+        } as DOMRect);
+      const scrollBy = jest.fn();
+      const original = window.scrollBy;
+      window.scrollBy = scrollBy as unknown as typeof window.scrollBy;
+      document.body.appendChild(ad);
+      await waitFor(() => ad.hasAttribute('data-focus-hidden'));
+      expect(scrollBy).toHaveBeenCalledWith(0, -400);
+      window.scrollBy = original;
+      ad.remove();
+    });
+
     it('hides only posts with an exact sponsored or suggested label', async () => {
       const main = document.createElement('main');
       const ad = article('brand', 'Gesponsert');

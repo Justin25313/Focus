@@ -1410,6 +1410,22 @@ const GUARD_SOURCE = String.raw`
     }
   }
 
+  // Focus changes posts (hides an ad, lays a video's author row onto the
+  // video) as they load, often above where you are. Without this the
+  // feed would jump: what you look at stays where it is.
+  function keepInPlace(el, change) {
+    var before = el.getBoundingClientRect();
+    change();
+    if (before.top >= 0 || before.height === 0) {
+      return;
+    }
+    var after = el.getBoundingClientRect();
+    var delta = after.height - before.height;
+    if (delta !== 0) {
+      w.scrollBy(0, delta);
+    }
+  }
+
   function overlayVideoHeaders() {
     if (!config.overlayVideoHeaders) {
       return;
@@ -1443,8 +1459,10 @@ const GUARD_SOURCE = String.raw`
       if (box.height < 36 || box.height > 90 || Math.abs(box.bottom - top) > 4) {
         continue;
       }
-      head.setAttribute(OVERLAY_HEAD_ATTR, '');
-      head.parentElement.setAttribute(OVERLAY_HOST_ATTR, '');
+      keepInPlace(article, function () {
+        head.setAttribute(OVERLAY_HEAD_ATTR, '');
+        head.parentElement.setAttribute(OVERLAY_HOST_ATTR, '');
+      });
       article.setAttribute(OVERLAY_DONE_ATTR, '');
     }
   }
@@ -1619,7 +1637,9 @@ const GUARD_SOURCE = String.raw`
         ? 'suggested'
         : null;
       if (kind) {
-        article.setAttribute(HIDDEN_ATTR, kind);
+        keepInPlace(article, function () {
+          article.setAttribute(HIDDEN_ATTR, kind);
+        });
         post({ type: 'CONTENT_HIDDEN', kind: kind });
       }
     }
